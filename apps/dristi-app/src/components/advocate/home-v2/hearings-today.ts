@@ -150,10 +150,34 @@ export type TrackPart =
       state: "heard" | "upcoming";
       /** The stretch its hover names, counting the plain dots it joins ("Items 28 to 50"). */
       span: { from: number; to: number };
+      /** B1 fix 1: a short 8px dotted gap between two of your rings on a crowded row. */
+      tight?: boolean;
+    }
+  | {
+      /** B1 fix 2: "+N", your items that don't fit, and everything from there to before the last. */
+      kind: "more";
+      from: number;
+      to: number;
+      mine: HearingMine[];
     };
 
-/** Room a stretch of parts needs, in dots. */
-export const cost = (parts: TrackPart[]) => parts.reduce((n, p) => n + (p.kind === "bar" ? BAR_COST : 1), 0);
+/** Room a stretch of parts needs, in dots, counting folds generously (picks how much to fold). */
+export const cost = (parts: TrackPart[]) =>
+  parts.reduce((n, p) => n + (p.kind === "more" ? 3 : p.kind === "bar" ? (p.tight ? 0.5 : BAR_COST) : 1), 0);
+
+/**
+ * The least room a stretch can take once the card squeezes it, in dots (24px each), at the card's
+ * real minimum sizes: gaps close to 0; a plain dot shrinks to 8px; a numbered dot or ring stays
+ * 16px; a fold 24px; a tight gap 8px; "+N" about 28px chip + 2px + 24px line. B1's fixes step in
+ * only when even this doesn't fit, so a normal day keeps every ring.
+ */
+export const squeezedCost = (parts: TrackPart[]) =>
+  parts.reduce(
+    (n, p) =>
+      n +
+      (p.kind === "more" ? 54 : p.kind === "bar" ? (p.tight ? 8 : 24) : p.mine || p.label ? 16 : 8) / 24,
+    0,
+  );
 
 export type CourtLine = {
   /** Left of the live column: dot 1, then one dotted line through everything heard. */
@@ -174,7 +198,10 @@ export type CourtLine = {
  * keeping only your items with one plain dot either side, and the list's last item.
  * A row with nothing worth folding spreads its dots instead (the card picks that).
  */
-export function courtLine(raw: CourtHearings, budget: number): CourtLine {
+export function courtLine(raw: CourtHearings, room: number): CourtLine {
+  /* `room` may be fractional (the measured width in dots). Folding works in whole dots, as it
+     always has; only B1's exact check uses the fraction. */
+  const budget = Math.floor(room);
   const c = normalizeCourt(raw);
   const mineAt = new Map(c.mine.map((m) => [m.item, m]));
   /* Finished: the whole list is heard. One line across the row, 1 to last, yours inside it. */
@@ -222,17 +249,66 @@ export function courtLine(raw: CourtHearings, budget: number): CourtLine {
       fits ??= parts;
     }
   }
+  let line = ahead ?? fits ?? (from <= c.last ? lay(c, from, anchors, mineAt) : []);
+  /* Many of your items in one court, and even the tightest fold won't fit (owner, 2026-11-19):
+     fix 1, your rings close up with only a short dotted gap between them; fix 2, if that still
+     doesn't fit (phones), the rings that fit and then "+N" for the rest. */
+  if (squeezedCost(line) > room && upcomingMine.length > 1) {
+    line = tight(c, from, upcomingMine, mineAt);
+    for (let k = upcomingMine.length - 1; squeezedCost(line) > room && k >= 1; k--) {
+      line = withMore(c, from, upcomingMine, mineAt, k);
+    }
+  }
   return {
     heard,
     live: { item: c.now, mine: c.now ? mineAt.get(c.now) : undefined },
-    ahead: ahead ?? fits ?? (from <= c.last ? lay(c, from, anchors, mineAt) : []),
+    ahead: line,
     heardMine,
   };
 }
 
+/** Fix 1: keep your items, one plain dot before the first and after the last, and the list's last. */
+function tight(c: CourtHearings, from: number, upcoming: number[], mineAt: Map<number, HearingMine>): TrackPart[] {
+  const keep = new Set<number>([c.last, ...upcoming]);
+  if (!c.now) keep.add(1);
+  const first = upcoming[0];
+  const lastMine = upcoming[upcoming.length - 1];
+  if (first - 1 >= from) keep.add(first - 1);
+  if (lastMine + 1 <= c.last) keep.add(lastMine + 1);
+  return lay(c, from, keep, mineAt, { tightBetween: [first, lastMine] });
+}
+
+/** Fix 2: your first `k` items as in fix 1, then "+N" holding the rest up to before the last. */
+function withMore(c: CourtHearings, from: number, upcoming: number[], mineAt: Map<number, HearingMine>, k: number): TrackPart[] {
+  const shown = upcoming.slice(0, k);
+  const hidden = upcoming.slice(k);
+  const lastShown = shown[shown.length - 1];
+  const head = tight(c, from, shown, mineAt).filter((p) => (p.kind === "dot" ? p.item <= lastShown : p.to < lastShown));
+  const moreFrom = lastShown + 1;
+  const moreTo = c.last - 1;
+  /* The last item is one of yours: it is hidden in "+N" too, so the line ends on the chip. */
+  if (hidden[hidden.length - 1] === c.last) {
+    return [...head, { kind: "more", from: moreFrom, to: c.last, mine: hidden.map((i) => mineAt.get(i)!) }];
+  }
+  return [
+    ...head,
+    { kind: "more", from: moreFrom, to: moreTo, mine: hidden.map((i) => mineAt.get(i)!) },
+    { kind: "dot", item: c.last, state: "upcoming", label: true },
+  ];
+}
+
 /** Lays items `from`..last: kept items as dots, hidden runs as dotted lines (runs under BAR_MIN stay dots). */
-function lay(c: CourtHearings, from: number, kept: Set<number>, mineAt: Map<number, HearingMine>): TrackPart[] {
+function lay(
+  c: CourtHearings,
+  from: number,
+  kept: Set<number>,
+  mineAt: Map<number, HearingMine>,
+  { tightBetween }: { tightBetween?: [number, number] } = {},
+): TrackPart[] {
   const keep = new Set(kept);
+  /* Fix 1: a run between two of your rings folds into a tight gap, however short. */
+  const isTight = (i: number, j: number) =>
+    Boolean(tightBetween) && i > tightBetween![0] && j < tightBetween![1] && mineAt.has(i - 1) && mineAt.has(j + 1);
   let i = from;
   while (i <= c.last) {
     if (keep.has(i)) {
@@ -241,7 +317,7 @@ function lay(c: CourtHearings, from: number, kept: Set<number>, mineAt: Map<numb
     }
     let j = i;
     while (j + 1 <= c.last && !keep.has(j + 1)) j++;
-    if (j - i + 1 < BAR_MIN) for (let k = i; k <= j; k++) keep.add(k);
+    if (j - i + 1 < BAR_MIN && !isTight(i, j)) for (let k = i; k <= j; k++) keep.add(k);
     i = j + 1;
   }
   const parts: TrackPart[] = [];
@@ -255,7 +331,7 @@ function lay(c: CourtHearings, from: number, kept: Set<number>, mineAt: Map<numb
     }
     let j = i;
     while (j + 1 <= c.last && !keep.has(j + 1)) j++;
-    parts.push({ kind: "bar", from: i, to: j, state: "upcoming", span: { from: i, to: j } });
+    parts.push({ kind: "bar", from: i, to: j, state: "upcoming", span: { from: i, to: j }, ...(isTight(i, j) ? { tight: true } : {}) });
     i = j + 1;
   }
   /* Your item right before the list's last: the two numbers would touch ("149150"), so the last

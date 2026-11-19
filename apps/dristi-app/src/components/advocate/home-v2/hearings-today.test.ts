@@ -10,6 +10,7 @@ import {
   type TrackPart,
   cost,
   courtLine,
+  squeezedCost,
   courtStatus,
   hearingCount,
   isTomorrow,
@@ -55,16 +56,23 @@ function assertInvariants(raw: CourtHearings, budget: number) {
     const asHeard = line.heardMine.includes(m.item) ? 1 : 0;
     const asLive = line.live.item === m.item && line.live.mine ? 1 : 0;
     const asRing = line.ahead.filter((p) => p.kind === "dot" && p.item === m.item && p.mine).length;
-    assert.equal(asHeard + asLive + asRing, 1, `your item ${m.item} shown once: ${where}`);
+    const asMore = line.ahead.filter((p) => p.kind === "more" && p.mine.some((x) => x.item === m.item)).length;
+    assert.equal(asHeard + asLive + asRing + asMore, 1, `your item ${m.item} shown once: ${where}`);
   }
 
   // 3. Heard side: only before the live item; ahead: only after it (or everything before the court sits).
-  for (const p of line.heard) assert.equal(p.state, "heard", where);
-  for (const p of line.ahead) assert.equal(p.state, "upcoming", where);
+  for (const p of line.heard) assert.ok(p.kind !== "more" && p.state === "heard", where);
+  for (const p of line.ahead) assert.ok(p.kind === "more" || p.state === "upcoming", where);
+
+  // 3b. "+N" only holds your items that really sit in its stretch.
+  for (const p of line.ahead) {
+    if (p.kind !== "more") continue;
+    assert.ok(p.mine.length >= 1 && p.mine.every((m) => m.item >= p.from && m.item <= p.to), `+N holds its own items: ${where}`);
+  }
 
   // 4. A fold stands for at least BAR_MIN items and never touches one of your rings.
   line.ahead.forEach((p, k) => {
-    if (p.kind !== "bar") return;
+    if (p.kind !== "bar" || p.tight) return;
     assert.ok(p.to - p.from + 1 >= BAR_MIN, `fold too short: ${where}`);
     for (const n of [line.ahead[k - 1], line.ahead[k + 1]]) {
       assert.ok(!(n?.kind === "dot" && n.mine), `fold touches your ring: ${where}`);
@@ -83,8 +91,13 @@ function assertInvariants(raw: CourtHearings, budget: number) {
     const end = line.ahead[line.ahead.length - 1];
     const before = line.ahead[line.ahead.length - 2];
     const afterYours = before?.kind === "dot" && Boolean(before.mine);
-    assert.ok(end?.kind === "dot" && end.item === c.last, `ends on last: ${where}`);
-    assert.equal(Boolean(end.label), Boolean(end.mine) || !afterYours, `last number shown unless it touches yours: ${where}`);
+    if (end?.kind === "more") {
+      // Your item is the last and it sits inside "+N".
+      assert.equal(end.to, c.last, `+N runs to the last: ${where}`);
+    } else {
+      assert.ok(end?.kind === "dot" && end.item === c.last, `ends on last: ${where}`);
+      assert.equal(Boolean(end.label), Boolean(end.mine) || !afterYours, `last number shown unless it touches yours: ${where}`);
+    }
   } else {
     assert.equal(line.ahead.length, 0, where);
   }
@@ -166,10 +179,42 @@ describe("courtLine: situations in a day's hearing", () => {
     assertInvariants(court(20, 50, [21]), 10);
   });
 
-  it("many of your items in a long list on a narrow phone: all kept, line squeezes", () => {
-    const c = court(30, 70, [32, 35, 38, 41, 44, 47, 50, 53, 56, 59]);
-    const line = assertInvariants(c, 8);
-    assert.ok(cost(line.ahead) > 8, "too many to fit: the card squeezes plain dots");
+  const ten = [32, 35, 38, 41, 44, 47, 50, 53, 56, 59];
+
+  it("B1 fix 1: ten of your items on a tablet close up with tight gaps and fit", () => {
+    // Tablet: the ahead side is 341px wide = 14.54 dots.
+    const line = assertInvariants(court(30, 70, ten), 14.54);
+    assert.ok(squeezedCost(line.ahead) <= 14.54, "fits");
+    assert.equal(line.ahead.filter((p) => p.kind === "dot" && p.mine).length, 10, "all ten rings show");
+    assert.ok(line.ahead.some((p) => p.kind === "bar" && p.tight), "tight gaps between rings");
+    assert.ok(!line.ahead.some((p) => p.kind === "more"));
+  });
+
+  it("B1: a normal day never sees either fix (24×7 ON Court on a phone keeps all four rings)", () => {
+    const line = assertInvariants(court(20, 50, [23, 24, 25, 31]), 9.5);
+    assert.ok(!line.ahead.some((p) => p.kind === "more" || (p.kind === "bar" && p.tight)));
+  });
+
+  it("B1 fix 2: on a phone, the rings that fit and then +N for the rest", () => {
+    const line = assertInvariants(court(30, 70, ten), 6);
+    assert.ok(squeezedCost(line.ahead) <= 6, "fits");
+    const more = line.ahead.find((p) => p.kind === "more");
+    assert.ok(more && more.kind === "more");
+    const shown = line.ahead.filter((p) => p.kind === "dot" && p.mine).map((p) => (p.kind === "dot" ? p.item : 0));
+    assert.deepEqual([...shown, ...more.mine.map((m) => m.item)], ten, "soonest first, the rest in +N, none lost");
+  });
+
+  it("B1: +N turns red when any item it holds has tasks pending", () => {
+    const line = assertInvariants(court(30, 70, [...ten.slice(0, 9).map((i) => i), 59]), 9);
+    assert.ok(line.ahead.some((p) => p.kind === "more"));
+  });
+
+  it("B1: your last item is the list's last, inside +N", () => {
+    assertInvariants(court(30, 59, ten), 8);
+  });
+
+  it("B1: before the court sits, ten items on a phone", () => {
+    assertInvariants(court(0, 70, ten), 9);
   });
 
   it("a one-item list", () => {
@@ -267,7 +312,8 @@ describe("courtLine: property check over many courts and widths", () => {
       const now = r() < 0.2 ? 0 : Math.floor(r() * (last + 1));
       const count = Math.floor(r() * 8);
       const mine = Array.from({ length: count }, () => 1 + Math.floor(r() * last));
-      const budget = 6 + Math.floor(r() * 30);
+      const budget = 6 + r() * 30;
+      if (r() < 0.3) for (let k = 0; k < 10; k++) mine.push(1 + Math.floor(r() * last)); // crowded courts
       assertInvariants(court(now, last, mine, { finished: r() < 0.1 }), budget);
     }
   });
