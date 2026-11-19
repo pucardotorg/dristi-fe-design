@@ -106,7 +106,9 @@ export function TodosCard({
           /* Compact (32px well) so it's slimmer than a form control, with each pill filling its
              half end to end; the DS compact pill hugs its label by default (owner, 2026-11-19). */
           size="compact"
-          className="w-full sm:w-1/2 [&>*]:flex-1 [&>*>span]:w-full"
+          /* Half the card, but never narrower than its labels need: on a narrow card it grows into the
+             room beside the title instead of spilling (owner, 2026-11-19: overflowed on iPad mini). */
+          className="w-full sm:w-1/2 sm:min-w-max [&>*]:min-w-max [&>*]:flex-1 [&>*>span]:w-full"
         >
           <SegmentedControlItem value="urgent">
             Urgent <Count n={urgentCount} />
