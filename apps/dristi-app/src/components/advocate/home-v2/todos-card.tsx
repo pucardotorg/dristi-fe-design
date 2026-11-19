@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageOutcome } from "@/components/ui/outcome";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HOME_CALENDAR, type HomeTask, type MustDoGroup, daysBetween, mustDo, waitingOnYou } from "@/lib/advocate/home-dashboard";
 import { cn } from "@/lib/utils";
 
@@ -145,7 +146,6 @@ export function TodosCard({
         >
           {waiting.length ? (
             <>
-              <p className="text-caption font-medium text-muted-foreground tabular-nums">{waitingSummary(waiting, today)}</p>
               <ul className="flex flex-col">
                 {(all.waiting ? waiting : waiting.slice(0, ROWS)).map((t) => (
                   <WaitingRow key={t.id} task={t} today={today} onAct={onAct} />
@@ -161,29 +161,29 @@ export function TodosCard({
       {/* Footer as on Your hearings: what's left on the left, where it all lives on the right. */}
       <CardFooter className="justify-between gap-4 py-3">
         {expandable ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="-ml-3"
-            aria-expanded={all[tab]}
-            onClick={() => setAll((a) => ({ ...a, [tab]: !a[tab] }))}
-          >
-            {all[tab] ? (
-              "Show fewer"
-            ) : (
-              <>
-                Show {hidden[tab]} more {hidden[tab] === 1 ? "task" : "tasks"}
-                {tab === "urgent" && hiddenBreakdown ? (
-                  <span className="font-normal text-muted-foreground">({hiddenBreakdown})</span>
-                ) : null}
-              </>
-            )}
-            <ChevronDownIcon
-              data-icon="inline-end"
-              aria-hidden="true"
-              className={cn("motion-safe:transition-transform", all[tab] && "rotate-180")}
-            />
-          </Button>
+          /* What's hidden, on its own line under the button (owner, 2026-11-19). */
+          <div className="flex min-w-0 flex-col items-start">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-3"
+              aria-expanded={all[tab]}
+              aria-describedby={!all[tab] && tab === "urgent" && hiddenBreakdown ? "todo-hidden" : undefined}
+              onClick={() => setAll((a) => ({ ...a, [tab]: !a[tab] }))}
+            >
+              {all[tab] ? "Show fewer" : `Show ${hidden[tab]} more ${hidden[tab] === 1 ? "task" : "tasks"}`}
+              <ChevronDownIcon
+                data-icon="inline-end"
+                aria-hidden="true"
+                className={cn("motion-safe:transition-transform", all[tab] && "rotate-180")}
+              />
+            </Button>
+            {!all[tab] && tab === "urgent" && hiddenBreakdown ? (
+              <span id="todo-hidden" className="text-caption text-muted-foreground tabular-nums">
+                {hiddenBreakdown}
+              </span>
+            ) : null}
+          </div>
         ) : (
           <span />
         )}
@@ -201,12 +201,6 @@ export function TodosCard({
 
 function Count({ n }: { n: number }) {
   return <span className="ml-1.5 tabular-nums text-muted-foreground">{n}</span>;
-}
-
-function waitingSummary(tasks: HomeTask[], today: string) {
-  const people = new Set(tasks.map((t) => t.waiting!.by)).size;
-  const longest = Math.max(...tasks.map((t) => daysBetween(t.waiting!.since.slice(0, 10), today)));
-  return `${people} ${people === 1 ? "person" : "people"} waiting · longest ${longest === 0 ? "since today" : `${longest} ${longest === 1 ? "day" : "days"}`}`;
 }
 
 function UrgentRow({ task: t, group, today, onAct }: { task: HomeTask; group: MustDoGroup; today: string; onAct: (t: HomeTask) => void }) {
@@ -256,6 +250,13 @@ function waitWords(days: number): string {
   return `${m} ${m === 1 ? "month" : "months"}`;
 }
 
+/** "Waiting for 5 days, since 14 Nov" · "Waiting since today". */
+function waitLine(days: number, since: string): string {
+  if (days <= 0) return "Waiting since today";
+  const on = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(new Date(since));
+  return `Waiting for ${waitWords(days)}, since ${on}`;
+}
+
 function WaitingRow({ task: t, today, onAct }: { task: HomeTask; today: string; onAct: (t: HomeTask) => void }) {
   const days = daysBetween(t.waiting!.since.slice(0, 10), today);
   return (
@@ -268,13 +269,20 @@ function WaitingRow({ task: t, today, onAct }: { task: HomeTask; today: string; 
         </span>
       }
       when={
-        /* A clock and a short age: "Today", "5D", "2M" (owner, 2026-11-19). Read out in full. */
-        <span className={cn("inline-flex items-center justify-end gap-1", days >= 3 && "font-semibold text-foreground")}>
-          {/* The clock from a case's header (its history button), Dristi's "time since" mark. */}
-          <RotateCcwClockIcon aria-hidden="true" className="size-3.5 shrink-0" />
-          <span aria-hidden="true">{waitAge(days)}</span>
-          <span className="sr-only">Waiting {days === 0 ? "since today" : waitWords(days)}</span>
-        </span>
+        /* A clock and a short age: "Today", "5D", "2M" (owner, 2026-11-19). Hover gives it in words
+           with the day it started; screen readers get the same. Bold from 3 days: by then it has
+           waited long enough to stand out. */
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={cn("inline-flex items-center justify-end gap-1", days >= 3 && "font-semibold text-foreground")}>
+              {/* The clock from a case's header (its history button), Dristi's "time since" mark. */}
+              <RotateCcwClockIcon aria-hidden="true" className="size-3.5 shrink-0" />
+              <span aria-hidden="true">{waitAge(days)}</span>
+              <span className="sr-only">{waitLine(days, t.waiting!.since)}</span>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{waitLine(days, t.waiting!.since)}</TooltipContent>
+        </Tooltip>
       }
     />
   );
