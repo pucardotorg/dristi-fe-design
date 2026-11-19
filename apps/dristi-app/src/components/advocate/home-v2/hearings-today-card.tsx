@@ -335,6 +335,13 @@ function Stretch({
 /** Pulse period. Every live pill keys its pulse to the page clock, so all courts pulse together. */
 const PULSE_MS = 2400;
 
+/** Starts an element's pulse at the page clock's zero, the same point every other pill uses. */
+function pinPulse(el: HTMLElement | null) {
+  el?.getAnimations().forEach((a) => {
+    if (a.startTime !== 0) a.startTime = 0;
+  });
+}
+
 /**
  * The live item: a green circle with its number inside and a slow pulse around it. 20px for one
  * or two digits, 24px for three; the slot stays a dot's 16px so spacing matches. When the item
@@ -343,18 +350,22 @@ const PULSE_MS = 2400;
  */
 function Live({ item, mine }: { item: number; mine?: HearingMine }) {
   const ring = React.useRef<HTMLSpanElement>(null);
-  /* Pin the pulse to the page's clock start: every pill, whenever it mounts, sits at the same
-     point of the same cycle. */
+  /* On first load the pulse starts with the server-rendered page, before React can hear its
+     start event, so sync once after mount too (next frame: the animation exists by then). */
   React.useEffect(() => {
-    ring.current?.getAnimations().forEach((a) => {
-      a.startTime = 0;
-    });
+    const id = requestAnimationFrame(() => pinPulse(ring.current));
+    return () => cancelAnimationFrame(id);
   }, []);
   const size = String(item).length > 2 ? "size-6" : "size-5";
   const pill = (
     <span aria-hidden="true" className="relative flex size-4 shrink-0 items-center justify-center">
       <span
+        /* Pin every pulse to the page clock's start, so all courts pulse together. Done each time
+           the animation actually starts (first paint, a remount, a court shown later), not once on
+           mount: on a remount the animation may not exist yet when an effect runs, and that pill
+           then drifted out of step (seen on the first court, 2026-11-19). */
         ref={ring}
+        onAnimationStart={(e) => pinPulse(e.currentTarget)}
         className={cn("absolute rounded-full bg-success motion-safe:animate-ping", size)}
         style={{ animationDuration: `${PULSE_MS}ms` }}
       />
