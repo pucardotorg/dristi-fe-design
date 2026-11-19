@@ -264,17 +264,19 @@ function WaitingRow({ task: t, today, onAct }: { task: HomeTask; today: string; 
       task={t}
       onAct={onAct}
       detail={
+        /* Bookmark, then the case, then who (owner, 2026-11-19), as the Urgent rows lead with
+           the case. */
         <span className="truncate">
-          {t.waiting!.how === "prepared" ? "Prepared by" : "Raised by"} {t.waiting!.by} · {t.caseTitle}
+          {t.caseTitle} · {t.waiting!.how === "prepared" ? "Prepared by" : "Raised by"} {t.waiting!.by}
         </span>
       }
       when={
         /* A clock and a short age: "Today", "5D", "2M" (owner, 2026-11-19). Hover gives it in words
-           with the day it started; screen readers get the same. Bold from 3 days: by then it has
-           waited long enough to stand out. */
+           with the day it started; screen readers get the same. No bold: the list is already
+           ordered bookmarked first, then longest wait (owner, 2026-11-19). */
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className={cn("inline-flex items-center justify-end gap-1", days >= 3 && "font-semibold text-foreground")}>
+            <span className="inline-flex items-center justify-end gap-1">
               {/* The clock from a case's header (its history button), Dristi's "time since" mark. */}
               <RotateCcwClockIcon aria-hidden="true" className="size-3.5 shrink-0" />
               <span aria-hidden="true">{waitAge(days)}</span>
