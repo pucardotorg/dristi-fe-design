@@ -4,7 +4,7 @@ import "@/components/advocate/cause-list.css";
 
 import * as React from "react";
 import Link from "next/link";
-import { BookmarkIcon, ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon, PlusIcon } from "lucide-react";
+import { BookmarkIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -155,7 +155,7 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
                     onClick={() => setPaused((p) => !p)}
                     className="absolute right-0 -mr-2 text-muted-foreground"
                   >
-                    {paused ? <PlayIcon className="size-3.5" /> : <PauseIcon className="size-3.5" />}
+                    {paused ? <PlayGlyph /> : <PauseGlyph />}
                   </Button>
                 )}
               </div>
@@ -216,12 +216,15 @@ function SideArrow({ side, fine, onClick }: { side: "left" | "right"; fine: bool
 
 /**
  * The slide's surface (owner, 2026-11-19). Tried and turned down: plain grey (a wireframe), mint
- * into beige (blue on beige), green into white, and the sign-in screen's dark green (too heavy).
- * Now light and one hue end to end: a pale green from the top left deepening to the soft green of
- * a success tag, with a hairline edge; no white, no beige. Hover deepens it a step. Tokens only.
+ * into beige, green into white, the sign-in screen's dark canvas (too heavy), and a success-green
+ * wash (green is a status colour, and Saras is blue). The options below use only the brand tokens,
+ * so each court gets its own colour: the DS teal everywhere, navy for Saras.
+ *
+ * Chosen ("glow"): a circle of the court colour from the top left, settling into a paler wash of
+ * the same colour. No white and no beige (owner, 2026-11-19: white read harsh).
  */
 const SLIDE_SKIN =
-  "rounded-xl border border-hairline bg-linear-to-br from-success-muted/40 to-success-muted outline-none transition-colors hover:to-success-muted-hover focus-visible:ring-3 focus-visible:ring-focus-ring";
+  "rounded-xl border border-hairline bg-radial-[at_0%_0%] from-brand-muted from-0% to-brand-muted/35 to-75% outline-none transition-colors hover:border-brand-muted-hover focus-visible:ring-3 focus-visible:ring-focus-ring";
 
 /**
  * The last slide when there are more updates than slides: how many more, and the way to all of
@@ -275,7 +278,7 @@ function Slide({ update: u, now, fine, onOpen }: { update: CaseUpdate; now: Date
         <span className="flex items-center gap-1.5 text-caption font-semibold text-foreground tabular-nums">
           {u.bookmarked ? (
             <>
-              <BookmarkIcon aria-hidden="true" className="size-3.5 shrink-0 fill-current text-muted-foreground" />
+              <BookmarkIcon aria-hidden="true" className="size-3.5 shrink-0 fill-current text-brand-muted-foreground" />
               <span className="sr-only">Bookmarked case. </span>
             </>
           ) : null}
@@ -323,7 +326,8 @@ function Dots({ slides, more, at, onPick }: { slides: CaseUpdate[]; more: boolea
             {u.bookmarked ? (
               <BookmarkIcon
                 aria-hidden="true"
-                className={cn("size-2.5 fill-current transition-colors", on ? "text-foreground" : "text-input")}
+                /* The court colour (owner, 2026-11-19); the current one full, the rest lighter. */
+                className={cn("size-2.5 fill-current transition-colors", on ? "text-brand-muted-foreground" : "text-brand-muted-foreground/40")}
               />
             ) : (
               <span
@@ -453,7 +457,7 @@ function UpdateRow({ update: u, now, trace }: { update: CaseUpdate; now: Date; t
           <span className="flex min-w-0 items-center gap-1.5">
             {u.bookmarked ? (
               <>
-                <BookmarkIcon aria-hidden="true" className="size-3 shrink-0 fill-current" />
+                <BookmarkIcon aria-hidden="true" className="size-3 shrink-0 fill-current text-brand-muted-foreground" />
                 <span className="sr-only">Bookmarked case. </span>
               </>
             ) : null}
@@ -472,5 +476,25 @@ function UpdateRow({ update: u, now, trace }: { update: CaseUpdate; now: Date; t
         </span>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * Pause and play, filled but slim (owner, 2026-11-19: Lucide's outline pause was hard to see at
+ * this size, and its filled bars too heavy). Drawn at 14px in the button's text colour.
+ */
+function PauseGlyph() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 14 14" className="size-3.5 fill-current">
+      <rect x="3.5" y="2.5" width="2.25" height="9" rx="0.75" />
+      <rect x="8.25" y="2.5" width="2.25" height="9" rx="0.75" />
+    </svg>
+  );
+}
+function PlayGlyph() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 14 14" className="size-3.5 fill-current">
+      <path d="M4.5 2.9v8.2c0 .6.65.95 1.15.62l6.1-4.1a.75.75 0 0 0 0-1.24l-6.1-4.1A.74.74 0 0 0 4.5 2.9Z" />
+    </svg>
   );
 }
