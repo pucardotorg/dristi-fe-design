@@ -17,18 +17,18 @@ const TASKS_HREF = "/tasks";
 
 type Tab = "urgent" | "waiting";
 
-/** Each group's legend square and heading ink (the earlier Must do card's legend). */
-const TONE: Record<MustDoGroup["key"], { square: string; ink: string }> = {
-  overdue: { square: "bg-destructive", ink: "text-destructive-ink" },
-  today: { square: "bg-warning", ink: "text-warning-ink" },
-  tomorrow: { square: "bg-muted-foreground", ink: "text-muted-foreground" },
+/** Each group's heading ink. */
+const TONE: Record<MustDoGroup["key"], { ink: string }> = {
+  overdue: { ink: "text-destructive-ink" },
+  today: { ink: "text-warning-ink" },
+  tomorrow: { ink: "text-muted-foreground" },
 };
 
 /**
  * Card 2 of draft 2, "Your to-dos" (owner, 2026-11-19): Must do today and Waiting on you in one
  * card, a toggle between the two reasons something is yours to do. It sits under Your hearings.
- * - Urgent (decided by a date): a legend of counts, then Overdue, Due today and the next working
- *   day as groups split by hairlines. Overdue oldest first; anything needed for a hearing today
+ * - Urgent (decided by a date): Overdue, Due today and the next working day as groups split by
+ *   hairlines, each heading carrying its count. Overdue oldest first; anything needed for a hearing today
  *   tops its group. Bookmarked tasks are marked, never moved.
  * - Waiting on you (decided by a person, no pressing date): bookmarked first, then longest wait.
  * Each task appears in one tab only (the shared rules in lib/advocate/home-dashboard).
@@ -95,15 +95,6 @@ export function TodosCard({
         >
           {urgentCount ? (
             <>
-              <ul aria-label="Counts" className="flex flex-wrap gap-x-4 gap-y-1">
-                {groups.map((g) => (
-                  <li key={g.key} className="flex items-center gap-1.5 text-caption font-medium text-muted-foreground">
-                    <span aria-hidden="true" className={cn("size-2.5 rounded-xs", TONE[g.key].square)} />
-                    <span className="font-semibold text-foreground tabular-nums">{g.tasks.length}</span>
-                    {g.label.toLowerCase()}
-                  </li>
-                ))}
-              </ul>
               <div className="flex flex-col">
                 {shown
                   .filter((g) => g.shown.length)
@@ -114,7 +105,9 @@ export function TodosCard({
                       className="flex flex-col not-first:mt-1 not-first:border-t not-first:border-hairline not-first:pt-3"
                     >
                       <h3 id={`todo-${g.key}`} className={cn("text-caption font-semibold", TONE[g.key].ink)}>
-                        {g.label}
+                        {/* Each group's full count rides its heading (owner, 2026-11-19: the legend row
+                            above went, to give the rows its space). */}
+                        {g.label} · <span className="tabular-nums">{g.tasks.length}</span>
                       </h3>
                       <ul className="flex flex-col">
                         {g.shown.map((t) => (

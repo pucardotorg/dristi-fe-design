@@ -27,7 +27,8 @@ export type RecentItem = {
 };
 
 /** How many rows the card shows; the rest are on Cases and Filings. */
-export const RECENT_ROWS = 5;
+/* Six: the room left once the card ends level with Your to-dos (owner, 2026-11-19). */
+export const RECENT_ROWS = 6;
 
 /** The tag on each row, in the Filings page's own stage words. */
 export const RECENT_TAG: Record<RecentKind, string> = {
