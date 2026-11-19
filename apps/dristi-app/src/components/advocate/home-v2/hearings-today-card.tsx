@@ -825,8 +825,10 @@ function CourtTimeline({ court: c }: { court: CourtHearings }) {
   );
 }
 
-/* Quiet greys: everything that isn't yours or live. Heard one step darker than to come. */
-const UPCOMING_FILL = "bg-border/70";
+/* Quiet greys: everything that isn't yours or live. Heard one step darker than to come. To come
+   also gets a 1px inset edge in the heard grey, softened, so the pale dot holds its shape on white
+   (owner, 2026-11-19: too light). Inset, so the dot's size doesn't change. */
+const UPCOMING_FILL = "bg-border/70 ring-1 ring-inset ring-input/60";
 const HEARD_FILL = "bg-input";
 const NUMBER = "absolute top-full mt-1 text-caption font-medium tabular-nums";
 
