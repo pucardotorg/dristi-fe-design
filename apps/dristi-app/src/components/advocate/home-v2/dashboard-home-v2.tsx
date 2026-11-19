@@ -144,11 +144,12 @@ export function DashboardHomeV2({
 
   return (
     <main className="@container flex min-w-0 flex-1 flex-col bg-muted dark:bg-background">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-6 pb-12 lg:gap-8 lg:px-6 lg:pt-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-6 pb-12 lg:px-6 lg:pt-8">
         {/* The date box from the Hearings home (still, it doesn't change day here), the greeting
-            beside it, and the four ways to start something as slim buttons on the right (owner,
-            2026-11-19: the launcher's row of big cards pushed every card down). */}
-        <header className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+            beside it, and Quick actions (owner, 2026-11-19: the launcher's row of big cards pushed
+            every card down). On the cards' own grid, so Quick actions is Updates' width, right
+            above it, with the same 24px gap as between the cards. */}
+        <header className="flex min-w-0 flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] xl:items-center xl:gap-6">
           <div className="flex min-w-0 items-center gap-6">
             <TodayBox now={nowDate} />
             <span aria-hidden="true" className="hidden h-18 w-px shrink-0 bg-hairline lg:block" />
@@ -284,9 +285,9 @@ function HomeCard({
 
 /**
  * The four ways to start something (owner, 2026-11-19: plain outline buttons didn't draw the
- * eye). One white panel titled "Quick actions"; each action is a tile, its icon in a brand-tinted
- * chip over its name, split by hairlines. Stacked tiles are narrow enough to sit right of the
- * greeting at 1280 without cutting a name; under the greeting on a phone or iPad, four across.
+ * eye). One white panel titled "Quick actions", two by two (owner, 2026-11-19): each action its
+ * icon in a brand-tinted chip and its name. Above Updates on a wide desktop, at its width; under
+ * the greeting everywhere else.
  */
 function QuickActions() {
   return (
@@ -297,12 +298,12 @@ function QuickActions() {
       <h2 id="home-quick-actions" className="px-2 text-caption font-semibold text-muted-foreground">
         Quick actions
       </h2>
-      <ul className="grid grid-cols-4 divide-x divide-hairline">
+      <ul className="grid grid-cols-2 gap-1">
         {START.map(({ label, href, icon: Icon }) => (
-          <li key={label} className="flex min-w-0 px-1 first:pl-0 last:pr-0">
+          <li key={label} className="flex min-w-0">
             <Link
               href={href}
-              className="group/qa flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-lg px-1 py-2 text-center text-caption font-semibold outline-none lg:w-28 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none"
+              className="group/qa flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-2 text-body-compact font-semibold outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none"
             >
               <span
                 aria-hidden="true"
@@ -310,7 +311,7 @@ function QuickActions() {
               >
                 <Icon className="size-4" />
               </span>
-              <span className="line-clamp-2 min-w-0 text-balance">{label}</span>
+              <span className="line-clamp-2 min-w-0">{label}</span>
             </Link>
           </li>
         ))}
