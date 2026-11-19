@@ -560,7 +560,7 @@ function Live({ item, mine }: { item: number; mine?: HearingMine }) {
           // ds-typography-allow (10px numeral, see above)
           "relative flex shrink-0 items-center justify-center rounded-full bg-success text-[10px] leading-none font-semibold text-success-foreground tabular-nums",
           size,
-          mine && "outline-2 outline-offset-1",
+          mine && "outline-2 outline-offset-2",
           mine && (mine.pending ? "outline-destructive" : "outline-success"),
         )}
       >
