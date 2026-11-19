@@ -137,9 +137,9 @@ export function DashboardHomeV2({
   firstName: string;
   card?: V2Card | null;
 }) {
-  /* DEMO: `?busy=1` gives a heavy day (many overdue, due today and due tomorrow tasks) to try the
-     to-dos cap and the desktop's sticky right column. Draft 2 only; the real day is untouched. */
-  const busy = useSearchParams().get("busy") === "1";
+  /* DEMO: the heavy day is the default (owner, 2026-11-19: it shows the team how Home holds up at
+     scale); `?busy=0` gives the lighter day. Draft 2 only; draft 1 and the real data are untouched. */
+  const busy = useSearchParams().get("busy") !== "0";
   const [base] = React.useState(() => (busy ? busyDay(homeDay()) : homeDay()));
 
   /* Once the header (and its Quick actions) has scrolled under the top bar, the floating ones
