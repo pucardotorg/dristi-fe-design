@@ -328,8 +328,9 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
         ) : null}
       </div>
       {status === "finished" ? (
-        /* Finished: no live pill; the heard line runs the whole row, 1 to the last. */
-        <div className="flex h-4 min-w-0 items-center">
+        /* Finished: no live pill; the heard line runs the whole row, 1 to the last. Measured, so
+           its in-between dots match the room it has. */
+        <div ref={aheadRef} className="flex h-4 min-w-0 items-center">
           {heard.map((p, i) => (
             <React.Fragment key={partKey(p)}>
               {i > 0 ? <span aria-hidden="true" className="h-px w-0.5 shrink-0" /> : null}

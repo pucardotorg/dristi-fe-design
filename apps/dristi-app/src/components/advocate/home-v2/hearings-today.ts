@@ -41,10 +41,11 @@ export function courtStatus(c: CourtHearings): CourtStatus {
 /** Demo day: 9 courts, so the card shows 3 and keeps 6 behind "Show more courts". */
 export const DEMO_COURTS: CourtHearings[] = [
   /* A crowded list with your items spread out: folding has to tighten to fit. */
-  { court: "Sessions Court", now: 30, last: 70, mine: [{ item: 32 }, { item: 44, pending: 2 }, { item: 57, bookmarked: true }] },
+  /* Owner, 2026-11-19: two courts where your item is the one being heard, tasks still pending. */
+  { court: "Sessions Court", now: 30, last: 70, mine: [{ item: 30, pending: 1 }, { item: 32 }, { item: 44, pending: 2 }, { item: 57, bookmarked: true }] },
   { court: "24×7 ON Court", now: 20, last: 50, mine: [{ item: 23, bookmarked: true }, { item: 24 }, { item: 25, bookmarked: true }, { item: 31 }] },
   { court: "CJM Court", now: 20, last: 50, mine: [{ item: 22, bookmarked: true, pending: 1 }, { item: 27, bookmarked: true }] },
-  { court: "ACJM Court", now: 17, last: 50, mine: [{ item: 19, bookmarked: true, pending: 2 }, { item: 20 }] },
+  { court: "ACJM Court", now: 17, last: 50, mine: [{ item: 17, pending: 2 }, { item: 19, bookmarked: true, pending: 2 }, { item: 20 }] },
   { court: "Additional Chief Judicial Magistrate Court No. 2", now: 0, last: 25, mine: [{ item: 7, bookmarked: true }] },
   { court: "Family Court", now: 4, last: 22, mine: [{ item: 16, pending: 1 }] },
   /* Lead designer (2026-11-19): a 9-item list is unrealistic; 20 is a normal day. */
@@ -204,15 +205,14 @@ export function courtLine(raw: CourtHearings, room: number): CourtLine {
   const budget = Math.floor(room);
   const c = normalizeCourt(raw);
   const mineAt = new Map(c.mine.map((m) => [m.item, m]));
-  /* Finished: the whole list is heard. One line across the row, 1 to last, yours inside it. */
+  /* Finished: the whole list is heard. One line across the row, 1 to last, yours inside it.
+     A few real items sit on it as plain dots, evenly spaced (owner, 2026-11-19: a bare 1 ···· 28
+     looked empty next to the other rows). Each is an actual item and hovers as one, so the line
+     still covers every item once; as many as fit, up to three. */
   if (c.finished) {
-    const ends = (item: number): TrackPart => ({ kind: "dot", item, state: "heard", label: true });
-    const heard: TrackPart[] =
-      c.last > 2
-        ? [ends(1), { kind: "bar", from: 2, to: c.last - 1, state: "heard", span: { from: 1, to: c.last } }, ends(c.last)]
-        : c.last === 2
-          ? [ends(1), ends(2)]
-          : [ends(1)];
+    let stops = Math.min(3, Math.floor((c.last - 1) / (BAR_MIN + 1)) - 1);
+    let heard = finishedLine(c.last, Math.max(0, stops));
+    while (stops > 0 && cost(heard) > budget) heard = finishedLine(c.last, --stops);
     return { heard, live: { item: 0 }, ahead: [], heardMine: c.mine.map((m) => m.item) };
   }
   const heardMine = c.mine.filter((m) => c.now && m.item < c.now).map((m) => m.item);
@@ -265,6 +265,25 @@ export function courtLine(raw: CourtHearings, room: number): CourtLine {
     ahead: line,
     heardMine,
   };
+}
+
+/** A finished court's heard line: 1, `stops` evenly spaced items, the last; folds between. */
+function finishedLine(last: number, stops: number): TrackPart[] {
+  const at = new Set<number>([1, last]);
+  for (let k = 1; k <= stops; k++) at.add(1 + Math.round((k * (last - 1)) / (stops + 1)));
+  const points = [...at].sort((a, b) => a - b);
+  const parts: TrackPart[] = [];
+  points.forEach((item, k) => {
+    parts.push({ kind: "dot", item, state: "heard", label: item === 1 || item === last });
+    const next = points[k + 1];
+    if (next === undefined || next - item < 2) return;
+    if (next - item - 1 < BAR_MIN) {
+      for (let i = item + 1; i < next; i++) parts.push({ kind: "dot", item: i, state: "heard" });
+    } else {
+      parts.push({ kind: "bar", from: item + 1, to: next - 1, state: "heard", span: { from: item, to: next } });
+    }
+  });
+  return parts;
 }
 
 /** Fix 1: keep your items, one plain dot before the first and after the last, and the list's last. */

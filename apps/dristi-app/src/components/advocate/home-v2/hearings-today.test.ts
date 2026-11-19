@@ -252,12 +252,24 @@ describe("courtLine: situations in a day's hearing", () => {
   });
 
   it("a finished court: one heard line from 1 to the last, yours inside it, no live pill", () => {
-    const line = assertInvariants(court(28, 28, [9], { finished: true }), 12);
+    // Desktop: the full row is about 25 dots of room.
+    const line = assertInvariants(court(28, 28, [9], { finished: true }), 25);
     assert.deepEqual(line.heardMine, [9]);
     assert.deepEqual(
       line.heard.map((p) => (p.kind === "dot" ? p.item : `${p.from}-${p.to}`)),
-      [1, "2-27", 28],
+      [1, "2-7", 8, "9-14", 15, "16-20", 21, "22-27", 28],
+      "1 and 28 numbered, three real items evenly spaced between",
     );
+  });
+
+  it("a finished court on a phone keeps one dot in the middle (1 · 15 · 28)", () => {
+    const line = assertInvariants(court(28, 28, [9], { finished: true }), 12);
+    assert.deepEqual(line.heard.filter((p) => p.kind === "dot").map((p) => (p.kind === "dot" ? p.item : 0)), [1, 15, 28]);
+  });
+
+  it("a short finished list keeps it simple", () => {
+    const line = assertInvariants(court(6, 6, [], { finished: true }), 12);
+    assert.ok(line.heard.length <= 4);
   });
 
   it("a finished court whatever the feed says its live item was", () => {
@@ -361,7 +373,7 @@ describe("orderCourts", () => {
 
 describe("hearingCount", () => {
   it("counts your items across courts", () => {
-    assert.equal(hearingCount(orderCourts(DEMO_COURTS)), 16);
+    assert.equal(hearingCount(orderCourts(DEMO_COURTS)), 18);
     assert.equal(hearingCount(orderCourts(DEMO_NEXT_COURTS)), 9);
     assert.equal(hearingCount([]), 0);
   });
