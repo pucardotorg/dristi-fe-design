@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { ArrowRightIcon, BookmarkIcon, CheckCheckIcon, GavelIcon, UserCheckIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageOutcome } from "@/components/ui/outcome";
@@ -10,42 +11,49 @@ import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmente
 import { HOME_CALENDAR, type HomeTask, type MustDoGroup, daysBetween, mustDo, waitingOnYou } from "@/lib/advocate/home-dashboard";
 import { cn } from "@/lib/utils";
 
-/** Rows shown per tab; the rest are in Take action. */
-const ROWS = 4;
+/** Rows shown per tab (filled in group order on Urgent); the rest are in Take action. */
+const ROWS = 6;
 const TASKS_HREF = "/tasks";
 
 type Tab = "urgent" | "waiting";
 
-/** The edge colour for an urgent row: red overdue, amber today, grey tomorrow. */
-const EDGE: Record<MustDoGroup["key"], string> = {
-  overdue: "bg-destructive",
-  today: "bg-warning",
-  tomorrow: "bg-muted-foreground/40",
+/** Each group's legend square and heading ink (the earlier Must do card's legend). */
+const TONE: Record<MustDoGroup["key"], { square: string; ink: string }> = {
+  overdue: { square: "bg-destructive", ink: "text-destructive-ink" },
+  today: { square: "bg-warning", ink: "text-warning-ink" },
+  tomorrow: { square: "bg-muted-foreground", ink: "text-muted-foreground" },
 };
 
 /**
  * Card 2 of draft 2, "Your to-dos" (owner, 2026-11-19): Must do today and Waiting on you in one
- * card, a toggle between the two reasons something is yours to do.
- * - Urgent: decided by a date. Overdue (oldest first), due today (anything blocking a hearing
- *   today on top), then the next working day. Bookmarked tasks are marked, never moved.
- * - Waiting on you: decided by a person, with no pressing date. Bookmarked first, then longest
- *   wait. Each task appears in one tab only (the shared rules in lib/advocate/home-dashboard).
- * Four rows, then Take action. Each row's button is the task's own verb and acts in place.
+ * card, a toggle between the two reasons something is yours to do. It sits under Your hearings.
+ * - Urgent (decided by a date): a legend of counts, then Overdue, Due today and the next working
+ *   day as groups split by hairlines. Overdue oldest first; anything needed for a hearing today
+ *   tops its group. Bookmarked tasks are marked, never moved.
+ * - Waiting on you (decided by a person, no pressing date): bookmarked first, then longest wait.
+ * Each task appears in one tab only (the shared rules in lib/advocate/home-dashboard).
+ * A row: the task and its case (and, if a hearing today needs it, an amber tag saying so), the
+ * timing in its own right-aligned column, and the task's own verb, which acts in place.
  */
 export function TodosCard({ tasks, today, onAct }: { tasks: HomeTask[]; today: string; onAct: (t: HomeTask) => void }) {
   const groups = React.useMemo(() => mustDo(HOME_CALENDAR, tasks, today), [tasks, today]);
-  const urgent = React.useMemo(() => groups.flatMap((g) => g.tasks.map((t) => ({ task: t, group: g }))), [groups]);
   const waiting = React.useMemo(() => waitingOnYou(HOME_CALENDAR, tasks, today), [tasks, today]);
-  const pressing = (groups.find((g) => g.key === "overdue")?.tasks.length ?? 0) + (groups.find((g) => g.key === "today")?.tasks.length ?? 0);
+  const urgentCount = groups.reduce((n, g) => n + g.tasks.length, 0);
+  const pressing = groups.filter((g) => g.key !== "tomorrow").reduce((n, g) => n + g.tasks.length, 0);
   /* Opens on Urgent when anything is overdue or due today, otherwise on Waiting on you. */
   const [tab, setTab] = React.useState<Tab>(() => (pressing > 0 || !waiting.length ? "urgent" : "waiting"));
 
-  const total = tab === "urgent" ? urgent.length : waiting.length;
-  const more = Math.max(0, total - ROWS);
+  /* Fill the rows in group order: overdue first, then today, then the next working day. */
+  const shown = groups.map((g, i) => {
+    const before = groups.slice(0, i).reduce((n, x) => n + x.tasks.length, 0);
+    return { ...g, shown: g.tasks.slice(0, Math.max(0, ROWS - before)) };
+  });
+  const more = tab === "urgent" ? Math.max(0, urgentCount - ROWS) : Math.max(0, waiting.length - ROWS);
 
   return (
-    <Card variant="raised" role="region" aria-labelledby="home-todos" className="w-full min-w-0 gap-2 xl:h-full">
-      <CardHeader className="gap-2">
+    <Card variant="raised" role="region" aria-labelledby="home-todos" className="w-full min-w-0 gap-4">
+      {/* Title left, the toggle across the right half (owner: it was too small); stacked on phones. */}
+      <CardHeader className="flex flex-wrap items-center justify-between gap-3">
         <CardTitle>
           <h2 id="home-todos" className="text-body font-semibold">
             Your to-dos
@@ -53,14 +61,13 @@ export function TodosCard({ tasks, today, onAct }: { tasks: HomeTask[]; today: s
         </CardTitle>
         <SegmentedControl
           type="single"
-          size="compact"
           value={tab}
           onValueChange={(v) => v && setTab(v as Tab)}
           aria-label="Which to-dos"
-          className="w-full [&>*]:flex-1"
+          className="w-full sm:w-1/2 [&>*]:flex-1"
         >
           <SegmentedControlItem value="urgent">
-            Urgent <Count n={urgent.length} />
+            Urgent <Count n={urgentCount} />
           </SegmentedControlItem>
           <SegmentedControlItem value="waiting">
             Waiting on you <Count n={waiting.length} />
@@ -68,23 +75,46 @@ export function TodosCard({ tasks, today, onAct }: { tasks: HomeTask[]; today: s
         </SegmentedControl>
       </CardHeader>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-1">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
         {tab === "urgent" ? (
-          urgent.length ? (
+          urgentCount ? (
             <>
-              <Summary>{urgentSummary(groups)}</Summary>
-              <ul className="flex flex-col divide-y divide-hairline">
-                {urgent.slice(0, ROWS).map(({ task, group }) => (
-                  <UrgentRow key={task.id} task={task} group={group} today={today} onAct={onAct} />
+              <ul aria-label="Counts" className="flex flex-wrap gap-x-4 gap-y-1">
+                {groups.map((g) => (
+                  <li key={g.key} className="flex items-center gap-1.5 text-caption font-medium text-muted-foreground">
+                    <span aria-hidden="true" className={cn("size-2.5 rounded-xs", TONE[g.key].square)} />
+                    <span className="font-semibold text-foreground tabular-nums">{g.tasks.length}</span>
+                    {g.label.toLowerCase()}
+                  </li>
                 ))}
               </ul>
+              <div className="flex flex-col">
+                {shown
+                  .filter((g) => g.shown.length)
+                  .map((g) => (
+                    <section
+                      key={g.key}
+                      aria-labelledby={`todo-${g.key}`}
+                      className="flex flex-col not-first:mt-1 not-first:border-t not-first:border-hairline not-first:pt-3"
+                    >
+                      <h3 id={`todo-${g.key}`} className={cn("text-caption font-semibold", TONE[g.key].ink)}>
+                        {g.label}
+                      </h3>
+                      <ul className="flex flex-col divide-y divide-hairline">
+                        {g.shown.map((t) => (
+                          <UrgentRow key={t.id} task={t} group={g} today={today} onAct={onAct} />
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
+              </div>
             </>
           ) : (
             <Empty icon={CheckCheckIcon} title="Nothing urgent" body="Nothing is overdue or due before the next working day." />
           )
         ) : waiting.length ? (
           <>
-            <Summary>{waitingSummary(waiting, today)}</Summary>
+            <p className="text-caption font-medium text-muted-foreground tabular-nums">{waitingSummary(waiting, today)}</p>
             <ul className="flex flex-col divide-y divide-hairline">
               {waiting.slice(0, ROWS).map((t) => (
                 <WaitingRow key={t.id} task={t} today={today} onAct={onAct} />
@@ -114,33 +144,15 @@ function Count({ n }: { n: number }) {
   return <span className="ml-1.5 tabular-nums text-muted-foreground">{n}</span>;
 }
 
-/** One line that reads the whole tab at a glance. */
-function Summary({ children }: { children: React.ReactNode }) {
-  return <p className="text-caption font-medium text-muted-foreground tabular-nums">{children}</p>;
-}
-
-function urgentSummary(groups: MustDoGroup[]) {
-  const word = (g: MustDoGroup) => (g.key === "overdue" ? "overdue" : g.key === "today" ? "today" : g.label.replace(/^Due /, "").toLowerCase());
-  return groups
-    .filter((g) => g.tasks.length)
-    .map((g) => `${g.tasks.length} ${word(g)}`)
-    .join(" · ");
-}
-
 function waitingSummary(tasks: HomeTask[], today: string) {
   const people = new Set(tasks.map((t) => t.waiting!.by)).size;
   const longest = Math.max(...tasks.map((t) => daysBetween(t.waiting!.since.slice(0, 10), today)));
   return `${people} ${people === 1 ? "person" : "people"} waiting · longest ${longest === 0 ? "since today" : `${longest} ${longest === 1 ? "day" : "days"}`}`;
 }
 
-/**
- * An urgent row: a coloured edge (red overdue, amber today, grey tomorrow), the task, then the
- * case on the left and the due cue pinned right. A task that blocks a hearing today says so in
- * place of the case: it is the most urgent fact, so it's spelled out, not left to a hover.
- */
 function UrgentRow({ task: t, group, today, onAct }: { task: HomeTask; group: MustDoGroup; today: string; onAct: (t: HomeTask) => void }) {
   const late = group.key === "overdue" ? daysBetween(t.dueOn!, today) : 0;
-  const due =
+  const when =
     group.key === "overdue"
       ? `${late} ${late === 1 ? "day" : "days"} late`
       : group.key === "today"
@@ -148,80 +160,82 @@ function UrgentRow({ task: t, group, today, onAct }: { task: HomeTask; group: Mu
         : group.label.replace(/^Due (\w)/, (_, c: string) => c.toUpperCase());
   return (
     <Row
-      edge={EDGE[group.key]}
       task={t}
       onAct={onAct}
-      left={
+      detail={<span className="truncate">{t.caseTitle}</span>}
+      flag={
         t.blocks ? (
-          <span className="flex min-w-0 items-center gap-1 font-medium text-warning-ink">
-            <GavelIcon aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="truncate">
-              Blocks item {t.blocks.item} · {t.blocks.court}
-            </span>
-          </span>
-        ) : (
-          <span className="truncate">{t.caseTitle}</span>
-        )
+          /* In words (owner: the gavel alone didn't say it): a hearing today needs this done. */
+          <Badge variant="warning" className="h-auto max-w-full py-0.5 whitespace-normal">
+            <GavelIcon data-icon="inline-start" aria-hidden="true" />
+            Needed for item {t.blocks.item} at {t.blocks.court} today
+          </Badge>
+        ) : null
       }
-      right={<span className={group.key === "overdue" ? "font-semibold text-destructive-ink" : undefined}>{due}</span>}
+      when={<span className={group.key === "overdue" ? "font-semibold text-destructive-ink" : undefined}>{when}</span>}
     />
   );
 }
 
-/** A waiting row: the task, then who prepared or raised it on the left and how long it's waited on the right. */
 function WaitingRow({ task: t, today, onAct }: { task: HomeTask; today: string; onAct: (t: HomeTask) => void }) {
   const days = daysBetween(t.waiting!.since.slice(0, 10), today);
-  const wait = days === 0 ? "Today" : `${days} ${days === 1 ? "day" : "days"}`;
   return (
     <Row
       task={t}
       onAct={onAct}
-      left={
+      detail={
         <span className="truncate">
-          {t.waiting!.how === "prepared" ? "Prepared by" : "Raised by"} {t.waiting!.by}
+          {t.waiting!.how === "prepared" ? "Prepared by" : "Raised by"} {t.waiting!.by} · {t.caseTitle}
         </span>
       }
-      right={<span className={days >= 3 ? "font-semibold text-foreground" : undefined}>{wait}</span>}
+      when={
+        <span className={days >= 3 ? "font-semibold text-foreground" : undefined}>
+          {days === 0 ? "Today" : `${days} ${days === 1 ? "day" : "days"}`}
+        </span>
+      }
     />
   );
 }
 
-/** The shared row: [edge] task / left · right, then the task's own verb. */
+/**
+ * The shared row: the task and a detail line (plus an optional flag) on the left, the timing in
+ * its own right-aligned column so it scans straight down, then the task's own verb.
+ */
 function Row({
-  edge,
   task: t,
-  left,
-  right,
+  detail,
+  flag,
+  when,
   onAct,
 }: {
-  edge?: string;
   task: HomeTask;
-  left: React.ReactNode;
-  right: React.ReactNode;
+  detail: React.ReactNode;
+  flag?: React.ReactNode;
+  when: React.ReactNode;
   onAct: (t: HomeTask) => void;
 }) {
   return (
-    <li className="flex items-center gap-3 py-1.5">
-      {edge ? <span aria-hidden="true" className={cn("w-1 self-stretch rounded-full", edge)} /> : null}
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="flex min-w-0 items-center gap-1.5 text-body-compact font-medium" title={t.title}>
+    <li className="flex items-center gap-4 py-3">
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+        <p className="line-clamp-2 w-full text-body-compact font-medium" title={t.title}>
+          {t.title}
+        </p>
+        <span className="flex w-full min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
           {t.bookmarked ? (
             <>
-              <BookmarkIcon aria-hidden="true" className="size-3.5 shrink-0 fill-current text-muted-foreground" />
+              <BookmarkIcon aria-hidden="true" className="size-3.5 shrink-0 fill-current" />
               <span className="sr-only">Bookmarked case. </span>
             </>
           ) : null}
-          <span className="truncate">{t.title}</span>
-        </p>
-        <span className="flex min-w-0 items-center justify-between gap-3 text-caption text-muted-foreground tabular-nums">
-          <span className="flex min-w-0">{left}</span>
-          <span className="shrink-0 whitespace-nowrap">{right}</span>
+          {detail}
         </span>
+        {flag}
       </div>
+      <span className="w-20 shrink-0 text-right text-caption text-muted-foreground tabular-nums max-sm:w-auto">{when}</span>
       <Button
         variant="outline"
         size="xs"
-        className="shrink-0 pointer-coarse:h-10 pointer-coarse:px-4"
+        className="w-16 shrink-0 pointer-coarse:h-10 pointer-coarse:px-4"
         onClick={() => onAct(t)}
       >
         {t.verb}
@@ -234,7 +248,7 @@ function Row({
 /** An empty tab: the DS neutral outcome, as on the other cards, stepped down to sit in a card. */
 function Empty({ icon, title, body }: { icon: React.ComponentProps<typeof PageOutcome>["icon"]; title: string; body: string }) {
   return (
-    <div className="flex flex-1 items-center justify-center">
+    <div className="flex flex-1 items-center justify-center py-6">
       <PageOutcome tone="neutral" icon={icon} as="p" still title={title} body={body} className="py-0 [&_p:first-of-type]:text-body" />
     </div>
   );

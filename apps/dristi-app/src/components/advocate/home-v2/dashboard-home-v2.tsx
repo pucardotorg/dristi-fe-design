@@ -171,18 +171,21 @@ export function DashboardHomeV2({
               <Launcher />
             </Blank>
 
-            {/* Row 1: Your hearings | Your to-dos (same height). Row 2: Coming up | Updates.
-                Must do today and Waiting on you merged into Your to-dos; Insights is out of
-                draft 2 for this release (tag home-v2-before-todos keeps it; draft 1 runs it). */}
+            {/* Left: Your hearings, then Your to-dos (owner, 2026-11-19: it was cramped beside
+                hearings). Right: Updates, then Coming up (still blanked). Must do today and
+                Waiting on you merged into Your to-dos; Insights is out of draft 2 for this release
+                (tag home-v2-before-todos keeps it; draft 1 runs it). */}
             <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-              <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />
-              <div className="flex min-w-0 xl:self-stretch">
+              <div className="flex min-w-0 flex-col gap-6">
+                <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />
                 <TodosCard tasks={day.tasks} today={day.today} onAct={act} />
               </div>
-              <Blank>
-                <ComingUpCard day={day} />
-              </Blank>
-              <UpdatesCarouselCard updates={updates} now={nowDate} />
+              <div className="flex min-w-0 flex-col gap-6">
+                <UpdatesCarouselCard updates={updates} now={nowDate} />
+                <Blank>
+                  <ComingUpCard day={day} />
+                </Blank>
+              </div>
             </div>
           </>
         )}
