@@ -215,13 +215,13 @@ function SideArrow({ side, fine, onClick }: { side: "left" | "right"; fine: bool
 }
 
 /**
- * The slide's surface (owner, 2026-11-19: plain grey read as a wireframe; then the brand mint
- * fading into warm grey read as blue on beige). One hue only: a soft true green from the top left
- * fading into the card's white, with a hairline edge. Hover deepens the green a step. Tokens only,
- * so dark mode follows.
+ * The slide's surface (owner, 2026-11-19: plain grey read as a wireframe; mint into beige, then
+ * green into white, didn't work). The sign-in screen's own canvas: the deep brand green into
+ * near-black, with its white and muted-green text. Same tokens, so a court's palette and both
+ * modes follow it as they do on sign-in. Hover lightens the dark end a step.
  */
 const SLIDE_SKIN =
-  "rounded-xl border border-hairline bg-linear-to-br from-success-muted via-card to-card outline-none transition-colors hover:from-success-muted-hover focus-visible:ring-3 focus-visible:ring-focus-ring";
+  "rounded-xl bg-linear-160 from-brand-canvas to-brand-canvas-deep text-brand-canvas-foreground outline-none transition-colors hover:to-brand-canvas focus-visible:ring-3 focus-visible:ring-focus-ring";
 
 /**
  * The last slide when there are more updates than slides: how many more, and the way to all of
@@ -234,11 +234,11 @@ function MoreSlide({ more, total, onOpen }: { more: number; total: number; onOpe
       onClick={onOpen}
       className={cn("flex h-48 w-full flex-col items-center justify-center gap-1 px-6 py-4 text-center", SLIDE_SKIN)}
     >
-      <span className="text-title font-semibold tabular-nums text-foreground">+{more}</span>
-      <span className="text-body-compact text-muted-foreground">
+      <span className="text-title font-semibold tabular-nums text-brand-canvas-foreground">+{more}</span>
+      <span className="text-body-compact text-brand-canvas-muted-foreground">
         more {more === 1 ? "update" : "updates"} on your cases
       </span>
-      <span className="mt-3 inline-flex items-center gap-1 text-body-compact font-semibold text-foreground">
+      <span className="mt-3 inline-flex items-center gap-1 text-body-compact font-semibold text-brand-canvas-foreground">
         See all {total}
         <ChevronRightIcon aria-hidden="true" className="size-4" />
       </span>
@@ -258,30 +258,30 @@ function Slide({ update: u, now, fine, onOpen }: { update: CaseUpdate; now: Date
       {/* Top: what kind of update, and when it happened, a stat of its own (owner, 2026-11-19). */}
       <span className="flex w-full items-center justify-between gap-2">
         {/* A white tag with a hairline edge, so it holds its shape on the green wash. */}
-        <Badge variant="outline" className="border-hairline bg-card">
+        <Badge variant="outline" className="border-brand-canvas-foreground/25 bg-brand-canvas-foreground/10 text-brand-canvas-foreground">
           {u.category}
         </Badge>
-        <span className="text-caption font-medium whitespace-nowrap text-muted-foreground tabular-nums">{whenLabel(u.at, now)}</span>
+        <span className="text-caption font-medium whitespace-nowrap text-brand-canvas-muted-foreground tabular-nums">{whenLabel(u.at, now)}</span>
       </span>
       {/* The headline: 16px, under the card's 20px title (owner, 2026-11-19), centred between the
           top and bottom rows. Up to 3 lines (exactly what the fixed slide holds), then "…"; the
           full text is in the list, the case history, and the slide's hover title. Pretty, not
           balanced: balanced wrapping split short headlines oddly on wide cards (iPad). */}
       <span className="flex w-full flex-1 items-center">
-        <span className="line-clamp-3 text-body font-semibold text-pretty text-foreground">{u.what}</span>
+        <span className="line-clamp-3 text-body font-semibold text-pretty text-brand-canvas-foreground">{u.what}</span>
       </span>
       {/* Bottom: the case number (with its bookmark), then the parties. */}
       <span className="flex w-full min-w-0 flex-col gap-0.5">
-        <span className="flex items-center gap-1.5 text-caption font-semibold text-foreground tabular-nums">
+        <span className="flex items-center gap-1.5 text-caption font-semibold text-brand-canvas-foreground tabular-nums">
           {u.bookmarked ? (
             <>
-              <BookmarkIcon aria-hidden="true" className="size-3.5 shrink-0 fill-current text-muted-foreground" />
+              <BookmarkIcon aria-hidden="true" className="size-3.5 shrink-0 fill-current text-brand-canvas-muted-foreground" />
               <span className="sr-only">Bookmarked case. </span>
             </>
           ) : null}
           {u.caseNumber}
         </span>
-        <span className="truncate text-caption text-muted-foreground">{u.caseTitle}</span>
+        <span className="truncate text-caption text-brand-canvas-muted-foreground">{u.caseTitle}</span>
       </span>
     </>
   );
