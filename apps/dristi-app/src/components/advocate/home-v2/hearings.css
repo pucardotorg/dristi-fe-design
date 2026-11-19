@@ -14,6 +14,9 @@
   animation-delay: 350ms;
   animation-play-state: paused;
 }
+/* Ready (green) rings first, then the ones with something pending (red) a beat later, so the eye
+   follows them in (owner, 2026-11-19). */
+.hearing-pop-late { animation-delay: 650ms; }
 /* Held at the first frame (hidden) until the page is live, then played. */
 [data-arrive="true"] .hearing-pop { animation-play-state: running; }
 /* Once settled (1.4s after arriving), anything shown later appears in place: no pop. */

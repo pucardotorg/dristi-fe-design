@@ -898,12 +898,12 @@ function Dot({ part: p }: { part: Extract<TrackPart, { kind: "dot" }> }) {
     >
       {p.mine ? (
         /* The dot stays put; only your ring pops around it (hearings.css). */
-        <Ring mine={p.mine} fill={fill} heard={p.state === "heard"} pop />
+        <Ring mine={p.mine} fill={fill} heard={p.state === "heard"} pop late={Boolean(p.mine.pending) && p.state !== "heard"} />
       ) : (
         <span className={cn("relative size-2 rounded-full", fill)} />
       )}
       {p.label ? (
-        <span className={cn(NUMBER, p.mine && "hearing-pop", p.mine && p.state !== "heard" ? (p.mine.pending ? "text-destructive-ink" : "text-success-ink") : "text-muted-foreground")}>
+        <span className={cn(NUMBER, p.mine && "hearing-pop", p.mine?.pending && p.state !== "heard" && "hearing-pop-late", p.mine && p.state !== "heard" ? (p.mine.pending ? "text-destructive-ink" : "text-success-ink") : "text-muted-foreground")}>
           {p.item}
         </span>
       ) : null}
@@ -936,7 +936,7 @@ function Dot({ part: p }: { part: Extract<TrackPart, { kind: "dot" }> }) {
  * Your item: a 16px ring on the line (1.5 stroke), red with tasks pending, green when ready.
  * Inside: the item's own dot, or a small bookmark when the case is bookmarked.
  */
-function Ring({ mine, fill, heard, large, pop }: { mine: HearingMine; fill: string; heard?: boolean; large?: boolean; pop?: boolean }) {
+function Ring({ mine, fill, heard, large, pop, late }: { mine: HearingMine; fill: string; heard?: boolean; large?: boolean; pop?: boolean; late?: boolean }) {
   /* Heard (a finished court): grey, still marked as yours, no longer asking anything of you. */
   const tone = heard ? "text-muted-foreground" : mine.pending ? "text-destructive" : "text-success";
   /* `large`: the drawer's 20px ring with a 10px dot or bookmark inside (owner, 2026-11-19: the
@@ -944,7 +944,7 @@ function Ring({ mine, fill, heard, large, pop }: { mine: HearingMine; fill: stri
   const inner = large ? "size-2.5" : "size-2";
   return (
     <span aria-hidden="true" className={cn("relative flex items-center justify-center", large ? "size-5" : "size-4", tone)}>
-      <svg viewBox={large ? "0 0 20 20" : "0 0 16 16"} className={cn("absolute inset-0 size-full", pop && "hearing-pop")} fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <svg viewBox={large ? "0 0 20 20" : "0 0 16 16"} className={cn("absolute inset-0 size-full", pop && "hearing-pop", pop && late && "hearing-pop-late")} fill="none" stroke="currentColor" strokeWidth={1.5}>
         {large ? <circle cx="10" cy="10" r="9.25" /> : <circle cx="8" cy="8" r="7.25" />}
       </svg>
       {mine.bookmarked ? (

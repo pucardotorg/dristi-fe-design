@@ -402,9 +402,10 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
   React.useEffect(() => {
     if (!show || introDone.current) return;
     introDone.current = true;
-    /* Opens once the "+" has rolled in and settled (520ms), holds about a second. */
-    const open = window.setTimeout(() => setIntro(true), 600);
-    const close = window.setTimeout(() => setIntro(false), 600 + 1300);
+    /* The "+" rolls in and settles (520ms), a beat, then the bar springs open (460ms), holds about
+       a second, and folds back (owner, 2026-11-19: each step should land before the next). */
+    const open = window.setTimeout(() => setIntro(true), 820);
+    const close = window.setTimeout(() => setIntro(false), 820 + 460 + 1000);
     return () => {
       window.clearTimeout(open);
       window.clearTimeout(close);
@@ -454,8 +455,14 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
       >
         <div className="drop-shadow-lg">
           <div
-            className="flex items-center rounded-full bg-primary p-1 text-primary-foreground transition-[clip-path] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
-            style={{ clipPath: barOpen ? "inset(0 round 9999px)" : "inset(0 0 0 calc(100% - 44px) round 9999px)" }}
+            className="flex items-center rounded-full bg-primary p-1 text-primary-foreground transition-[clip-path] motion-reduce:transition-none"
+            /* Opens with a small spring past full width; folds with a plain ease-in-out. The same
+               for the one-time opening and for hover. */
+            style={{
+              clipPath: barOpen ? "inset(0 round 9999px)" : "inset(0 0 0 calc(100% - 44px) round 9999px)",
+              transitionDuration: barOpen ? "460ms" : "320ms",
+              transitionTimingFunction: barOpen ? "cubic-bezier(0.34, 1.35, 0.64, 1)" : "cubic-bezier(0.65, 0, 0.35, 1)",
+            }}
             onMouseEnter={() => setHover(true)}
             onMouseLeave={() => {
               setHover(false);
