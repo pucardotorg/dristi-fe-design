@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { HOME_CALENDAR, type HomeTask, type MustDoGroup, daysBetween, mustDo, waitingOnYou } from "@/lib/advocate/home-dashboard";
 import { cn } from "@/lib/utils";
 
-/** Waiting on you shows six rows before its "Show N more"; each Urgent group shows two. */
+/** Waiting on you shows at least six rows (more when Urgent leaves room); each Urgent group two. */
 const ROWS = 6;
 const PER_GROUP = 2;
 const TASKS_HREF = "/tasks";
@@ -61,6 +61,27 @@ export function TodosCard({
   const [open, setOpen] = React.useState<Record<string, boolean>>({});
   const toggle = (key: string) => setOpen((o) => ({ ...o, [key]: !o[key] }));
 
+  /* Waiting on you fills the height Urgent sets, as many rows as fit, rather than a fixed six
+     (owner, 2026-11-19); its "Show N more" sits in the footer. Measured, so it holds at any width. */
+  const urgentRef = React.useRef<HTMLDivElement>(null);
+  const waitingRef = React.useRef<HTMLUListElement>(null);
+  const [fit, setFit] = React.useState(ROWS);
+  React.useLayoutEffect(() => {
+    const u = urgentRef.current;
+    if (!u) return;
+    const measure = () => {
+      const row = waitingRef.current?.querySelector("li")?.offsetHeight;
+      if (!row) return;
+      setFit(Math.max(ROWS, Math.floor(u.offsetHeight / row)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(u);
+    return () => ro.disconnect();
+  }, []);
+  const waitingShown = open.waiting ? waiting : waiting.slice(0, fit);
+  const waitingMore = waiting.length - Math.min(waiting.length, fit);
+
   return (
     <Card variant="raised" role="region" aria-labelledby="home-todos" className={cn("w-full min-w-0 gap-4", className)}>
       {/* Title left, the toggle across the right half (owner: it was too small); stacked on phones. */}
@@ -93,7 +114,8 @@ export function TodosCard({
           its taller tab and switching never moves the page (owner, 2026-11-19). */}
       <CardContent className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)]">
         <div
-          className={cn("flex min-w-0 flex-col gap-3 [grid-area:1/1]", tab !== "urgent" && "pointer-events-none opacity-0")}
+          ref={urgentRef}
+          className={cn("flex min-w-0 flex-col gap-3 self-start [grid-area:1/1]", tab !== "urgent" && "pointer-events-none opacity-0")}
           aria-hidden={tab !== "urgent" || undefined}
           inert={tab !== "urgent"}
         >
@@ -134,12 +156,11 @@ export function TodosCard({
         >
           {waiting.length ? (
             <>
-              <ul className="flex flex-col">
-                {(open.waiting ? waiting : waiting.slice(0, ROWS)).map((t) => (
+              <ul ref={waitingRef} className="flex flex-col">
+                {waitingShown.map((t) => (
                   <WaitingRow key={t.id} task={t} today={today} onAct={onAct} />
                 ))}
               </ul>
-              <MoreToggle total={waiting.length} cap={ROWS} open={!!open.waiting} onToggle={() => toggle("waiting")} />
             </>
           ) : (
             <Empty icon={UserCheckIcon} title="Nobody is waiting on you" body="Nothing prepared for you or asked of you is open." />
@@ -147,8 +168,21 @@ export function TodosCard({
         </div>
       </CardContent>
 
-      {/* Footer: where every task lives. Each section opens its own rest in place above. */}
-      <CardFooter className="justify-end gap-4 py-3">
+      {/* Footer as on Your hearings: Waiting on you's "Show N more" on the left (Urgent's groups open
+          their own, above), where every task lives on the right. */}
+      <CardFooter className="justify-between gap-4 py-3">
+        {tab === "waiting" && (waitingMore > 0 || open.waiting) ? (
+          <Button variant="ghost" size="sm" className="-ml-3" aria-expanded={!!open.waiting} onClick={() => toggle("waiting")}>
+            {open.waiting ? "Show fewer" : `Show ${waitingMore} more`}
+            <ChevronDownIcon
+              data-icon="inline-end"
+              aria-hidden="true"
+              className={cn("motion-safe:transition-transform", open.waiting && "rotate-180")}
+            />
+          </Button>
+        ) : (
+          <span />
+        )}
         <Button asChild variant="outline" size="sm" className="-mr-3">
           <Link href={tab === "waiting" ? `${TASKS_HREF}?view=waiting` : TASKS_HREF}>
             {/* Named for what it opens, like Recent cases' "All cases" (owner, 2026-11-19). */}
@@ -166,7 +200,8 @@ function MoreToggle({ total, cap, open, onToggle }: { total: number; cap: number
   if (total <= cap) return null;
   const more = total - cap;
   return (
-    <Button variant="ghost" size="xs" className="-ml-2 self-start text-muted-foreground" aria-expanded={open} onClick={onToggle}>
+    /* Your hearings' own "Show N more courts" button, so it reads as a control, not a caption. */
+    <Button variant="ghost" size="sm" className="-ml-3 self-start" aria-expanded={open} onClick={onToggle}>
       {open ? "Show fewer" : `Show ${more} more`}
       <ChevronDownIcon
         data-icon="inline-end"

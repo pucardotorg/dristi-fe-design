@@ -1,5 +1,7 @@
 "use client";
 
+import "./week.css";
+
 import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -454,8 +456,12 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                     {/* ds-typography-allow: bar counts a step under caption (11px), owner 2026-11-19. */}
                     <span className="text-[0.6875rem] leading-4 font-semibold tabular-nums">{d.hearings}</span>
                     <span
-                      className="flex w-full flex-col overflow-hidden rounded-t-xs"
-                      style={{ height: `calc((100% - 1.25rem) * ${d.hearings / max})`, minHeight: d.hearings ? 4 : 0 }}
+                      className="week-bar flex w-full flex-col overflow-hidden rounded-t-xs"
+                      style={{
+                        height: `calc((100% - 1.25rem) * ${d.hearings / max})`,
+                        minHeight: d.hearings ? 4 : 0,
+                        animationDelay: `${i * 50}ms`,
+                      }}
                     >
                       <span className="w-full bg-chart-1/40" style={{ flexGrow: plain }} />
                       {/* Hover the bookmarked part for its count (owner, 2026-11-19); the bar's
@@ -476,8 +482,12 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                     {/* ds-typography-allow: bar counts a step under caption (11px), owner 2026-11-19. */}
                     <span className="text-[0.6875rem] leading-4 font-medium text-muted-foreground tabular-nums">{d.tasks}</span>
                     <span
-                      className="w-full rounded-t-xs bg-muted-foreground/50"
-                      style={{ height: `calc((100% - 1.25rem) * ${d.tasks / max})`, minHeight: d.tasks ? 4 : 0 }}
+                      className="week-bar w-full rounded-t-xs bg-muted-foreground/50"
+                      style={{
+                        height: `calc((100% - 1.25rem) * ${d.tasks / max})`,
+                        minHeight: d.tasks ? 4 : 0,
+                        animationDelay: `${i * 50 + 25}ms`,
+                      }}
                     />
                   </span>
                 </span>
