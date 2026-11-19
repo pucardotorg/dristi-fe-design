@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import {
   BookmarkIcon,
-  ChevronRightIcon,
   FilePlusIcon,
   FileTextIcon,
   GavelIcon,
@@ -16,6 +15,8 @@ import {
 
 import { HearingsTodayCard } from "@/components/advocate/home-v2/hearings-today-card";
 import { DEMO_COURTS, DEMO_NEXT_COURTS } from "@/components/advocate/home-v2/hearings-today";
+import { UpdatesCard as UpdatesCarouselCard } from "@/components/advocate/home-v2/updates-card";
+import { demoUpdates } from "@/components/advocate/home-v2/updates";
 import { PreparedAheadInsights } from "@/components/advocate/prepared-ahead";
 import { notify } from "@/components/feedback";
 import { PANEL_CLASS } from "@/components/shell/panel";
@@ -45,9 +46,7 @@ import {
   longDay,
   mustDo,
   shortDay,
-  updatesFirst,
   waitingOnYou,
-  whenOf,
   type HomeTask,
   type MustDoGroup,
 } from "@/lib/advocate/home-dashboard";
@@ -102,7 +101,6 @@ const START: { label: string; hint: string; href: string; icon: LucideIcon }[] =
 const TASKS_HREF = "/tasks";
 const MUST_DO_CAP = 6;
 const WAITING_CAP = 4;
-const UPDATES_CAP = 4;
 
 /** Group ink: the rail beside each row and its heading. Words carry the meaning too. */
 const GROUP_TONE: Record<MustDoGroup["key"], { rail: string; ink: string }> = {
@@ -147,6 +145,8 @@ export function DashboardHomeV2({
     [base.tasks, doneNow],
   );
   const day = React.useMemo(() => ({ ...base, tasks }), [base, tasks]);
+  const nowDate = React.useMemo(() => new Date(base.now), [base.now]);
+  const updates = React.useMemo(() => demoUpdates(nowDate), [nowDate]);
 
   const act = (task: HomeTask) => {
     setDoneNow((prev) => ({
@@ -184,7 +184,7 @@ export function DashboardHomeV2({
             ) : null}
             {card === "2" ? <MustDoCard day={day} onAct={act} /> : null}
             {card === "3" ? <WaitingCard day={day} onAct={act} /> : null}
-            {card === "4" ? <UpdatesCard day={day} /> : null}
+            {card === "4" ? <UpdatesCarouselCard updates={updates} now={nowDate} /> : null}
             {card === "5" ? <ComingUpCard day={day} /> : null}
           </div>
         ) : (
@@ -200,11 +200,16 @@ export function DashboardHomeV2({
                   <MustDoCard day={day} onAct={act} />
                 </Blank>
               </div>
-              <Blank className="flex min-w-0 flex-col gap-6">
-                <WaitingCard day={day} onAct={act} />
-                <UpdatesCard day={day} />
-                <ComingUpCard day={day} />
-              </Blank>
+              <div className="flex min-w-0 flex-col gap-6">
+                <Blank>
+                  <WaitingCard day={day} onAct={act} />
+                </Blank>
+                {/* Card 4 is being redesigned now (owner, 2026-11-19), so it shows. */}
+                <UpdatesCarouselCard updates={updates} now={nowDate} />
+                <Blank>
+                  <ComingUpCard day={day} />
+                </Blank>
+              </div>
             </div>
           </>
         )}
@@ -678,66 +683,7 @@ function WaitingCard({
   );
 }
 
-/* ── ④ Updates on your cases ──────────────────────────────────────────── */
 
-function UpdatesCard({ day }: { day: ReturnType<typeof homeDay> }) {
-  const shown = updatesFirst(day.updates).slice(0, UPDATES_CAP);
-  return (
-    <HomeCard
-      n={4}
-      id="home-updates"
-      title="Updates on your cases"
-      className="xl:h-104"
-      action={
-        <span className="text-caption font-medium text-muted-foreground">
-          Bookmarked first
-        </span>
-      }
-      footer={
-        <MoreLink
-          more={day.moreUpdates ? `+${day.moreUpdates} more updates` : null}
-          label="All cases"
-          href="/cases"
-        />
-      }
-    >
-      {shown.length ? (
-        <ul className="flex flex-col divide-y divide-hairline">
-          {shown.map((u) => (
-            <li
-              key={u.id}
-              className="relative flex min-h-14 items-center gap-3 py-2"
-            >
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <p className="flex min-w-0 items-center gap-1.5 text-body-compact font-medium">
-                  {u.bookmarked ? <Bookmarked /> : null}
-                  <Link
-                    href="/cases"
-                    className="line-clamp-2 min-w-0 rounded-sm outline-none after:absolute after:inset-0 after:rounded-lg hover:underline focus-visible:after:ring-3 focus-visible:after:ring-focus-ring"
-                  >
-                    {u.what}
-                  </Link>
-                </p>
-                <p className="line-clamp-1 text-caption font-medium text-muted-foreground">
-                  {u.caseTitle} ·{" "}
-                  <span className="whitespace-nowrap tabular-nums">
-                    {whenOf(u.at, day.today)}
-                  </span>
-                </p>
-              </div>
-              <ChevronRightIcon
-                aria-hidden="true"
-                className="size-4 shrink-0 text-muted-foreground"
-              />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <Nothing>No updates on your cases since yesterday.</Nothing>
-      )}
-    </HomeCard>
-  );
-}
 
 /* ── ⑤ Coming up ──────────────────────────────────────────────────────── */
 
