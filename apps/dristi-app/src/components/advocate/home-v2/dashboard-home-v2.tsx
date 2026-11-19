@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
+  ChevronUpIcon,
+  PlusIcon,
   BookmarkIcon,
   FilePlusIcon,
   FileTextIcon,
@@ -24,6 +26,8 @@ import { PANEL_CLASS } from "@/components/shell/panel";
 import { useProfile } from "@/components/shell/profile";
 import { createVak } from "@/lib/vakalatnama/store";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import {
   Card,
   CardContent,
@@ -219,37 +223,62 @@ function QuickActions() {
     e.preventDefault();
     router.push(`/vakalatnama/${createVak(profileRole === "litigant" ? "litigant" : "advocate")}`);
   };
+  const tiles = () =>
+    START.map(({ label, href, icon: Icon }) => (
+      <li key={label} className="flex min-w-0">
+        <Link
+          href={href}
+          onClick={href === "/vakalatnama" ? newVak : undefined}
+          className={cn(
+            "group/qa flex h-14 min-w-0 flex-1 items-center gap-2 rounded-xl border bg-card px-2.5 text-body-compact font-semibold outline-none transition-colors hover:border-brand-muted-hover hover:bg-brand-muted/40 focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none",
+            PANEL_CLASS,
+          )}
+        >
+          <span
+            aria-hidden="true"
+            className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground transition-colors group-hover/qa:bg-card motion-reduce:transition-none"
+          >
+            <Icon className="size-3.5" />
+          </span>
+          <span className="line-clamp-2 min-w-0 flex-1 leading-tight">{label}</span>
+          {/* A straight arrow after the name (owner, 2026-11-19: not the corner ↗). */}
+          <ArrowRightIcon
+            aria-hidden="true"
+            className="size-3.5 shrink-0 text-muted-foreground transition-[color,translate] group-hover/qa:translate-x-0.5 group-hover/qa:text-brand-muted-foreground motion-reduce:transition-none"
+          />
+        </Link>
+      </li>
+    ));
   return (
-    <nav aria-label="Quick actions" className="min-w-0">
-      {/* Two 56px rows and an 8px gap: 120px, the date component's height. */}
-      <ul className="grid grid-cols-2 gap-2">
-        {START.map(({ label, href, icon: Icon }) => (
-          <li key={label} className="flex min-w-0">
-            <Link
-              href={href}
-              onClick={href === "/vakalatnama" ? newVak : undefined}
-              className={cn(
-                "group/qa flex h-14 min-w-0 flex-1 items-center gap-2 rounded-xl border bg-card px-2.5 text-body-compact font-semibold outline-none transition-colors hover:border-brand-muted-hover hover:bg-brand-muted/40 focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none",
-                PANEL_CLASS,
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground transition-colors group-hover/qa:bg-card motion-reduce:transition-none"
-              >
-                <Icon className="size-3.5" />
-              </span>
-              <span className="line-clamp-2 min-w-0 flex-1 leading-tight">{label}</span>
-              {/* A straight arrow after the name (owner, 2026-11-19: not the corner ↗). */}
-              <ArrowRightIcon
-                aria-hidden="true"
-                className="size-3.5 shrink-0 text-muted-foreground transition-[color,translate] group-hover/qa:translate-x-0.5 group-hover/qa:text-brand-muted-foreground motion-reduce:transition-none"
-              />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <>
+      {/* Phones: one slim button under the greeting; the four actions open in a bottom drawer, as
+          the court timeline and the updates list do (owner and lead designer, 2026-11-19: on a
+          phone, in court, the day's hearings matter more than starting something new). */}
+      <Drawer>
+        <DrawerTrigger asChild>
+          <Button variant="outline" className="h-10 w-full justify-between bg-card sm:hidden">
+            <span className="flex items-center gap-2">
+              <PlusIcon data-icon="inline-start" aria-hidden="true" />
+              Quick actions
+            </span>
+            <ChevronUpIcon aria-hidden="true" className="text-muted-foreground" />
+          </Button>
+        </DrawerTrigger>
+        <DrawerContent style={{ paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="text-left">Quick actions</DrawerTitle>
+            <DrawerDescription className="sr-only">Start something new.</DrawerDescription>
+          </DrawerHeader>
+          <ul className="flex flex-col gap-2 px-4">{tiles()}</ul>
+        </DrawerContent>
+      </Drawer>
+
+      {/* iPad and desktop: the four tiles, two by two. Two 56px rows and an 8px gap: 120px, the
+          date component's height. */}
+      <nav aria-label="Quick actions" className="min-w-0 max-sm:hidden">
+        <ul className="grid grid-cols-2 gap-2">{tiles()}</ul>
+      </nav>
+    </>
   );
 }
 
