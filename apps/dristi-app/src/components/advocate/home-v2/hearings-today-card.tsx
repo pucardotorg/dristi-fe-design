@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRightIcon, BookmarkIcon, ChevronDownIcon } from "lucide-react";
+import { ArrowRightIcon, BookmarkIcon, CalendarXIcon, ChevronDownIcon } from "lucide-react";
 import { RefreshIcon, useRefreshPhase } from "@/components/advocate/refresh-button";
 import { advHome, fillCopy } from "@/lib/advocate/content";
 import { type Locale, pick } from "@/lib/onboarding/content";
@@ -10,6 +10,7 @@ import { useLocale } from "@/components/shell/locale";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +26,7 @@ import {
   type TrackPart,
   cost,
   courtLine,
+  courtStatus,
   hearingCount,
   isTomorrow,
   nextWorkingDay,
@@ -34,6 +36,8 @@ import {
 
 /** Courts shown before "Show N more courts". */
 const SHOWN = 3;
+/** While a court sits, the card refreshes itself this often (owner, 2026-11-19). */
+const AUTO_REFRESH_MS = 2 * 60 * 1000;
 
 type Day = "today" | "next";
 type Dates = { today: string; next: string; /** The next working day is tomorrow. */ tomorrow: boolean };
@@ -83,10 +87,16 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
             line); from sm up the whole row centres. Stat sits close to the button (owner). */}
         <CardAction className="row-span-1 flex items-center gap-1 self-start max-sm:mt-[-2px] sm:self-center">
           <Stat courts={ordered} className="max-sm:hidden" />
-          <CardRefresh locale={locale} onRefresh={() => setRefreshed((n) => n + 1)} />
+          <CardRefresh
+            locale={locale}
+            onRefresh={() => setRefreshed((n) => n + 1)}
+            auto={day === "today" && ordered.some((c) => courtStatus(c) === "live" || courtStatus(c) === "done")}
+          />
         </CardAction>
       </CardHeader>
-      <CardContent>
+      {/* The card keeps its 3-court height whatever the day holds (owner rule: card sizes never
+          change with data), so a quiet day or an empty one never squishes it. 252px = 3 rows. */}
+      <CardContent className="flex min-h-63 flex-col">
         {shown.length ? (
           <ul className="flex flex-col gap-12 pb-6">
             {shown.map((c) => (
@@ -94,13 +104,18 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
             ))}
           </ul>
         ) : (
-          <p className="py-6 text-body-compact text-muted-foreground">
-            {day === "today"
-              ? "No hearings listed for you today."
-              : dates.tomorrow
-                ? "No hearings listed for you tomorrow."
-                : `No hearings listed for you on ${dates.next}.`}
-          </p>
+          /* Same empty state as the Hearings home's empty day: DS Empty on a sunken panel. */
+          <Empty className="mb-6 bg-surface-sunken">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <CalendarXIcon aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>
+                {day === "today" ? "No hearings today" : dates.tomorrow ? "No hearings tomorrow" : `No hearings on ${dates.next}`}
+              </EmptyTitle>
+              <EmptyDescription>None of your cases is listed in any court that day.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
       </CardContent>
       <CardFooter className="justify-between gap-4 py-3">
@@ -130,6 +145,9 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
 /** "14 hearings in 7 courts": your items across the day's courts. */
 function Stat({ courts, className }: { courts: CourtHearings[]; className?: string }) {
   const n = hearingCount(courts);
+  /* Nothing to count on an empty day: the empty state says it. The line keeps its space (hidden),
+     so the card's height stays the same on phones, where the stat sits under the title. */
+  if (!n) return <p aria-hidden="true" className={cn("invisible text-caption", className)}>0</p>;
   return (
     <p className={cn("text-caption font-medium text-muted-foreground tabular-nums", className)}>
       {n} {n === 1 ? "hearing" : "hearings"} in {courts.length} {courts.length === 1 ? "court" : "courts"}
@@ -189,12 +207,32 @@ function DayMenu({ day, setDay, dates }: { day: Day; setDay: (d: Day) => void; d
  * button so it sits quietly in the card header (owner, 2026-11-19). The caption appears BELOW
  * the button: "Refreshed" in green right after, "Last refreshed …" on hover (mouse only).
  */
-function CardRefresh({ onRefresh, locale }: { onRefresh: () => void; locale: Locale }) {
+function CardRefresh({ onRefresh, locale, auto }: { onRefresh: () => void; locale: Locale; auto: boolean }) {
   const [lastAt, setLastAt] = React.useState(() => Date.now());
   const { phase, trigger } = useRefreshPhase(() => {
     onRefresh();
     setLastAt(Date.now());
   });
+  /* Auto-refresh while a court sits: quietly (no spin), skipped while the tab is hidden, and once
+     on coming back to the tab. "Last refreshed" on hover shows when it last ran. */
+  const latest = React.useRef(onRefresh);
+  React.useEffect(() => {
+    latest.current = onRefresh;
+  });
+  React.useEffect(() => {
+    if (!auto) return;
+    const run = () => {
+      if (document.hidden) return;
+      latest.current();
+      setLastAt(Date.now());
+    };
+    const id = window.setInterval(run, AUTO_REFRESH_MS);
+    document.addEventListener("visibilitychange", run);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", run);
+    };
+  }, [auto]);
   const time = new Intl.DateTimeFormat(locale === "ml" ? "ml-IN" : "en-IN", { dateStyle: "short", timeStyle: "short" }).format(
     new Date(lastAt),
   );
@@ -249,26 +287,45 @@ function useBudget() {
  * (a fifth on phones) on every row, so the live pills stack on one column. Before the court sits,
  * the line simply runs from item 1, like every other court's.
  */
+/** The tag after a court's name, and what its hover says. None for a court with your items to come. */
+const TAGS = {
+  notStarted: { label: "Not started", hint: "Not in session yet" },
+  done: { label: "Done", hint: "All your items here are heard" },
+  finished: { label: "Finished", hint: "This court has finished for the day" },
+} as const;
+
 function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean }) {
   const [aheadRef, budget] = useBudget();
   const { heard, live, ahead, heardMine } = courtLine(c, budget ?? 18);
   const note = heardMine.length ? `includes your ${heardMine.join(", ")}` : undefined;
+  const status = courtStatus(c);
+  /* Not on the next working day: every court is not started then, so the tag would only repeat. */
+  const tag = status === "live" || (status === "notStarted" && !today) ? null : TAGS[status];
   return (
     <li className="flex min-w-0 flex-col gap-3">
       <div className="flex min-w-0 items-start gap-2">
         <CourtName name={c.court} said={courtSaid(c, today)} />
         {/* A small neutral tag right after the name; it never shrinks, a long name wraps beside it.
-            20px tall, -my-0.5 keeps it centred on the 16px name line. Not on the next working
-            day: every court is not started then, so the tag would only repeat. */}
-        {c.now || !today ? null : (
-          <Hint text="Not in session yet">
+            20px tall, -my-0.5 keeps it centred on the 16px name line. */}
+        {tag ? (
+          <Hint text={tag.hint}>
             <Badge variant="secondary" className="-my-0.5 h-5 px-1.5">
-              Not started
+              {tag.label}
             </Badge>
           </Hint>
-        )}
+        ) : null}
       </div>
-      {live.item ? (
+      {status === "finished" ? (
+        /* Finished: no live pill; the heard line runs the whole row, 1 to the last. */
+        <div className="flex h-4 min-w-0 items-center">
+          {heard.map((p, i) => (
+            <React.Fragment key={p.kind === "bar" ? "heard" : p.item}>
+              {i > 0 ? <span aria-hidden="true" className="h-px w-0.5 shrink-0" /> : null}
+              {p.kind === "bar" ? <Fold part={p} note={note} /> : <Dot part={p} />}
+            </React.Fragment>
+          ))}
+        </div>
+      ) : live.item ? (
         <div className="flex h-4 min-w-0 items-center">
           <div className="flex h-4 w-1/4 min-w-0 shrink-0 items-center justify-end max-sm:w-1/5">
             {heard.map((p, i) => (
@@ -542,7 +599,13 @@ function CourtName({ name, said }: { name: string; said: string }) {
 
 /** The whole row in one sentence, for screen readers. */
 function courtSaid(c: CourtHearings, today: boolean) {
-  const status = c.now ? `Hearing item ${c.now} of ${c.last}.` : today ? `Not in session yet. ${c.last} items listed.` : `${c.last} items listed.`;
+  const status = c.finished
+    ? `Finished for the day. All ${c.last} items heard.`
+    : c.now
+      ? `Hearing item ${c.now} of ${c.last}.`
+      : today
+        ? `Not in session yet. ${c.last} items listed.`
+        : `${c.last} items listed.`;
   if (!c.mine.length) return status;
   const items = c.mine
     .map((m) => {
