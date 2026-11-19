@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRightIcon,
+  PlusIcon,
   ChevronDownIcon,
   BookmarkIcon,
   FilePlusIcon,
@@ -139,6 +140,28 @@ export function DashboardHomeV2({
      to-dos cap and the desktop's sticky right column. Draft 2 only; the real day is untouched. */
   const busy = useSearchParams().get("busy") === "1";
   const [base] = React.useState(() => (busy ? busyDay(homeDay()) : homeDay()));
+
+  /* Once the header (and its Quick actions) has scrolled under the top bar, the floating ones
+     show; back in view, they leave. */
+  const headerRef = React.useRef<HTMLElement>(null);
+  const [away, setAway] = React.useState(false);
+  const [barH, setBarH] = React.useState(0);
+  React.useEffect(() => {
+    const check = () => {
+      const bar = document.querySelector<HTMLElement>("header")?.offsetHeight ?? 0;
+      const h = headerRef.current;
+      setBarH(bar);
+      if (h) setAway(h.getBoundingClientRect().bottom < bar);
+    };
+    const first = requestAnimationFrame(check);
+    window.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check);
+    return () => {
+      cancelAnimationFrame(first);
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
+  }, []);
   /* Completed on this visit: task id → when. Held in memory, so a refresh restores the day. */
   const [doneNow, setDoneNow] = React.useState<Record<string, string>>({});
 
@@ -184,7 +207,7 @@ export function DashboardHomeV2({
             beside it, and Quick actions (owner, 2026-11-19: the launcher's row of big cards pushed
             every card down). On the cards' own grid, so Quick actions is Updates' width, right
             above it, with the same 24px gap as between the cards. */}
-        <header className="flex min-w-0 flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] xl:items-center xl:gap-6">
+        <header ref={headerRef} className="flex min-w-0 flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] xl:items-center xl:gap-6">
           <div className="flex min-w-0 items-center gap-6">
             <TodayBox now={nowDate} />
             <span aria-hidden="true" className="hidden h-18 w-px shrink-0 bg-hairline lg:block" />
@@ -240,6 +263,7 @@ export function DashboardHomeV2({
           </>
         )}
       </div>
+      {card ? null : <FloatingQuickActions show={away} top={barH + 12} />}
     </main>
   );
 }
@@ -252,75 +276,171 @@ export function DashboardHomeV2({
  * pressed: a straight arrow after its name, and a brand-tinted hover.
  * Four separate raised tiles, each a button of its own (owner's pick, 2026-11-19).
  */
-function QuickActions({ phone }: { phone?: boolean }) {
+/** Vakalatnama starts a new one, as the Vakalatnama page's own "New vakalatnama" does: create a
+    blank instrument for whoever is signed in, then open it (owner, 2026-11-19). The link still
+    points at the list, so opening it in a new tab lands somewhere sensible. */
+function useNewVak() {
   const router = useRouter();
   const { profileRole } = useProfile();
-  /* Vakalatnama starts a new one, as the Vakalatnama page's own "New vakalatnama" does: create a
-     blank instrument for whoever is signed in, then open it (owner, 2026-11-19). The link still
-     points at the list, so opening it in a new tab lands somewhere sensible. */
-  const newVak = (e: React.MouseEvent) => {
+  return (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
     router.push(`/vakalatnama/${createVak(profileRole === "litigant" ? "litigant" : "advocate")}`);
   };
-  const tiles = () =>
-    START.map(({ label, href, icon: Icon }) => (
-      <li key={label} className="flex min-w-0">
-        <Link
-          href={href}
-          onClick={href === "/vakalatnama" ? newVak : undefined}
-          className={cn(
-            "group/qa flex h-14 min-w-0 flex-1 items-center gap-1.5 rounded-xl border bg-card px-2 text-body-compact font-semibold outline-none transition-colors hover:border-brand-muted-hover hover:bg-brand-muted/40 focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none",
-            PANEL_CLASS,
-          )}
+}
+
+/** The four actions as tiles: the desktop header's 2x2, and the rows of the phone drawer. */
+function ActionTiles() {
+  const newVak = useNewVak();
+  return START.map(({ label, href, icon: Icon }) => (
+    <li key={label} className="flex min-w-0">
+      <Link
+        href={href}
+        onClick={href === "/vakalatnama" ? newVak : undefined}
+        className={cn(
+          "group/qa flex h-14 min-w-0 flex-1 items-center gap-1.5 rounded-xl border bg-card px-2 text-body-compact font-semibold outline-none transition-colors hover:border-brand-muted-hover hover:bg-brand-muted/40 focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none",
+          PANEL_CLASS,
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground transition-colors group-hover/qa:bg-card motion-reduce:transition-none"
         >
-          <span
-            aria-hidden="true"
-            className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground transition-colors group-hover/qa:bg-card motion-reduce:transition-none"
-          >
-            <Icon className="size-3.5" />
-          </span>
-          <span className="line-clamp-2 min-w-0 flex-1 leading-tight">{label}</span>
-          {/* A straight arrow after the name (owner, 2026-11-19: not the corner ↗). */}
-          <ArrowRightIcon
-            aria-hidden="true"
-            className="size-3.5 shrink-0 text-muted-foreground transition-[color,translate] group-hover/qa:translate-x-0.5 group-hover/qa:text-brand-muted-foreground motion-reduce:transition-none"
-          />
-        </Link>
-      </li>
-    ));
-  /* Below 1280px (phones and iPads): one compact button beside the greeting; the four actions open in a bottom drawer, as
-     the court timeline and the updates list do (owner and lead designer, 2026-11-19: on a phone,
-     in court, the day's hearings matter more than starting something new). */
+          <Icon className="size-3.5" />
+        </span>
+        <span className="line-clamp-2 min-w-0 flex-1 leading-tight">{label}</span>
+        {/* A straight arrow after the name (owner, 2026-11-19: not the corner ↗). */}
+        <ArrowRightIcon
+          aria-hidden="true"
+          className="size-3.5 shrink-0 text-muted-foreground transition-[color,translate] group-hover/qa:translate-x-0.5 group-hover/qa:text-brand-muted-foreground motion-reduce:transition-none"
+        />
+      </Link>
+    </li>
+  ));
+}
+
+/** The bottom drawer the phone and iPad buttons open: the four actions as full-width rows. */
+function QuickActionsDrawer({ children }: { children: React.ReactNode }) {
+  return (
+    <Drawer>
+      <DrawerTrigger asChild>{children}</DrawerTrigger>
+      <DrawerContent style={{ paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
+        <DrawerHeader className="text-left">
+          <DrawerTitle className="text-left">Quick actions</DrawerTitle>
+          <DrawerDescription className="sr-only">Start something new.</DrawerDescription>
+        </DrawerHeader>
+        <ul className="flex flex-col gap-2 px-4">
+          <ActionTiles />
+        </ul>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+function QuickActions({ phone }: { phone?: boolean }) {
+  /* Below 1280px (phones and iPads): one compact button beside the greeting; the four actions
+     open in a bottom drawer, as the court timeline and the updates list do (owner and lead
+     designer, 2026-11-19: on a phone, in court, the day's hearings matter more than starting
+     something new). */
   if (phone)
     return (
-      <Drawer>
-        <DrawerTrigger asChild>
-          {/* The page's one primary button, sized to its words (owner, 2026-11-19: full width was
-              too heavy). The chevron points down, the usual "opens a menu" mark. */}
-          <Button className="shrink-0 xl:hidden">
-            Quick actions
-            <ChevronDownIcon data-icon="inline-end" aria-hidden="true" />
-          </Button>
-        </DrawerTrigger>
-        <DrawerContent style={{ paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
-          <DrawerHeader className="text-left">
-            <DrawerTitle className="text-left">Quick actions</DrawerTitle>
-            <DrawerDescription className="sr-only">Start something new.</DrawerDescription>
-          </DrawerHeader>
-          <ul className="flex flex-col gap-2 px-4">{tiles()}</ul>
-        </DrawerContent>
-      </Drawer>
+      <QuickActionsDrawer>
+        {/* The page's one primary button, sized to its words (owner, 2026-11-19: full width was
+            too heavy). The chevron points down, the usual "opens a menu" mark. */}
+        <Button className="shrink-0 xl:hidden">
+          Quick actions
+          <ChevronDownIcon data-icon="inline-end" aria-hidden="true" />
+        </Button>
+      </QuickActionsDrawer>
     );
+  /* Desktop (1280+, iPad Pro sideways too): the four tiles, two by two, beside the greeting where
+     they cost no height. Two 56px rows and an 8px gap: 120px, the date component's height. */
+  return (
+    <nav aria-label="Quick actions" className="min-w-0 max-xl:hidden">
+      <ul className="grid grid-cols-2 gap-2">
+        <ActionTiles />
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * Quick actions that follow you once the header's have scrolled away (owner, 2026-11-19: on a
+ * long scroll, especially a phone's, you can still act without going back up). Both lift on a
+ * shadow over the cards and leave when the header comes back into view.
+ * - Phones and iPads: a button rises in the bottom right reading "+ Quick actions", then after a
+ *   moment shrinks to a round "+" so the eye can follow what it became. It opens the same drawer.
+ * - Desktop: a floating pill near the top with the four actions as compact buttons.
+ */
+function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
+  const newVak = useNewVak();
+  /* Wide with its words each time it appears, then round 1.5s later. */
+  const [wide, setWide] = React.useState(true);
+  const [shown, setShown] = React.useState(show);
+  if (shown !== show) {
+    setShown(show);
+    if (show) setWide(true);
+  }
+  React.useEffect(() => {
+    if (!show) return;
+    const id = window.setTimeout(() => setWide(false), 1500);
+    return () => window.clearTimeout(id);
+  }, [show]);
+  const away = !show && "pointer-events-none opacity-0";
   return (
     <>
-      {/* Desktop (1280+, iPad Pro sideways too): the four tiles, two by two, beside the greeting
-          where they cost no height. Narrower screens, iPads included, use the button and drawer
-          (owner, 2026-11-19). Two 56px rows and an 8px gap: 120px, the
-          date component's height. */}
-      <nav aria-label="Quick actions" className="min-w-0 max-xl:hidden">
-        <ul className="grid grid-cols-2 gap-2">{tiles()}</ul>
-      </nav>
+      <div
+        className={cn(
+          "fixed right-4 z-40 transition-[opacity,translate] duration-300 ease-out motion-reduce:transition-none xl:hidden",
+          away ? cn(away, "translate-y-4") : "translate-y-0",
+        )}
+        style={{ bottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}
+        inert={!show}
+      >
+        <QuickActionsDrawer>
+          <Button
+            aria-label="Quick actions"
+            className={cn(
+              "h-11 rounded-full px-3 shadow-overlay transition-[gap] duration-300 ease-out motion-reduce:transition-none",
+              wide ? "gap-1.5" : "gap-0",
+            )}
+          >
+            <PlusIcon aria-hidden="true" className="size-5" />
+            <span
+              aria-hidden="true"
+              className={cn(
+                "overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out motion-reduce:transition-none",
+                wide ? "max-w-32 opacity-100" : "max-w-0 opacity-0",
+              )}
+            >
+              Quick actions
+            </span>
+          </Button>
+        </QuickActionsDrawer>
+      </div>
+
+      <div
+        className={cn(
+          "pointer-events-none fixed inset-x-0 z-40 flex justify-center transition-[opacity,translate] duration-300 ease-out motion-reduce:transition-none max-xl:hidden",
+          away ? cn("opacity-0", "-translate-y-2") : "translate-y-0",
+        )}
+        style={{ top }}
+        inert={!show}
+      >
+        <nav
+          aria-label="Quick actions"
+          className="pointer-events-auto flex items-center gap-1 rounded-full border border-hairline bg-card p-1 shadow-overlay"
+        >
+          {START.map(({ label, href, icon: Icon }) => (
+            <Button key={label} asChild variant="ghost" size="sm" className="rounded-full">
+              <Link href={href} onClick={href === "/vakalatnama" ? newVak : undefined}>
+                <Icon data-icon="inline-start" aria-hidden="true" className="text-brand-muted-foreground" />
+                {label}
+              </Link>
+            </Button>
+          ))}
+        </nav>
+      </div>
     </>
   );
 }
@@ -344,7 +464,8 @@ function StickyColumn({ className, children }: { className?: string; children: R
       /* Under the shell's top bar with the page's own 24px gap, or higher if the column is taller
          than the room below the bar: then its end lands 24px above the screen's bottom. */
       const bar = document.querySelector<HTMLElement>("[data-slot=app-header], header")?.offsetHeight ?? 0;
-      setTop(Math.min(bar + 24, window.innerHeight - el.offsetHeight - 24));
+      /* Under the floating Quick actions pill (12px below the bar, 44px tall) with the page's gap. */
+      setTop(Math.min(bar + 12 + 44 + 24, window.innerHeight - el.offsetHeight - 24));
     };
     place();
     const ro = new ResizeObserver(place);
