@@ -232,7 +232,7 @@ function QuickActions() {
             >
               <span
                 aria-hidden="true"
-                className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground"
+                className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground transition-colors group-hover/qa:bg-card motion-reduce:transition-none"
               >
                 <Icon className="size-3.5" />
               </span>
