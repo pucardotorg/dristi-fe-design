@@ -68,7 +68,8 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
   const [settled, setSettled] = React.useState(false);
   React.useEffect(() => {
     const frame = requestAnimationFrame(() => setArrive(true));
-    const id = window.setTimeout(() => setSettled(true), 1400);
+    /* After the last beat (dots turning into bookmarks, done by about 1.7s). */
+    const id = window.setTimeout(() => setSettled(true), 2000);
     return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(id);
@@ -947,7 +948,14 @@ function Ring({ mine, fill, heard, large, pop, late }: { mine: HearingMine; fill
       <svg viewBox={large ? "0 0 20 20" : "0 0 16 16"} className={cn("absolute inset-0 size-full", pop && "hearing-pop", pop && late && "hearing-pop-late")} fill="none" stroke="currentColor" strokeWidth={1.5}>
         {large ? <circle cx="10" cy="10" r="9.25" /> : <circle cx="8" cy="8" r="7.25" />}
       </svg>
-      {mine.bookmarked ? (
+      {mine.bookmarked && pop ? (
+        /* On arrival a bookmarked item starts as a plain grey dot, gets its ring, and then, last of
+           all, the dot turns into the bookmark (owner, 2026-11-19). hearings.css. */
+        <span className={cn("relative flex items-center justify-center", inner)}>
+          <span className={cn("hearing-mark-dot absolute inset-0 rounded-full", fill)} />
+          <BookmarkIcon className="hearing-pop hearing-mark-bm size-full fill-current" strokeWidth={3} />
+        </span>
+      ) : mine.bookmarked ? (
         <BookmarkIcon className={cn(inner, "fill-current")} strokeWidth={3} />
       ) : (
         <span className={cn(inner, "rounded-full", fill)} />

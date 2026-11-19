@@ -1,7 +1,8 @@
 /* Your hearings today, on arrival (owner, 2026-11-19): the lines, every grey dot and the circle of
-   what is being heard now are there at once; then the ring around each of your items pops, with
-   its item number under it. A small overshoot from each mark's own centre, so nothing around it
-   moves. Off with reduced motion. */
+   what is being heard now are there at once; then the rings around your items pop with their item
+   numbers, green ones first and red ones a beat later; last, a bookmarked item's grey dot turns
+   into its bookmark. A small overshoot from each mark's own centre, so nothing around it moves.
+   Plays once per visit; off with reduced motion. */
 @keyframes hearing-pop {
   0% { transform: scale(0.3); opacity: 0; }
   65% { transform: scale(1.12); opacity: 1; }
@@ -17,10 +18,23 @@
 /* Ready (green) rings first, then the ones with something pending (red) a beat later, so the eye
    follows them in (owner, 2026-11-19). */
 .hearing-pop-late { animation-delay: 650ms; }
+/* Last of all, a bookmarked item's grey dot shrinks away and its bookmark pops in its place. */
+@keyframes hearing-dot-out {
+  from { transform: scale(1); }
+  to { transform: scale(0); }
+}
+.hearing-mark-dot {
+  animation: hearing-dot-out 180ms cubic-bezier(0.4, 0, 1, 1) 1120ms both;
+  animation-play-state: paused;
+}
+[data-arrive="true"] .hearing-mark-dot { animation-play-state: running; }
+.hearing-mark-bm { animation-delay: 1240ms; }
 /* Held at the first frame (hidden) until the page is live, then played. */
 [data-arrive="true"] .hearing-pop { animation-play-state: running; }
-/* Once settled (1.4s after arriving), anything shown later appears in place: no pop. */
+/* Once settled (2s after arriving), anything shown later appears in place: no pop. */
 [data-settled="true"] .hearing-pop { animation: none; }
+[data-settled="true"] .hearing-mark-dot { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .hearing-pop { animation: none; }
+  .hearing-mark-dot { display: none; }
 }
