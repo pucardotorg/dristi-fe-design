@@ -260,7 +260,7 @@ function QuickActions({ phone }: { phone?: boolean }) {
         </Link>
       </li>
     ));
-  /* Phones: one compact button beside the greeting; the four actions open in a bottom drawer, as
+  /* Below 1280px (phones and iPads): one compact button beside the greeting; the four actions open in a bottom drawer, as
      the court timeline and the updates list do (owner and lead designer, 2026-11-19: on a phone,
      in court, the day's hearings matter more than starting something new). */
   if (phone)
@@ -269,7 +269,7 @@ function QuickActions({ phone }: { phone?: boolean }) {
         <DrawerTrigger asChild>
           {/* The page's one primary button, sized to its words (owner, 2026-11-19: full width was
               too heavy). The chevron points down, the usual "opens a menu" mark. */}
-          <Button className="shrink-0 sm:hidden">
+          <Button className="shrink-0 xl:hidden">
             Quick actions
             <ChevronDownIcon data-icon="inline-end" aria-hidden="true" />
           </Button>
@@ -285,9 +285,11 @@ function QuickActions({ phone }: { phone?: boolean }) {
     );
   return (
     <>
-      {/* iPad and desktop: the four tiles, two by two. Two 56px rows and an 8px gap: 120px, the
+      {/* Desktop (1280+, iPad Pro sideways too): the four tiles, two by two, beside the greeting
+          where they cost no height. Narrower screens, iPads included, use the button and drawer
+          (owner, 2026-11-19). Two 56px rows and an 8px gap: 120px, the
           date component's height. */}
-      <nav aria-label="Quick actions" className="min-w-0 max-sm:hidden">
+      <nav aria-label="Quick actions" className="min-w-0 max-xl:hidden">
         <ul className="grid grid-cols-2 gap-2">{tiles()}</ul>
       </nav>
     </>
