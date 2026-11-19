@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { DashboardHomeV2, type V2Card } from "@/components/advocate/home-v2/dashboard-home-v2";
 import { useProfile } from "@/components/shell/profile";
 
-const CARDS = ["launcher", "1", "2", "3", "4", "5"] as const;
+const CARDS = ["launcher", "1", "2", "3", "4", "5", "6"] as const;
 
 /**
  * `/advocate/today-v2`: draft 2 of the advocate Home (owner, 2026-11-18). Draft 1 at

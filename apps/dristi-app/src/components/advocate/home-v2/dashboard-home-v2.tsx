@@ -17,6 +17,7 @@ import { HearingsTodayCard } from "@/components/advocate/home-v2/hearings-today-
 import { DEMO_COURTS, DEMO_NEXT_COURTS } from "@/components/advocate/home-v2/hearings-today";
 import { UpdatesCard as UpdatesCarouselCard } from "@/components/advocate/home-v2/updates-card";
 import { TodosCard } from "@/components/advocate/home-v2/todos-card";
+import { RecentCasesCard } from "@/components/advocate/home-v2/recent-card";
 import { demoUpdates } from "@/components/advocate/home-v2/updates";
 import { notify } from "@/components/feedback";
 import { PANEL_CLASS } from "@/components/shell/panel";
@@ -93,8 +94,8 @@ function greetingFor(hour: number): string {
   return "Good evening";
 }
 
-/** Draft 2: each card is redesigned on its own (?card=launcher|1|2|3|4|5), then brought together. */
-export type V2Card = "launcher" | "1" | "2" | "3" | "4" | "5";
+/** Draft 2: each card is redesigned on its own (?card=launcher|1|2|3|4|5|6), then brought together. */
+export type V2Card = "launcher" | "1" | "2" | "3" | "4" | "5" | "6";
 
 export function DashboardHomeV2({
   firstName,
@@ -173,11 +174,12 @@ export function DashboardHomeV2({
             {card === "2" || card === "3" ? <TodosCard tasks={day.tasks} today={day.today} onAct={act} /> : null}
             {card === "4" ? <UpdatesCarouselCard updates={updates} now={nowDate} /> : null}
             {card === "5" ? <ComingUpCard day={day} /> : null}
+            {card === "6" ? <RecentCasesCard today={day.today} /> : null}
           </div>
         ) : (
           <>
             {/* Left: Your hearings, then Your to-dos (owner, 2026-11-19: it was cramped beside
-                hearings). Right: Updates, then Your week ahead. Must do today and
+                hearings). Right: Updates, Your week ahead, then Recent cases. Must do today and
                 Waiting on you merged into Your to-dos; Insights is out of draft 2 for this release
                 (tag home-v2-before-todos keeps it; draft 1 runs it). */}
             <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
@@ -188,6 +190,7 @@ export function DashboardHomeV2({
               <div className="flex min-w-0 flex-col gap-6">
                 <UpdatesCarouselCard updates={updates} now={nowDate} />
                 <ComingUpCard day={day} />
+                <RecentCasesCard today={day.today} />
               </div>
             </div>
           </>
