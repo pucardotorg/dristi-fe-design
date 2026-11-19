@@ -10,6 +10,7 @@ import {
   type TrackPart,
   cost,
   courtLine,
+  courtStatus,
   hearingCount,
   isTomorrow,
   nextWorkingDay,
@@ -71,10 +72,19 @@ function assertInvariants(raw: CourtHearings, budget: number) {
     assert.ok(p.span.from <= p.from && p.span.to >= p.to, `hover span covers the fold: ${where}`);
   });
 
-  // 5. The list's last item always ends the line with its number (unless it is the live one).
-  if (c.now !== c.last) {
+  // 5. The list's last item always ends the line (unless it is the live one). Its number shows,
+  //    except right after one of your items, where the two numbers would touch (B2).
+  if (c.finished) {
+    const end = line.heard[line.heard.length - 1];
+    assert.ok(end?.kind === "dot" && end.item === c.last && end.label, `finished ends on last: ${where}`);
+    assert.equal(line.live.item, 0, `finished has no live pill: ${where}`);
+    assert.equal(line.ahead.length, 0, where);
+  } else if (c.now !== c.last) {
     const end = line.ahead[line.ahead.length - 1];
-    assert.ok(end?.kind === "dot" && end.item === c.last && end.label, `ends on last: ${where}`);
+    const before = line.ahead[line.ahead.length - 2];
+    const afterYours = before?.kind === "dot" && Boolean(before.mine);
+    assert.ok(end?.kind === "dot" && end.item === c.last, `ends on last: ${where}`);
+    assert.equal(Boolean(end.label), Boolean(end.mine) || !afterYours, `last number shown unless it touches yours: ${where}`);
   } else {
     assert.equal(line.ahead.length, 0, where);
   }
@@ -189,6 +199,38 @@ describe("courtLine: situations in a day's hearing", () => {
   it("a court with none of your items", () => {
     assertInvariants(court(10, 30, []), 10);
   });
+
+  it("your item just before the list's last: the last drops its number (B2)", () => {
+    const line = assertInvariants(court(120, 150, [133, 149]), 12);
+    const end = line.ahead[line.ahead.length - 1];
+    assert.ok(end.kind === "dot" && end.item === 150 && !end.label);
+  });
+
+  it("a finished court: one heard line from 1 to the last, yours inside it, no live pill", () => {
+    const line = assertInvariants(court(28, 28, [9], { finished: true }), 12);
+    assert.deepEqual(line.heardMine, [9]);
+    assert.deepEqual(
+      line.heard.map((p) => (p.kind === "dot" ? p.item : `${p.from}-${p.to}`)),
+      [1, "2-27", 28],
+    );
+  });
+
+  it("a finished court whatever the feed says its live item was", () => {
+    assertInvariants(court(12, 28, [20], { finished: true }), 12);
+    assertInvariants(court(0, 1, [1], { finished: true }), 12);
+    assertInvariants(court(0, 2, [], { finished: true }), 12);
+  });
+});
+
+describe("courtStatus", () => {
+  it("names where a court is in its day", () => {
+    assert.equal(courtStatus(court(10, 30, [20])), "live");
+    assert.equal(courtStatus(court(20, 30, [20])), "live", "yours being heard is not done yet");
+    assert.equal(courtStatus(court(25, 30, [12, 20])), "done");
+    assert.equal(courtStatus(court(0, 30, [5])), "notStarted");
+    assert.equal(courtStatus(court(30, 30, [5], { finished: true })), "finished");
+    assert.equal(courtStatus(court(10, 30, [])), "live", "no items of yours is never Done");
+  });
 });
 
 describe("normalizeCourt: whatever the feed sends", () => {
@@ -226,7 +268,7 @@ describe("courtLine: property check over many courts and widths", () => {
       const count = Math.floor(r() * 8);
       const mine = Array.from({ length: count }, () => 1 + Math.floor(r() * last));
       const budget = 6 + Math.floor(r() * 30);
-      assertInvariants(court(now, last, mine), budget);
+      assertInvariants(court(now, last, mine, { finished: r() < 0.1 }), budget);
     }
   });
 });
@@ -251,6 +293,15 @@ describe("orderCourts", () => {
     assert.deepEqual(order, ["Now", "Next"]);
   });
 
+  it("finished courts go below courts in session and courts not started", () => {
+    const order = orderCourts([
+      { ...named("Finished", 50, [5, 6, 7]), finished: true },
+      named("Waiting", 0, [1]),
+      named("Sitting", 10, [20]),
+    ]).map((c) => c.court);
+    assert.deepEqual(order, ["Sitting", "Waiting", "Finished"]);
+  });
+
   it("a court where all your items are heard goes after courts still coming to you", () => {
     const order = orderCourts([named("Done", 30, [5]), named("Coming", 10, [45])]).map((c) => c.court);
     assert.deepEqual(order, ["Coming", "Done"]);
@@ -264,7 +315,7 @@ describe("orderCourts", () => {
 
 describe("hearingCount", () => {
   it("counts your items across courts", () => {
-    assert.equal(hearingCount(orderCourts(DEMO_COURTS)), 14);
+    assert.equal(hearingCount(orderCourts(DEMO_COURTS)), 16);
     assert.equal(hearingCount(orderCourts(DEMO_NEXT_COURTS)), 9);
     assert.equal(hearingCount([]), 0);
   });

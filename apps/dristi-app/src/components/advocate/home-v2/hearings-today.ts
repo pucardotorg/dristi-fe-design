@@ -19,9 +19,26 @@ export type CourtHearings = {
   /** The list's size (its last item number). */
   last: number;
   mine: HearingMine[];
+  /** The court has finished its list for the day (risen). Needs a feed signal; demo only for now. */
+  finished?: boolean;
 };
 
-/** Demo day: 7 courts, so the card shows 3 and keeps 4 behind "Show all". */
+/**
+ * Where a court is in its day.
+ * - live: sitting, and an item of yours is still to come (or being heard)
+ * - done: sitting, but all your items there are already heard ("Done" tag)
+ * - notStarted: has not sat yet ("Not started" tag, today only)
+ * - finished: finished its list for the day ("Finished" tag)
+ */
+export type CourtStatus = "live" | "done" | "notStarted" | "finished";
+
+export function courtStatus(c: CourtHearings): CourtStatus {
+  if (c.finished) return "finished";
+  if (!c.now) return "notStarted";
+  return c.mine.length && c.mine.every((m) => m.item < c.now) ? "done" : "live";
+}
+
+/** Demo day: 9 courts, so the card shows 3 and keeps 6 behind "Show more courts". */
 export const DEMO_COURTS: CourtHearings[] = [
   /* A crowded list with your items spread out: folding has to tighten to fit. */
   { court: "Sessions Court", now: 30, last: 70, mine: [{ item: 32 }, { item: 44, pending: 2 }, { item: 57, bookmarked: true }] },
@@ -32,6 +49,10 @@ export const DEMO_COURTS: CourtHearings[] = [
   { court: "Family Court", now: 4, last: 22, mine: [{ item: 16, pending: 1 }] },
   /* Lead designer (2026-11-19): a 9-item list is unrealistic; 20 is a normal day. */
   { court: "Motor Accidents Tribunal", now: 3, last: 20, mine: [{ item: 6 }] },
+  /* Owner, 2026-11-19: all your items heard while the court sits → "Done" tag. */
+  { court: "JFCM Court", now: 35, last: 40, mine: [{ item: 12 }] },
+  /* Owner, 2026-11-19: a court that has finished → full line, "Finished" tag, sorted last. */
+  { court: "Additional Sessions Court", now: 28, last: 28, mine: [{ item: 9 }], finished: true },
 ];
 
 /**
@@ -56,7 +77,8 @@ export function normalizeCourt(c: CourtHearings): CourtHearings {
     .filter((m) => Number.isInteger(m.item) && m.item >= 1 && !seen.has(m.item) && (seen.add(m.item), true))
     .sort((a, b) => a.item - b.item);
   const last = Math.max(1, Math.floor(c.last) || 0, ...mine.map((m) => m.item));
-  const now = Math.min(Math.max(0, Math.floor(c.now) || 0), last);
+  /* A finished court has heard its whole list. */
+  const now = c.finished ? last : Math.min(Math.max(0, Math.floor(c.now) || 0), last);
   return { ...c, now, last, mine };
 }
 
@@ -87,9 +109,9 @@ export function shortDate(d: Date) {
 }
 
 /**
- * Courts in session first, courts not started after (owner, 2026-11-19). Within each group:
- * most of your hearings first; a tie goes to the court that reaches your next item sooner.
- * A court where all your items are already heard has nothing coming: it goes last in its group.
+ * Courts in session first, then courts not started, then finished courts (owner, 2026-11-19).
+ * Within each group: most of your hearings first; a tie goes to the court that reaches your next
+ * item sooner. A sitting court where all your items are heard ("Done") goes last among the sitting.
  */
 export function orderCourts(courts: CourtHearings[]): CourtHearings[] {
   /* Your next item still to be heard (the live one counts: wait 0). Mine is sorted by normalizeCourt. */
@@ -97,7 +119,7 @@ export function orderCourts(courts: CourtHearings[]): CourtHearings[] {
     const next = c.mine.find((m) => m.item >= c.now);
     return next ? next.item - c.now : Infinity;
   };
-  const started = (c: CourtHearings) => (c.now ? 0 : 1);
+  const started = (c: CourtHearings) => (c.finished ? 2 : c.now ? 0 : 1);
   /* Two courts with nothing left for you both wait Infinity: equal, not NaN. */
   const byNumber = (x: number, y: number) => (x === y ? 0 : x - y);
   return courts
@@ -155,6 +177,17 @@ export type CourtLine = {
 export function courtLine(raw: CourtHearings, budget: number): CourtLine {
   const c = normalizeCourt(raw);
   const mineAt = new Map(c.mine.map((m) => [m.item, m]));
+  /* Finished: the whole list is heard. One line across the row, 1 to last, yours inside it. */
+  if (c.finished) {
+    const ends = (item: number): TrackPart => ({ kind: "dot", item, state: "heard", label: true });
+    const heard: TrackPart[] =
+      c.last > 2
+        ? [ends(1), { kind: "bar", from: 2, to: c.last - 1, state: "heard", span: { from: 1, to: c.last } }, ends(c.last)]
+        : c.last === 2
+          ? [ends(1), ends(2)]
+          : [ends(1)];
+    return { heard, live: { item: 0 }, ahead: [], heardMine: c.mine.map((m) => m.item) };
+  }
   const heardMine = c.mine.filter((m) => c.now && m.item < c.now).map((m) => m.item);
   const heard: TrackPart[] =
     c.now > 2
@@ -225,6 +258,11 @@ function lay(c: CourtHearings, from: number, kept: Set<number>, mineAt: Map<numb
     parts.push({ kind: "bar", from: i, to: j, state: "upcoming", span: { from: i, to: j } });
     i = j + 1;
   }
+  /* Your item right before the list's last: the two numbers would touch ("149150"), so the last
+     drops its number; its dot stays and its hover still names it (owner, 2026-11-19). */
+  const end = parts[parts.length - 1];
+  const beforeEnd = parts[parts.length - 2];
+  if (end?.kind === "dot" && !end.mine && beforeEnd?.kind === "dot" && beforeEnd.mine) end.label = false;
   /* A dotted line reads together with the plain dots it joins (28 ····· 50 reads "28 to 50"). */
   parts.forEach((p, k) => {
     if (p.kind !== "bar") return;
