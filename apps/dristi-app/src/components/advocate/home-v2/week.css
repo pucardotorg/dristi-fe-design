@@ -1,4 +1,4 @@
-/* Your week ahead: each day's bars grow up from the baseline, then the next day's, once the card is in view
+/* Your week ahead: each bar grows up from the baseline, a day at a time, once the card is in view
    (owner, 2026-11-19). Grows by scale from the bottom, so layout never moves; the numbers stay
    put. Held at zero until the card is seen (data-play), so on a phone it plays when scrolled to.
    Off for anyone who asks for reduced motion. */
@@ -8,7 +8,7 @@
 }
 .week-bar {
   transform-origin: bottom;
-  animation: week-bar-grow 600ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation: week-bar-grow 1100ms cubic-bezier(0.23, 1, 0.32, 1) both;
   animation-play-state: paused;
 }
 [data-play="true"] .week-bar { animation-play-state: running; }

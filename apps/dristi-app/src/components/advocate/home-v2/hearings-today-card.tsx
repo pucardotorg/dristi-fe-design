@@ -58,6 +58,14 @@ type Dates = { today: string; next: string; /** The next working day is tomorrow
 export function HearingsTodayCard({ courts: today, nextCourts }: { courts: CourtHearings[]; nextCourts: CourtHearings[] }) {
   const { locale } = useLocale();
   const [all, setAll] = React.useState(false);
+  /* The rings pop once, on arriving at Home. After that the card is settled: courts opened with
+     "Show N more" and the other day's courts appear already in place (owner, 2026-11-19: popping
+     again on every switch was irritating). A new visit to Home pops them again. */
+  const [settled, setSettled] = React.useState(false);
+  React.useEffect(() => {
+    const id = window.setTimeout(() => setSettled(true), 1200);
+    return () => window.clearTimeout(id);
+  }, []);
   /* The title's day menu: today, or the next working day. That is called "Tomorrow" when it is
      tomorrow, and "Next working day" only when a weekend or holiday falls between. */
   const [day, setDay] = React.useState<Day>("today");
@@ -73,7 +81,7 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
   const hidden = ordered.length - SHOWN;
 
   return (
-    <Card variant="raised" role="region" aria-labelledby="home-hearings" className="min-w-0 gap-4">
+    <Card variant="raised" role="region" aria-labelledby="home-hearings" data-settled={settled} className="min-w-0 gap-4">
       <CardHeader className="items-center">
         <CardTitle className="min-w-0">
           <h2 id="home-hearings" className="flex flex-wrap items-center gap-x-1 text-body font-semibold">

@@ -389,11 +389,11 @@ function TodayBox({ now }: { now: Date }) {
 
 /* ── ⑤ Your week ahead ──────────────────────────────────────────────────────── */
 
-/* Day by day (owner, 2026-11-19): each day's bars rise, then its counts come up out of them, then
-   the next day starts. A bar takes 600ms (week.css) and is all but up by 480ms, when its count
-   rises; the next day starts 260ms after the last. */
-const DAY_STEP = 260;
-const NUM_AFTER = 480;
+/* The bars rise together with a slight ripple across the week (90ms per day), and each count comes
+   up out of its bar as the bar settles, 700ms after it starts (owner, 2026-11-19: preferred over a
+   strict day-by-day sequence). Bars take 1.1s (week.css). */
+const DAY_STEP = 90;
+const NUM_AFTER = 700;
 
 function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
   const week = comingUp(HOME_CALENDAR, day);
@@ -508,7 +508,7 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                     <span
                       // ds-typography-allow: bar counts a step under caption (11px), owner 2026-11-19.
                       className="week-num text-[0.6875rem] leading-4 font-medium text-muted-foreground tabular-nums"
-                      style={{ animationDelay: `${i * DAY_STEP + 60 + NUM_AFTER}ms` }}
+                      style={{ animationDelay: `${i * DAY_STEP + 45 + NUM_AFTER}ms` }}
                     >
                       {d.tasks}
                     </span>
@@ -517,7 +517,7 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                       style={{
                         height: `calc((100% - 1.25rem) * ${d.tasks / max})`,
                         minHeight: d.tasks ? 4 : 0,
-                        animationDelay: `${i * DAY_STEP + 60}ms`,
+                        animationDelay: `${i * DAY_STEP + 45}ms`,
                       }}
                     />
                   </span>
