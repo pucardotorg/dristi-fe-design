@@ -7,7 +7,7 @@ import Link from "next/link";
 import { BookmarkIcon, ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { type CarouselApi, Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -85,22 +85,17 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
 
   return (
     <Card variant="raised" role="region" aria-labelledby="home-updates" className="min-w-0 gap-3">
-      {/* No column gap: the count's own padding spaces it, and the title needs every pixel to stay
-          on one line in the narrow right column at 1280. */}
-      <CardHeader className="items-center gap-x-0">
-        <CardTitle className="min-w-0">
-          <h2 id="home-updates" className="text-title-s font-semibold">
+      {/* The count sits right of the title whenever both fit on one line, and drops under it only
+          when the card is too narrow (a 375px phone). Decided by the room there is, not by
+          breakpoint (owner, 2026-11-19: on a 440px phone it fits). The button's own padding is the
+          gap; it reaches 16px into the card's padding so the title keeps one line at 1280. */}
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center justify-between">
+          <h2 id="home-updates" className="text-title-s font-semibold whitespace-nowrap">
             Updates on your cases
           </h2>
-          {/* Phones: the count sits under the title; the header row has no room for it. */}
-          {total ? <CountButton total={total} onClick={() => openList()} className="mt-1 -ml-2 sm:hidden" /> : null}
+          {total ? <CountButton total={total} onClick={() => openList()} className="-mr-4 -ml-2 px-2" /> : null}
         </CardTitle>
-        {total ? (
-          <CardAction className="row-span-1 self-center max-sm:hidden">
-            {/* Pulled 16px into the card's padding so the title keeps one line in the narrow column. */}
-            <CountButton total={total} onClick={() => openList()} className="-mr-4 px-2" />
-          </CardAction>
-        ) : null}
       </CardHeader>
       <CardContent
         ref={root}
@@ -330,8 +325,7 @@ function UpdatesList({
   const body = opened ? (
     /* Opened from a slide: that update apart on top (traced), then everything else in order. */
     <div className="flex flex-col gap-4 pb-4">
-      <section aria-label="The update you opened" className="flex flex-col gap-1">
-        <p className={label}>You opened</p>
+      <section aria-label="The update you opened">
         <ul>
           <UpdateRow update={opened} now={now} trace={nonce} />
         </ul>
@@ -359,7 +353,7 @@ function UpdatesList({
         <SheetContent side="right" className="flex flex-col gap-0 sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{title}</SheetTitle>
-            <SheetDescription>{opened ? "The one you opened, then all the others." : ORDER}</SheetDescription>
+            <SheetDescription>{opened ? null : ORDER}</SheetDescription>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-4">{body}</div>
         </SheetContent>
@@ -371,7 +365,7 @@ function UpdatesList({
       <DrawerContent style={{ height: "75dvh", paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
         <DrawerHeader className="text-left">
           <DrawerTitle className="text-left">{title}</DrawerTitle>
-          <DrawerDescription className="text-left">{opened ? "The one you opened, then all the others." : ORDER}</DrawerDescription>
+          <DrawerDescription className="text-left">{opened ? null : ORDER}</DrawerDescription>
         </DrawerHeader>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4">{body}</div>
       </DrawerContent>
