@@ -22,14 +22,26 @@
   to { transform: scale(0); }
 }
 .qa-bar[data-state="idle"] { visibility: hidden; }
-.qa-bar[data-state="in"] { animation: qa-bar-in 320ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-.qa-bar[data-state="out"] { animation: qa-bar-out 220ms cubic-bezier(0.4, 0, 1, 1) both; }
+.qa-bar[data-state="in"] { animation: qa-bar-in 520ms cubic-bezier(0.65, 0, 0.35, 1) both; }
+.qa-bar[data-state="out"] { animation: qa-bar-out 420ms cubic-bezier(0.65, 0, 0.35, 1) both; }
+/* As it travels it rolls like a wheel: half a turn, about what a 44px circle turns over that
+   distance, coming to rest upright on the "+" (owner, 2026-11-19). Same ease-in-out both ways. */
+@keyframes qa-roll-in {
+  from { transform: rotate(180deg); }
+  to { transform: rotate(0deg); }
+}
+@keyframes qa-roll-out {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(180deg); }
+}
+.qa-bar[data-state="in"] .qa-wheel { animation: qa-roll-in 520ms cubic-bezier(0.65, 0, 0.35, 1) both; }
+.qa-bar[data-state="out"] .qa-wheel { animation: qa-roll-out 420ms cubic-bezier(0.65, 0, 0.35, 1) both; }
 .qa-fab { transform-origin: bottom right; }
 .qa-fab[data-state="idle"] { transform: scale(0); }
 .qa-fab[data-state="in"] { animation: qa-fab-in 420ms cubic-bezier(0.34, 1.4, 0.64, 1) both; }
 .qa-fab[data-state="out"] { animation: qa-fab-out 220ms cubic-bezier(0.4, 0, 1, 1) both; }
 @media (prefers-reduced-motion: reduce) {
-  .qa-bar[data-state], .qa-fab[data-state] { animation: none; }
+  .qa-bar[data-state], .qa-fab[data-state], .qa-wheel { animation: none !important; }
   .qa-fab[data-state="out"] { transform: scale(0); }
   .qa-bar[data-state="out"] { visibility: hidden; }
 }

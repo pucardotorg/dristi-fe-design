@@ -375,15 +375,16 @@ function QuickActions({ phone }: { phone?: boolean }) {
  */
 function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
   const newVak = useNewVak();
-  /* Wide with its words each time it appears, then round 1.5s later. "idle" until first shown, so
-     nothing animates on load; then "in" / "out" drive the morphs (quick.css). */
+  /* Phones and tablets: wide with its words only the first time on a visit, then round 1.5s
+     later; after that it just pops in as the "+" (owner, 2026-11-19: the full label every time was
+     irritating). "idle" until first shown, so nothing animates on load; "in" / "out" drive the
+     motion (quick.css). */
   const [wide, setWide] = React.useState(true);
   const [shown, setShown] = React.useState(show);
   const [state, setState] = React.useState<"idle" | "in" | "out">(show ? "in" : "idle");
   if (shown !== show) {
     setShown(show);
     setState(show ? "in" : "out");
-    if (show) setWide(true);
   }
   React.useEffect(() => {
     if (!show) return;
@@ -401,8 +402,9 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
   React.useEffect(() => {
     if (!show || introDone.current) return;
     introDone.current = true;
-    const open = window.setTimeout(() => setIntro(true), 350);
-    const close = window.setTimeout(() => setIntro(false), 350 + 1300);
+    /* Opens once the "+" has rolled in and settled (520ms), holds about a second. */
+    const open = window.setTimeout(() => setIntro(true), 600);
+    const close = window.setTimeout(() => setIntro(false), 600 + 1300);
     return () => {
       window.clearTimeout(open);
       window.clearTimeout(close);
@@ -490,10 +492,12 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
               onClick={() => setTapped((t) => !t)}
               className="size-9 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary-foreground/20"
             >
-              <PlusIcon
-                aria-hidden="true"
-                className={cn("size-5 transition-transform duration-300 motion-reduce:transition-none", barOpen && "rotate-45")}
-              />
+              {/* The wheel: the "+" rolls as the circle travels in and out (quick.css). */}
+              <span aria-hidden="true" className="qa-wheel flex">
+                <PlusIcon
+                  className={cn("size-5 transition-transform duration-300 motion-reduce:transition-none", barOpen && "rotate-45")}
+                />
+              </span>
             </Button>
           </div>
         </div>
