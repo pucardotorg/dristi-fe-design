@@ -10,6 +10,7 @@ import {
   type TrackPart,
   cost,
   courtLine,
+  naturalCost,
   squeezedCost,
   courtStatus,
   hearingCount,
@@ -260,12 +261,20 @@ describe("courtLine: situations in a day's hearing", () => {
     assert.deepEqual(line.heardMine, [], "nothing left for the hover");
   });
 
+  it("a finished court short of room shows your bookmarked items first", () => {
+    const c = court(28, 28, five, { finished: true });
+    c.mine = c.mine.map((m) => (m.item === 9 || m.item === 20 ? { ...m, bookmarked: true } : m));
+    const line = assertInvariants(c, 12);
+    const shown = line.heard.filter((p) => p.kind === "dot" && p.mine).map((p) => (p.kind === "dot" ? p.item : 0));
+    assert.ok(shown.includes(9) && shown.includes(20), `bookmarked 9 and 20 shown, got ${shown}`);
+  });
+
   it("a finished court on a phone shows the items that fit; the rest are named in the hover", () => {
     const line = assertInvariants(court(28, 28, five, { finished: true }), 12);
     const shown = line.heard.filter((p) => p.kind === "dot" && p.mine).map((p) => (p.kind === "dot" ? p.item : 0));
     assert.ok(shown.length >= 1 && shown.length < five.length);
     assert.deepEqual([...shown, ...line.heardMine].sort((a, b) => a - b), five, "every one of yours is shown or named");
-    assert.ok(cost(line.heard) <= 12);
+    assert.ok(naturalCost(line.heard) <= 12);
   });
 
   it("a short finished list keeps it simple", () => {

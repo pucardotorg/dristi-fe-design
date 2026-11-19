@@ -166,6 +166,10 @@ export type TrackPart =
 export const cost = (parts: TrackPart[]) =>
   parts.reduce((n, p) => n + (p.kind === "more" ? 3 : p.kind === "bar" ? (p.tight ? 0.5 : BAR_COST) : 1), 0);
 
+/** The room a stretch takes at its natural sizes, in dots: a dot 24px, a fold at its shortest 36px. */
+export const naturalCost = (parts: TrackPart[]) =>
+  parts.reduce((n, p) => n + (p.kind === "bar" ? (p.tight ? 1 / 3 : 1.5) : p.kind === "more" ? 54 / 24 : 1), 0);
+
 /**
  * The least room a stretch can take once the card squeezes it, in dots (24px each), at the card's
  * real minimum sizes: gaps close to 0; a plain dot shrinks to 8px; a numbered dot or ring stays
@@ -211,7 +215,8 @@ export function courtLine(raw: CourtHearings, room: number): CourtLine {
   if (c.finished) {
     let k = c.mine.length;
     let heard = finishedLine(c, k, mineAt);
-    while (k > 0 && cost(heard) > budget) heard = finishedLine(c, --k, mineAt);
+    /* Measured at the line's real, unsqueezed sizes (dot 24px, fold 36px). */
+    while (k > 0 && naturalCost(heard) > room) heard = finishedLine(c, --k, mineAt);
     const shown = new Set(heard.filter((p) => p.kind === "dot" && p.mine).map((p) => (p.kind === "dot" ? p.item : 0)));
     return { heard, live: { item: 0 }, ahead: [], heardMine: c.mine.map((m) => m.item).filter((i) => !shown.has(i)) };
   }
@@ -268,13 +273,18 @@ export function courtLine(raw: CourtHearings, room: number): CourtLine {
 }
 
 /**
- * A finished court's heard line: 1, `k` of your items spread across the ones you have, the last;
+ * A finished court's heard line: 1, `k` of your items (bookmarked first, then spread), the last;
  * dotted stretches between. Runs shorter than BAR_MIN stay as dots.
  */
 function finishedLine(c: CourtHearings, k: number, mineAt: Map<number, HearingMine>): TrackPart[] {
   const yours = c.mine.map((m) => m.item);
-  const pick =
-    k >= yours.length ? yours : k <= 0 ? [] : k === 1 ? [yours[Math.floor((yours.length - 1) / 2)]] : Array.from({ length: k }, (_, i) => yours[Math.round((i * (yours.length - 1)) / (k - 1))]);
+  /* Bookmarked first (owner, 2026-11-19: the phone's even spread dropped exactly the bookmarked
+     ones), then the remaining room spread evenly across the rest. */
+  const marked = c.mine.filter((m) => m.bookmarked).map((m) => m.item);
+  const rest = yours.filter((i) => !marked.includes(i));
+  const spread = (from: number[], n: number) =>
+    n >= from.length ? from : n <= 0 ? [] : n === 1 ? [from[Math.floor((from.length - 1) / 2)]] : Array.from({ length: n }, (_, i) => from[Math.round((i * (from.length - 1)) / (n - 1))]);
+  const pick = k >= yours.length ? yours : [...marked.slice(0, k), ...spread(rest, k - Math.min(k, marked.length))];
   const points = [...new Set<number>([1, c.last, ...pick])].sort((a, b) => a - b);
   const parts: TrackPart[] = [];
   points.forEach((item, i) => {
