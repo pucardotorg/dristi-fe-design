@@ -100,7 +100,7 @@ export function TodosCard({ tasks, today, onAct }: { tasks: HomeTask[]; today: s
                       <h3 id={`todo-${g.key}`} className={cn("text-caption font-semibold", TONE[g.key].ink)}>
                         {g.label}
                       </h3>
-                      <ul className="flex flex-col divide-y divide-hairline">
+                      <ul className="flex flex-col">
                         {g.shown.map((t) => (
                           <UrgentRow key={t.id} task={t} group={g} today={today} onAct={onAct} />
                         ))}
@@ -115,7 +115,7 @@ export function TodosCard({ tasks, today, onAct }: { tasks: HomeTask[]; today: s
         ) : waiting.length ? (
           <>
             <p className="text-caption font-medium text-muted-foreground tabular-nums">{waitingSummary(waiting, today)}</p>
-            <ul className="flex flex-col divide-y divide-hairline">
+            <ul className="flex flex-col">
               {waiting.slice(0, ROWS).map((t) => (
                 <WaitingRow key={t.id} task={t} today={today} onAct={onAct} />
               ))}
