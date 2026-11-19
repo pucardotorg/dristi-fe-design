@@ -274,7 +274,7 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
             Your week ahead
           </h2>
           <span className="text-caption font-medium text-muted-foreground tabular-nums">
-            {plural(hearings, "hearing", "hearings")} · {plural(tasks, "task", "tasks")} due
+            {plural(hearings, "hearing", "hearings")} · {plural(tasks, "task", "tasks")}
           </span>
         </CardTitle>
       </CardHeader>
@@ -310,13 +310,17 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                 </span>
                 {/* Bars stand on one hairline across the week. */}
                 <span aria-hidden="true" className="flex flex-1 items-end justify-center gap-1 border-b border-hairline">
-                  {/* Hearings: the bookmarked part at the base, the rest lighter above it. */}
+                  {/* Hearings: the bookmarked part at the base, the rest lighter above it. One scale for
+                      both bars, so a day reads as "8 hearings and 3 tasks" (owner, 2026-11-19).
+                      Any bar is at least 4px so a small day beside a big one still shows; the
+                      bookmarked part is always its true share of the bar (flex-grow), never a
+                      fixed floor that would overstate it. */}
                   <span className="flex h-full w-3 flex-col items-center justify-end gap-0.5">
                     {/* ds-typography-allow: bar counts a step under caption (11px), owner 2026-11-19. */}
                     <span className="text-[0.6875rem] leading-4 font-semibold tabular-nums">{d.hearings}</span>
                     <span
                       className="flex w-full flex-col overflow-hidden rounded-t-xs"
-                      style={{ height: `calc((100% - 1.25rem) * ${d.hearings / max})`, minHeight: d.hearings ? 2 : 0 }}
+                      style={{ height: `calc((100% - 1.25rem) * ${d.hearings / max})`, minHeight: d.hearings ? 4 : 0 }}
                     >
                       <span className="w-full bg-chart-1/40" style={{ flexGrow: plain }} />
                       <span className="w-full bg-chart-1" style={{ flexGrow: d.bookmarked }} />
@@ -327,7 +331,7 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                     <span className="text-[0.6875rem] leading-4 font-medium text-muted-foreground tabular-nums">{d.tasks}</span>
                     <span
                       className="w-full rounded-t-xs bg-muted-foreground/50"
-                      style={{ height: `calc((100% - 1.25rem) * ${d.tasks / max})`, minHeight: d.tasks ? 2 : 0 }}
+                      style={{ height: `calc((100% - 1.25rem) * ${d.tasks / max})`, minHeight: d.tasks ? 4 : 0 }}
                     />
                   </span>
                 </span>
