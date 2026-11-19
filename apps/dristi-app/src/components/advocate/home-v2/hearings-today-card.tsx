@@ -829,7 +829,8 @@ function CourtTimeline({ court: c }: { court: CourtHearings }) {
    also gets a 1px inset edge in the heard grey, softened, so the pale dot holds its shape on white
    (owner, 2026-11-19: too light). Inset, so the dot's size doesn't change. */
 const UPCOMING_FILL = "bg-border/70 ring-1 ring-inset ring-input/60";
-const HEARD_FILL = "bg-input";
+/* Heard gets the same 1px inset edge, one grey darker again (owner, 2026-11-19). */
+const HEARD_FILL = "bg-input ring-1 ring-inset ring-muted-foreground/40";
 const NUMBER = "absolute top-full mt-1 text-caption font-medium tabular-nums";
 
 /** Plain dots and folds explain themselves on hover only; the row's screen-reader line already says it all. */
