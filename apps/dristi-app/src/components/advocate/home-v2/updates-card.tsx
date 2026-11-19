@@ -84,7 +84,7 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
   const total = updates.length;
 
   return (
-    <Card variant="raised" role="region" aria-labelledby="home-updates" className="min-w-0 gap-3 xl:h-104">
+    <Card variant="raised" role="region" aria-labelledby="home-updates" className="min-w-0 gap-3">
       {/* No column gap: the count's own padding spaces it, and the title needs every pixel to stay
           on one line in the narrow right column at 1280. */}
       <CardHeader className="items-center gap-x-0">
@@ -105,9 +105,9 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
       <CardContent
         ref={root}
         className="flex min-h-0 flex-1 flex-col gap-2"
-        onPointerEnter={(e) => e.pointerType === "mouse" && setHover(true)}
-        onPointerLeave={() => setHover(false)}
-        onFocus={() => setFocusIn(true)}
+        /* Pauses only for keyboard focus: a mouse click on an arrow or dot leaves focus on that
+           button, and it used to keep the carousel stopped after the pointer had left. */
+        onFocus={(e) => setFocusIn(e.target.matches(":focus-visible"))}
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocusIn(false);
         }}
@@ -118,12 +118,13 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
               setApi={setApi}
               opts={{ loop: slides.length > 1, align: "start" }}
               aria-label="Updates on your cases"
-              /* The slide fills the card's fixed height: the carousel's viewport and track stretch. */
-              className="flex min-h-0 flex-1 flex-col [&>[data-slot=carousel-content]]:flex-1"
+              /* Hover pauses it only over the slide and its arrows, not the card's padding. */
+              onPointerEnter={(e) => e.pointerType === "mouse" && setHover(true)}
+              onPointerLeave={() => setHover(false)}
             >
-              <CarouselContent className="h-full">
+              <CarouselContent>
                 {slides.map((u, i) => (
-                  <CarouselItem key={u.id} aria-label={`${i + 1} of ${slides.length}`} className="h-full">
+                  <CarouselItem key={u.id} aria-label={`${i + 1} of ${slides.length}`}>
                     <Slide update={u} now={now} fine={fine} onOpen={() => openList(u.id)} />
                   </CarouselItem>
                 ))}
@@ -186,55 +187,62 @@ function CountButton({ total, onClick, className }: { total: number; onClick: ()
 /** A round arrow floating on one edge of the slide, half over it. */
 function SideArrow({ side, fine, onClick }: { side: "left" | "right"; fine: boolean; onClick: () => void }) {
   const Icon = side === "left" ? ChevronLeftIcon : ChevronRightIcon;
+  /* The wrapper does the centring; the button keeps only its own 1px press. (Centring the button
+     itself let its press transform replace the -50% offset, so it jumped half its height.) */
   return (
-    <Button
-      variant="outline"
-      size="icon-xs"
-      aria-label={side === "left" ? "Previous update" : "Next update"}
-      onClick={onClick}
+    <span
       className={cn(
-        "absolute top-1/2 z-10 -translate-y-1/2 rounded-full bg-card shadow-sm",
+        "absolute top-1/2 z-10 flex -translate-y-1/2",
         side === "left" ? "left-0 -translate-x-1/2" : "right-0 translate-x-1/2",
-        fine ? "size-8" : "size-7",
       )}
     >
-      <Icon className="size-4" />
-    </Button>
+      <Button
+        variant="outline"
+        size="icon-xs"
+        aria-label={side === "left" ? "Previous update" : "Next update"}
+        onClick={onClick}
+        className={cn("rounded-full bg-card shadow-sm", fine ? "size-8" : "size-7")}
+      >
+        <Icon className="size-4" />
+      </Button>
+    </span>
   );
 }
 
 /**
- * One update, filling the slide (owner, 2026-11-19: no empty middle). Top: its category, the same
- * grey badge as the case's own updates, and a bookmark for a bookmarked case. Middle: what
- * happened, as the headline. Bottom: the case number, the parties and when. The whole slide is the
+ * One update, filling the slide (owner, 2026-11-19: no empty middle). Top: its category (the same
+ * grey badge as the case's own updates) and when. Middle: what happened, as the headline. Bottom:
+ * the case number with a bookmark for a bookmarked case, then the parties. The whole slide is the
  * target: a link to the case's history with a mouse, a button opening the full list on touch.
  */
 function Slide({ update: u, now, fine, onOpen }: { update: CaseUpdate; now: Date; fine: boolean; onOpen: () => void }) {
   const body = (
     <>
+      {/* Top: what kind of update, and when it happened, a stat of its own (owner, 2026-11-19). */}
       <span className="flex w-full items-center justify-between gap-2">
         <Badge variant="secondary">{u.category}</Badge>
-        {u.bookmarked ? (
-          <span className="flex items-center text-muted-foreground">
-            <BookmarkIcon aria-hidden="true" className="size-4 fill-current" />
-            <span className="sr-only">Bookmarked case</span>
-          </span>
-        ) : null}
+        <span className="text-caption font-medium whitespace-nowrap text-muted-foreground tabular-nums">{whenLabel(u.at, now)}</span>
       </span>
       {/* Pretty, not balanced: balanced wrapping split short headlines oddly on wide cards (iPad). */}
       <span className="line-clamp-3 text-title-s font-semibold text-pretty text-foreground">{u.what}</span>
+      {/* Bottom: the case number (with its bookmark), then the parties. */}
       <span className="mt-auto flex w-full min-w-0 flex-col gap-0.5">
-        <span className="text-caption font-semibold text-foreground tabular-nums">{u.caseNumber}</span>
-        <span className="flex min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
-          <span className="truncate">{u.caseTitle}</span>
-          <span aria-hidden="true">·</span>
-          <span className="shrink-0 whitespace-nowrap tabular-nums">{whenLabel(u.at, now)}</span>
+        <span className="flex items-center gap-1.5 text-caption font-semibold text-foreground tabular-nums">
+          {u.bookmarked ? (
+            <>
+              <BookmarkIcon aria-hidden="true" className="size-3.5 shrink-0 fill-current text-muted-foreground" />
+              <span className="sr-only">Bookmarked case. </span>
+            </>
+          ) : null}
+          {u.caseNumber}
         </span>
+        <span className="truncate text-caption text-muted-foreground">{u.caseTitle}</span>
       </span>
     </>
   );
   const look =
-    "flex h-full min-h-44 w-full flex-col items-start gap-3 rounded-xl bg-surface-sunken px-6 py-4 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring";
+    /* A fixed 208px on every screen: the card's height never changes with the update shown. */
+    "flex h-52 w-full flex-col items-start gap-3 rounded-xl bg-surface-sunken px-6 py-4 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring";
   return fine ? (
     <Link href={updateHref(u)} className={look}>
       {body}
@@ -262,7 +270,8 @@ function Dots({ slides, at, onPick }: { slides: CaseUpdate[]; at: number; onPick
             aria-label={`Update ${i + 1} of ${slides.length}${u.bookmarked ? ", bookmarked case" : ""}`}
             aria-current={on ? "true" : undefined}
             onClick={() => onPick(i)}
-            className="flex size-6 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-focus-ring"
+            /* 16px apart (owner, 2026-11-19), still 24px tall to tap. */
+            className="flex h-6 w-4 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-focus-ring"
           >
             {u.bookmarked ? (
               <BookmarkIcon
