@@ -251,14 +251,14 @@ export function DashboardHomeV2({
                 <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />
                 <TodosCard tasks={day.tasks} today={day.today} onAct={act} />
               </div>
-              {/* 768 to 1279px (iPad Pro upright, iPad mini sideways): Updates and Your week ahead side
+              {/* 1024 to 1279px (iPad Pro upright, iPad mini sideways): Updates and Your week ahead side
                   by side, Recent cases under them; a carousel stretched across an iPad read empty
                   (owner, 2026-11-19). Desktop: one column that sticks once its end is in view, while
                   the left column scrolls on (owner, 2026-11-19). */}
-              <StickyColumn className="flex min-w-0 flex-col gap-6 md:grid md:grid-cols-2 xl:flex">
+              <StickyColumn className="flex min-w-0 flex-col gap-6 lg:grid lg:grid-cols-2 xl:flex">
                 <UpdatesCarouselCard updates={updates} now={nowDate} />
                 <ComingUpCard day={day} />
-                <RecentCasesCard today={day.today} className="md:col-span-2" />
+                <RecentCasesCard today={day.today} className="lg:col-span-2" />
               </StickyColumn>
             </div>
           </>
