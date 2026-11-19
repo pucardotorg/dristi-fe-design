@@ -128,7 +128,7 @@ export function TodosCard({
                     <section
                       key={g.key}
                       aria-labelledby={`todo-${g.key}`}
-                      className="flex flex-col not-first:mt-1 not-first:border-t not-first:border-hairline not-first:pt-3"
+                      className="flex flex-col not-first:mt-1 not-first:border-t not-first:border-hairline not-first:pt-4"
                     >
                       <h3 id={`todo-${g.key}`} className={cn("text-body-compact font-semibold", TONE[g.key].ink)}>
                         {/* Each group's full count rides its heading (owner, 2026-11-19: the legend row

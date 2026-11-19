@@ -1,5 +1,7 @@
 "use client";
 
+import "./hearings.css";
+
 import * as React from "react";
 import Link from "next/link";
 import { ArrowRightIcon, BookmarkIcon, CalendarXIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
@@ -659,7 +661,8 @@ function Live({ item, mine }: { item: number; mine?: HearingMine }) {
   }, []);
   const size = String(item).length > 2 ? "size-6" : "size-5";
   const pill = (
-    <span aria-hidden="true" className="relative flex size-4 shrink-0 items-center justify-center">
+    /* Pops in last, after your items (hearings.css). */
+    <span aria-hidden="true" className="hearing-pop hearing-pop-live relative flex size-4 shrink-0 items-center justify-center">
       <span
         /* Pin every pulse to the page clock's start, so all courts pulse together. Done each time
            the animation actually starts (first paint, a remount, a court shown later), not once on
@@ -878,7 +881,14 @@ function Dot({ part: p }: { part: Extract<TrackPart, { kind: "dot" }> }) {
         p.mine || p.label ? "w-4 shrink-0" : "w-4 min-w-2 shrink",
       )}
     >
-      {p.mine ? <Ring mine={p.mine} fill={fill} heard={p.state === "heard"} /> : <span className={cn("relative size-2 rounded-full", fill)} />}
+      {p.mine ? (
+        /* Your items pop in after the line is drawn (hearings.css). */
+        <span className="hearing-pop relative flex">
+          <Ring mine={p.mine} fill={fill} heard={p.state === "heard"} />
+        </span>
+      ) : (
+        <span className={cn("relative size-2 rounded-full", fill)} />
+      )}
       {p.label ? (
         <span className={cn(NUMBER, p.mine && p.state !== "heard" ? (p.mine.pending ? "text-destructive-ink" : "text-success-ink") : "text-muted-foreground")}>
           {p.item}

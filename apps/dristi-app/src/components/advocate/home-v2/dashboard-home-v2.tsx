@@ -395,8 +395,25 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
   const hearings = week.reduce((n, d) => n + d.hearings, 0);
   const tasks = week.reduce((n, d) => n + d.tasks, 0);
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  /* The bars grow in the first time the card is on screen (week.css). */
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [play, setPlay] = React.useState(false);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) {
+        setPlay(true);
+        io.disconnect();
+      }
+    }, { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   return (
     <Card
+      ref={ref}
+      data-play={play}
       variant="raised"
       role="region"
       aria-labelledby="home-week"
@@ -460,7 +477,7 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                       style={{
                         height: `calc((100% - 1.25rem) * ${d.hearings / max})`,
                         minHeight: d.hearings ? 4 : 0,
-                        animationDelay: `${i * 50}ms`,
+                        animationDelay: `${i * 90}ms`,
                       }}
                     >
                       <span className="w-full bg-chart-1/40" style={{ flexGrow: plain }} />
@@ -486,7 +503,7 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                       style={{
                         height: `calc((100% - 1.25rem) * ${d.tasks / max})`,
                         minHeight: d.tasks ? 4 : 0,
-                        animationDelay: `${i * 50 + 25}ms`,
+                        animationDelay: `${i * 90 + 45}ms`,
                       }}
                     />
                   </span>
