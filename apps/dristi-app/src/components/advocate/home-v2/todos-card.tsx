@@ -94,7 +94,14 @@ export function TodosCard({
         <SegmentedControl
           type="single"
           value={tab}
-          onValueChange={(v) => v && setTab(v as Tab)}
+          /* Switching tabs closes anything opened with "Show N more", so the hidden tab is always
+             short and only the tab in view can make the card grow (owner, 2026-11-19: an opened
+             Waiting list kept Urgent's card tall). */
+          onValueChange={(v) => {
+            if (!v) return;
+            setTab(v as Tab);
+            setOpen({});
+          }}
           aria-label="Which to-dos"
           /* Compact (32px well) so it's slimmer than a form control, with each pill filling its
              half end to end; the DS compact pill hugs its label by default (owner, 2026-11-19). */
