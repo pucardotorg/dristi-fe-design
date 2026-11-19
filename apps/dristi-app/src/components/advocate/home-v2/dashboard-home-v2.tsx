@@ -303,7 +303,7 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
           </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-4">
         {/* The bookmarked share is the base of each hearings bar, in full court colour, not a
             mark floating above it (owner, 2026-11-19). */}
         <ul aria-label="Legend" className="flex flex-wrap gap-x-4 gap-y-1">
