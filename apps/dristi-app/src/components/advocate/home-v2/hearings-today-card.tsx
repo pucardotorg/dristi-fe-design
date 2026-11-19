@@ -627,7 +627,8 @@ function LiveDot({ mine }: { mine?: HearingMine }) {
       <span
         className={cn(
           "relative size-3 rounded-full bg-success",
-          mine && "outline-2 outline-offset-2",
+          /* 1.5px: a 2px ring around the live mark read heavy (owner, 2026-11-19). */
+          mine && "outline-[1.5px] outline-offset-2",
           mine && (mine.pending ? "outline-destructive" : "outline-success"),
         )}
       />
@@ -676,7 +677,8 @@ function Live({ item, mine }: { item: number; mine?: HearingMine }) {
           // ds-typography-allow (10px numeral, see above)
           "relative flex shrink-0 items-center justify-center rounded-full bg-success text-[10px] leading-none font-semibold text-success-foreground tabular-nums",
           size,
-          mine && "outline-2 outline-offset-2",
+          /* 1.5px: a 2px ring around the live mark read heavy (owner, 2026-11-19). */
+          mine && "outline-[1.5px] outline-offset-2",
           mine && (mine.pending ? "outline-destructive" : "outline-success"),
         )}
       >
