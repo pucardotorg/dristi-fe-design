@@ -300,6 +300,14 @@ function useBudget() {
  * (a fifth on phones) on every row, so the live pills stack on one column. Before the court sits,
  * the line simply runs from item 1, like every other court's.
  */
+/**
+ * The court tags' look: a step under the DS badge (owner, 2026-11-19): 18px tall, 11px text, a
+ * 10px tick. 11px is below the 12px caption role, reviewed as for the refresh caption: a short
+ * status label beside a name, not running text. ds-typography-allow
+ */
+// ds-typography-allow (11px tag label, see above)
+const TAG_LOOK = "h-4.5 px-1.5 text-[11px] [&>svg]:size-2.5!";
+
 /** The tag after a court's name, and what its hover says. None for a court with your items to come. */
 const TAGS = {
   notStarted: { label: "Not started", hint: "Not in session yet", tone: "court" },
@@ -347,7 +355,7 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
             20px tall, -my-0.5 keeps it centred on the 16px name line. */}
         {tag ? (
           <Hint text={tag.hint}>
-            <Badge variant={tag.tone === "you" ? "success" : "secondary"} className="-my-0.5 h-5 px-1.5">
+            <Badge variant={tag.tone === "you" ? "success" : "secondary"} className={cn("-my-px", TAG_LOOK)}>
               {tag.tone === "you" ? <CheckIcon data-icon="inline-start" aria-hidden="true" /> : null}
               {tag.label}
             </Badge>
@@ -535,7 +543,7 @@ function CourtSheet({
           <div className="flex min-w-0 items-start gap-2">
             <DrawerTitle className="text-left">{c.court}</DrawerTitle>
             {tag ? (
-              <Badge variant={tag.tone === "you" ? "success" : "secondary"} className="h-5 px-1.5">
+              <Badge variant={tag.tone === "you" ? "success" : "secondary"} className={TAG_LOOK}>
                 {tag.tone === "you" ? <CheckIcon data-icon="inline-start" aria-hidden="true" /> : null}
                 {tag.label}
               </Badge>
