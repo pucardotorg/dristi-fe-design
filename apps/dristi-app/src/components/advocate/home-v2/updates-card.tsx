@@ -215,12 +215,13 @@ function SideArrow({ side, fine, onClick }: { side: "left" | "right"; fine: bool
 }
 
 /**
- * The slide's surface (owner, 2026-11-19: the plain grey read as a wireframe). A quiet wash of the
- * brand green from the top left, fading into the card's own grey, with a hairline edge. Hover
- * deepens the green a step. Tokens only, so dark mode follows.
+ * The slide's surface (owner, 2026-11-19: plain grey read as a wireframe; then the brand mint
+ * fading into warm grey read as blue on beige). One hue only: a soft true green from the top left
+ * fading into the card's white, with a hairline edge. Hover deepens the green a step. Tokens only,
+ * so dark mode follows.
  */
 const SLIDE_SKIN =
-  "rounded-xl border border-hairline bg-linear-to-br from-brand-muted via-surface-sunken to-surface-sunken outline-none transition-colors hover:from-brand-muted-hover focus-visible:ring-3 focus-visible:ring-focus-ring";
+  "rounded-xl border border-hairline bg-linear-to-br from-success-muted via-card to-card outline-none transition-colors hover:from-success-muted-hover focus-visible:ring-3 focus-visible:ring-focus-ring";
 
 /**
  * The last slide when there are more updates than slides: how many more, and the way to all of
@@ -256,8 +257,8 @@ function Slide({ update: u, now, fine, onOpen }: { update: CaseUpdate; now: Date
     <>
       {/* Top: what kind of update, and when it happened, a stat of its own (owner, 2026-11-19). */}
       <span className="flex w-full items-center justify-between gap-2">
-        {/* A hairline edge so the grey tag holds its shape on the grey slide (owner, 2026-11-19). */}
-        <Badge variant="secondary" className="border-hairline">
+        {/* A white tag with a hairline edge, so it holds its shape on the green wash. */}
+        <Badge variant="outline" className="border-hairline bg-card">
           {u.category}
         </Badge>
         <span className="text-caption font-medium whitespace-nowrap text-muted-foreground tabular-nums">{whenLabel(u.at, now)}</span>
@@ -346,7 +347,11 @@ function Dots({ slides, more, at, onPick }: { slides: CaseUpdate[]; more: boolea
           <PlusIcon
             aria-hidden="true"
             strokeWidth={3}
-            className={cn("size-2.5 transition-colors", at === slides.length ? "text-foreground" : "text-input")}
+            /* Grows when its slide is showing, as a dot widens to a pill (owner, 2026-11-19). */
+            className={cn(
+              "transition-all motion-reduce:transition-none",
+              at === slides.length ? "size-3.5 text-foreground" : "size-2.5 text-input",
+            )}
           />
         </button>
       ) : null}
