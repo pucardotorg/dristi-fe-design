@@ -395,7 +395,8 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
       <div
         data-state={state}
         className={cn("qa-fab fixed right-4 z-40 xl:hidden", !show && "pointer-events-none")}
-        style={{ bottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}
+        /* 24px up from the bottom (owner, 2026-11-19: 16px sat too low), plus the home bar. */
+        style={{ bottom: "calc(var(--spacing) * 6 + env(safe-area-inset-bottom))" }}
         inert={!show}
       >
         <QuickActionsDrawer>
@@ -420,33 +421,54 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
         </QuickActionsDrawer>
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 z-40 flex justify-center max-xl:hidden" style={{ top }} inert={!show}>
-        <nav
-          aria-label="Quick actions"
-          data-state={state}
-          /* The filled court colour, as the phone button and primary buttons, so it stands out over
-             the white cards; hairlines between the four (owner, 2026-11-19). */
-          className={cn(
-            "qa-bar flex items-center divide-x divide-primary-foreground/20 rounded-full bg-primary p-1 text-primary-foreground shadow-overlay [&>*]:px-1 [&>*:first-child]:pl-0 [&>*:last-child]:pr-0",
-            show && "pointer-events-auto",
-          )}
-        >
-          {START.map(({ label, href, icon: Icon }) => (
-            <span key={label} className="flex">
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className="rounded-full text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground focus-visible:ring-primary-foreground/50"
-              >
-                <Link href={href} onClick={href === "/vakalatnama" ? newVak : undefined}>
-                  <Icon data-icon="inline-start" aria-hidden="true" className="opacity-80" />
-                  {label}
-                </Link>
-              </Button>
-            </span>
-          ))}
-        </nav>
+      {/* Desktop: top right. It arrives as the full bar, then folds into its "+" (as the phone
+          button does); "+" unfolds it again and turns into an "x" to fold it (owner,
+          2026-11-19). The fold is a clip from the whole pill to the circle at its right end, so the
+          bar slides shut into the button. The shadow sits on a wrapper (drop-shadow follows the
+          clipped shape; a box-shadow on the pill itself was clipped away). */}
+      <div
+        data-state={state}
+        className={cn("qa-bar fixed right-6 z-40 max-xl:hidden", !show && "pointer-events-none")}
+        style={{ top }}
+        inert={!show}
+      >
+        <div className="drop-shadow-lg">
+          <div
+            className="flex items-center rounded-full bg-primary p-1 text-primary-foreground transition-[clip-path] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+            style={{ clipPath: wide ? "inset(0 round 9999px)" : "inset(0 0 0 calc(100% - 44px) round 9999px)" }}
+          >
+            <nav aria-label="Quick actions" inert={!wide} className="flex items-center divide-x divide-primary-foreground/20 pr-1">
+              {START.map(({ label, href, icon: Icon }) => (
+                <span key={label} className="flex px-1 first:pl-0">
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    /* A clear lighter wash on hover, readable on the court colour. */
+                    className="rounded-full text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground focus-visible:ring-primary-foreground/50"
+                  >
+                    <Link href={href} onClick={href === "/vakalatnama" ? newVak : undefined}>
+                      <Icon data-icon="inline-start" aria-hidden="true" className="opacity-80" />
+                      {label}
+                    </Link>
+                  </Button>
+                </span>
+              ))}
+            </nav>
+            <Button
+              size="icon"
+              aria-label={wide ? "Fold quick actions" : "Quick actions"}
+              aria-expanded={wide}
+              onClick={() => setWide((w) => !w)}
+              className="size-9 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary-foreground/20"
+            >
+              <PlusIcon
+                aria-hidden="true"
+                className={cn("size-5 transition-transform duration-300 motion-reduce:transition-none", wide && "rotate-45")}
+              />
+            </Button>
+          </div>
+        </div>
       </div>
     </>
   );
