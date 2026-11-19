@@ -387,3 +387,46 @@ function lay(
   });
   return parts;
 }
+
+/* ── The court drawer's vertical line (touch) ─────────────────────────────── */
+
+export type TimelineEntry =
+  | {
+      kind: "point";
+      item: number;
+      /** first: item 1 · live: being heard · mine: one of yours · last: the list's end. */
+      role: "first" | "live" | "mine" | "last";
+      mine?: HearingMine;
+      heard: boolean;
+    }
+  | { kind: "gap"; from: number; to: number; heard: boolean };
+
+/**
+ * The card's line turned on its side, for the court drawer: item 1, the live item, each of your
+ * items and the last item as points; everything between as gaps that say how many items they
+ * hold. Unlike the card it never folds your items away: the drawer scrolls.
+ */
+export function courtTimeline(raw: CourtHearings): TimelineEntry[] {
+  const c = normalizeCourt(raw);
+  const heardAt = (i: number) => Boolean(c.finished) || (c.now > 0 && i < c.now);
+  const mineAt = new Map(c.mine.map((m) => [m.item, m]));
+  const points = [...new Set<number>([1, c.last, ...(c.now && !c.finished ? [c.now] : []), ...c.mine.map((m) => m.item)])].sort(
+    (a, b) => a - b,
+  );
+  const out: TimelineEntry[] = [];
+  points.forEach((item, i) => {
+    const mine = mineAt.get(item);
+    const live = !c.finished && c.now > 0 && item === c.now;
+    out.push({
+      kind: "point",
+      item,
+      role: live ? "live" : mine ? "mine" : item === 1 ? "first" : "last",
+      mine,
+      heard: heardAt(item),
+    });
+    const next = points[i + 1];
+    if (next !== undefined && next - item > 1) out.push({ kind: "gap", from: item + 1, to: next - 1, heard: heardAt(next - 1) });
+  });
+  return out;
+}
+

@@ -13,6 +13,7 @@ import {
   naturalCost,
   squeezedCost,
   courtStatus,
+  courtTimeline,
   hearingCount,
   isTomorrow,
   nextWorkingDay,
@@ -415,3 +416,30 @@ describe("demo data", () => {
     for (const c of [...DEMO_COURTS, ...DEMO_NEXT_COURTS]) for (const b of [9, 12, 18, 25]) assertInvariants(c, b);
   });
 });
+
+describe("courtTimeline (touch drawer)", () => {
+  const items = (c: CourtHearings) =>
+    courtTimeline(c).flatMap((e) => (e.kind === "point" ? [e.item] : Array.from({ length: e.to - e.from + 1 }, (_, i) => e.from + i)));
+
+  it("covers the whole list once, in order, for any court", () => {
+    const r = rng(7);
+    for (let n = 0; n < 2000; n++) {
+      const last = 1 + Math.floor(r() * 120);
+      const now = r() < 0.2 ? 0 : Math.floor(r() * (last + 1));
+      const mine = Array.from({ length: Math.floor(r() * 12) }, () => 1 + Math.floor(r() * last));
+      const c = court(now, last, mine, { finished: r() < 0.1 });
+      const n2 = normalizeCourt(c);
+      assert.deepEqual(items(c), Array.from({ length: n2.last }, (_, i) => i + 1));
+      for (const m of n2.mine) assert.ok(courtTimeline(c).some((e) => e.kind === "point" && e.item === m.item && e.mine));
+    }
+  });
+
+  it("reads like the card: 1, heard gap, live, gap, yours, gap, last", () => {
+    const t = courtTimeline(court(17, 50, [17, 19, 20]));
+    assert.deepEqual(
+      t.map((e) => (e.kind === "point" ? `${e.role}:${e.item}` : `${e.heard ? "heard" : "tocome"}:${e.from}-${e.to}`)),
+      ["first:1", "heard:2-16", "live:17", "tocome:18-18", "mine:19", "mine:20", "tocome:21-49", "last:50"],
+    );
+  });
+});
+
