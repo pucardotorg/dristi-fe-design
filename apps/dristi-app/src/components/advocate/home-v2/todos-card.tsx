@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRightIcon, BookmarkIcon, CheckCheckIcon, GavelIcon, UserCheckIcon } from "lucide-react";
+import { ArrowRightIcon, BookmarkIcon, CheckCheckIcon, ChevronDownIcon, GavelIcon, UserCheckIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,12 +53,21 @@ export function TodosCard({
   /* Opens on Urgent when anything is overdue or due today, otherwise on Waiting on you. */
   const [tab, setTab] = React.useState<Tab>(() => (pressing > 0 || !waiting.length ? "urgent" : "waiting"));
 
-  /* Fill the rows in group order: overdue first, then today, then the next working day. */
-  const shown = groups.map((g, i) => {
-    const before = groups.slice(0, i).reduce((n, x) => n + x.tasks.length, 0);
-    return { ...g, shown: g.tasks.slice(0, Math.max(0, ROWS - before)) };
-  });
-  const more = tab === "urgent" ? Math.max(0, urgentCount - ROWS) : Math.max(0, waiting.length - ROWS);
+  /* "Show N more" opens a tab's whole list in place, as Your hearings does with its courts. */
+  const [all, setAll] = React.useState<Record<Tab, boolean>>({ urgent: false, waiting: false });
+
+  /* Overdue and due today always show in full: hiding either would hide what is pressing (owner,
+     2026-11-19). The next working day fills what is left of the six rows; the rest wait behind
+     "Show N more". */
+  const shown = groups.map((g) => ({
+    ...g,
+    shown: all.urgent || g.key !== "tomorrow" ? g.tasks : g.tasks.slice(0, Math.max(0, ROWS - pressing)),
+  }));
+  const hidden = {
+    urgent: urgentCount - shown.reduce((n, g) => n + g.shown.length, 0),
+    waiting: all.waiting ? 0 : Math.max(0, waiting.length - ROWS),
+  };
+  const expandable = hidden[tab] > 0 || all[tab];
 
   return (
     <Card variant="raised" role="region" aria-labelledby="home-todos" className={cn("w-full min-w-0 gap-4", className)}>
@@ -74,6 +83,8 @@ export function TodosCard({
           value={tab}
           onValueChange={(v) => v && setTab(v as Tab)}
           aria-label="Which to-dos"
+          /* Compact: a 32px well, so the toggle doesn't outweigh the title (owner, 2026-11-19). */
+          size="compact"
           className="w-full sm:w-1/2 [&>*]:flex-1"
         >
           <SegmentedControlItem value="urgent">
@@ -131,7 +142,7 @@ export function TodosCard({
             <>
               <p className="text-caption font-medium text-muted-foreground tabular-nums">{waitingSummary(waiting, today)}</p>
               <ul className="flex flex-col">
-                {waiting.slice(0, ROWS).map((t) => (
+                {(all.waiting ? waiting : waiting.slice(0, ROWS)).map((t) => (
                   <WaitingRow key={t.id} task={t} today={today} onAct={onAct} />
                 ))}
               </ul>
@@ -144,7 +155,24 @@ export function TodosCard({
 
       {/* Footer as on Your hearings: what's left on the left, where it all lives on the right. */}
       <CardFooter className="justify-between gap-4 py-3">
-        {more ? <span className="text-caption font-medium text-muted-foreground tabular-nums">+{more} more</span> : <span />}
+        {expandable ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-ml-3"
+            aria-expanded={all[tab]}
+            onClick={() => setAll((a) => ({ ...a, [tab]: !a[tab] }))}
+          >
+            {all[tab] ? "Show fewer" : `Show ${hidden[tab]} more ${hidden[tab] === 1 ? "task" : "tasks"}`}
+            <ChevronDownIcon
+              data-icon="inline-end"
+              aria-hidden="true"
+              className={cn("motion-safe:transition-transform", all[tab] && "rotate-180")}
+            />
+          </Button>
+        ) : (
+          <span />
+        )}
         <Button asChild variant="outline" size="sm" className="-mr-3">
           <Link href={tab === "waiting" ? `${TASKS_HREF}?view=waiting` : TASKS_HREF}>
             Take action
