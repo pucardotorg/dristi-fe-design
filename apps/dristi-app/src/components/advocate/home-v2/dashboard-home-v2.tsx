@@ -17,7 +17,7 @@ import { UpdatesCard as UpdatesCarouselCard } from "@/components/advocate/home-v
 import { TodosCard } from "@/components/advocate/home-v2/todos-card";
 import { demoUpdates } from "@/components/advocate/home-v2/updates";
 import { notify } from "@/components/feedback";
-import { PANEL_CLASS } from "@/components/shell/panel";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -145,18 +145,26 @@ export function DashboardHomeV2({
   return (
     <main className="@container flex min-w-0 flex-1 flex-col bg-muted dark:bg-background">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-6 pb-12 lg:gap-8 lg:px-6 lg:pt-8">
-        <header className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-title font-semibold tracking-tight text-balance">
-            {greetingFor(hour)}, {firstName}
-          </h1>
-          <p className="text-body-compact text-muted-foreground">
-            {longDay(base.today)}
-          </p>
+        {/* The date box from the Hearings home (still, it doesn't change day here), the greeting
+            beside it, and the four ways to start something as slim buttons on the right (owner,
+            2026-11-19: the launcher's row of big cards pushed every card down). */}
+        <header className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+          <div className="flex min-w-0 items-center gap-6">
+            <TodayBox now={nowDate} />
+            <span aria-hidden="true" className="hidden h-18 w-px shrink-0 bg-hairline lg:block" />
+            <div className="flex min-w-0 flex-col gap-1">
+              <h1 className="text-title font-semibold tracking-tight text-balance">
+                {greetingFor(hour)}, {firstName}
+              </h1>
+              <p className="text-body-compact text-muted-foreground lg:sr-only">{longDay(base.today)}</p>
+            </div>
+          </div>
+          <QuickActions />
         </header>
 
         {card ? (
           <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-6">
-            {card === "launcher" ? <Launcher /> : null}
+            {card === "launcher" ? <QuickActions /> : null}
             {card === "1" ? (
               <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />
             ) : null}
@@ -167,10 +175,6 @@ export function DashboardHomeV2({
           </div>
         ) : (
           <>
-            <Blank>
-              <Launcher />
-            </Blank>
-
             {/* Left: Your hearings, then Your to-dos (owner, 2026-11-19: it was cramped beside
                 hearings). Right: Updates, then Coming up (still blanked). Must do today and
                 Waiting on you merged into Your to-dos; Insights is out of draft 2 for this release
@@ -278,32 +282,22 @@ function HomeCard({
 
 /* ── Launcher ─────────────────────────────────────────────────────────── */
 
-function Launcher() {
+/**
+ * The four ways to start something, as slim outline buttons (owner, 2026-11-19). Right of the
+ * greeting on a desktop; under it on a phone or iPad, two to a row on a phone.
+ */
+function QuickActions() {
   return (
-    <nav aria-label="Start something">
-      <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        {START.map(({ label, hint, href, icon: Icon }) => (
+    <nav aria-label="Start something" className="min-w-0">
+      <ul className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
+        {START.map(({ label, href, icon: Icon }) => (
           <li key={label} className="flex min-w-0">
-            <Link
-              href={href}
-              className={cn(
-                "group/start flex min-w-0 flex-1 flex-col gap-3 rounded-xl border bg-card p-4 outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none",
-                PANEL_CLASS,
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className="flex size-10 items-center justify-center rounded-lg border border-hairline bg-surface-sunken text-foreground group-hover/start:bg-card"
-              >
-                <Icon className="size-5" />
-              </span>
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-body font-semibold">{label}</span>
-                <span className="text-caption font-medium text-muted-foreground">
-                  {hint}
-                </span>
-              </span>
-            </Link>
+            <Button asChild variant="outline" size="sm" className="w-full bg-card pointer-coarse:h-10">
+              <Link href={href}>
+                <Icon data-icon="inline-start" aria-hidden="true" />
+                <span className="truncate">{label}</span>
+              </Link>
+            </Button>
           </li>
         ))}
       </ul>
@@ -311,8 +305,27 @@ function Launcher() {
   );
 }
 
-
-
+/**
+ * Today's date as the Hearings home draws it on a desktop: the month above, the day in a white
+ * box, the weekday below, in the brand tint that means "today". Still here: no arrows, no scrub,
+ * no calendar. Desktops only, as there; phones and iPads keep the date line under the greeting.
+ */
+function TodayBox({ now }: { now: Date }) {
+  const fmt = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", ...o }).format(now);
+  return (
+    <div aria-hidden="true" className="hidden w-20 shrink-0 flex-col items-center gap-1.5 lg:flex">
+      {/* ds-typography-allow: the Hearings home's month label, a step under caption (11px). */}
+      <p className="text-[0.6875rem] leading-4 font-semibold tracking-wide text-brand-muted-foreground uppercase">
+        {fmt({ month: "short", year: "numeric" })}
+      </p>
+      <div className="flex h-18 w-full items-center justify-center rounded-xl border border-hairline bg-card text-brand-muted-foreground">
+        {/* ds-typography-allow: the Hearings home's date size, larger than the DS display role. */}
+        <span className="text-[3.5rem] leading-none font-semibold tracking-tight tabular-nums">{fmt({ day: "2-digit" })}</span>
+      </div>
+      <p className="text-body-compact text-muted-foreground">{fmt({ weekday: "long" })}</p>
+    </div>
+  );
+}
 
 /* ── ⑤ Coming up ──────────────────────────────────────────────────────── */
 
