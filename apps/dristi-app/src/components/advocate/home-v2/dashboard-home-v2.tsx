@@ -19,6 +19,7 @@ import { TodosCard } from "@/components/advocate/home-v2/todos-card";
 import { demoUpdates } from "@/components/advocate/home-v2/updates";
 import { notify } from "@/components/feedback";
 import { PANEL_CLASS } from "@/components/shell/panel";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Card,
   CardContent,
@@ -323,7 +324,18 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                       style={{ height: `calc((100% - 1.25rem) * ${d.hearings / max})`, minHeight: d.hearings ? 4 : 0 }}
                     >
                       <span className="w-full bg-chart-1/40" style={{ flexGrow: plain }} />
-                      <span className="w-full bg-chart-1" style={{ flexGrow: d.bookmarked }} />
+                      {/* Hover the bookmarked part for its count (owner, 2026-11-19); the bar's
+                          number is all hearings. Screen readers get it from the day's line above. */}
+                      {d.bookmarked ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="w-full bg-chart-1" style={{ flexGrow: d.bookmarked }} />
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            {plural(d.bookmarked, "hearing", "hearings")} on bookmarked cases
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : null}
                     </span>
                   </span>
                   <span className="flex h-full w-3 flex-col items-center justify-end gap-0.5">
