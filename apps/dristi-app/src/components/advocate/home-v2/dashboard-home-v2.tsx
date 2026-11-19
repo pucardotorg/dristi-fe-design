@@ -159,9 +159,10 @@ export function DashboardHomeV2({
           <div className="flex min-w-0 items-center gap-6">
             <TodayBox now={nowDate} />
             <span aria-hidden="true" className="hidden h-18 w-px shrink-0 bg-hairline lg:block" />
-            {/* On a phone the Quick actions button sits at the greeting's right, level with its first
-                line; a long first name wraps under itself instead of pushing the button off. */}
-            <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+            {/* On a phone the Quick actions button sits at the greeting's right, centred on the
+                greeting and date together (owner, 2026-11-19: level with the first line it sat too
+                high); a long first name wraps under itself instead of pushing the button off. */}
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
               <div className="flex min-w-0 flex-col gap-1">
                 <h1 className="text-title font-semibold tracking-tight text-balance break-words">
                   {greetingFor(hour)}, {firstName}
