@@ -390,6 +390,25 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
     const id = window.setTimeout(() => setWide(false), 1500);
     return () => window.clearTimeout(id);
   }, [show]);
+
+  /* Desktop: the "+" slides in from the right edge. The first time on this visit it then opens
+     leftward into the bar, holds a second, and folds back; after that it stays a "+" and opens
+     only on hover, focus or a tap (owner, 2026-11-19). A new visit to Home shows it again. */
+  const [intro, setIntro] = React.useState(false);
+  const introDone = React.useRef(false);
+  const [hover, setHover] = React.useState(false);
+  const [tapped, setTapped] = React.useState(false);
+  React.useEffect(() => {
+    if (!show || introDone.current) return;
+    introDone.current = true;
+    const open = window.setTimeout(() => setIntro(true), 350);
+    const close = window.setTimeout(() => setIntro(false), 350 + 1300);
+    return () => {
+      window.clearTimeout(open);
+      window.clearTimeout(close);
+    };
+  }, [show]);
+  const barOpen = intro || hover || tapped;
   return (
     <>
       <div
@@ -421,9 +440,8 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
         </QuickActionsDrawer>
       </div>
 
-      {/* Desktop: top right. It arrives as the full bar, then folds into its "+" (as the phone
-          button does); "+" unfolds it again and turns into an "x" to fold it (owner,
-          2026-11-19). The fold is a clip from the whole pill to the circle at its right end, so the
+      {/* Desktop: top right. Slides in from the right edge as a "+"; opens into the bar once per
+          visit, then on hover (owner, 2026-11-19). The fold is a clip from the whole pill to the circle at its right end, so the
           bar slides shut into the button. The shadow sits on a wrapper (drop-shadow follows the
           clipped shape; a box-shadow on the pill itself was clipped away). */}
       <div
@@ -435,9 +453,18 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
         <div className="drop-shadow-lg">
           <div
             className="flex items-center rounded-full bg-primary p-1 text-primary-foreground transition-[clip-path] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
-            style={{ clipPath: wide ? "inset(0 round 9999px)" : "inset(0 0 0 calc(100% - 44px) round 9999px)" }}
+            style={{ clipPath: barOpen ? "inset(0 round 9999px)" : "inset(0 0 0 calc(100% - 44px) round 9999px)" }}
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => {
+              setHover(false);
+              setTapped(false);
+            }}
+            onFocus={() => setHover(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHover(false);
+            }}
           >
-            <nav aria-label="Quick actions" inert={!wide} className="flex items-center divide-x divide-primary-foreground/20 pr-1">
+            <nav aria-label="Quick actions" inert={!barOpen} className="flex items-center divide-x divide-primary-foreground/20 pr-1">
               {START.map(({ label, href, icon: Icon }) => (
                 <span key={label} className="flex px-1 first:pl-0">
                   <Button
@@ -455,16 +482,17 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
                 </span>
               ))}
             </nav>
+            {/* Hover or focus opens it; a tap toggles it for touch (iPad Pro sideways is this size). */}
             <Button
               size="icon"
-              aria-label={wide ? "Fold quick actions" : "Quick actions"}
-              aria-expanded={wide}
-              onClick={() => setWide((w) => !w)}
+              aria-label="Quick actions"
+              aria-expanded={barOpen}
+              onClick={() => setTapped((t) => !t)}
               className="size-9 shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary-foreground/20"
             >
               <PlusIcon
                 aria-hidden="true"
-                className={cn("size-5 transition-transform duration-300 motion-reduce:transition-none", wide && "rotate-45")}
+                className={cn("size-5 transition-transform duration-300 motion-reduce:transition-none", barOpen && "rotate-45")}
               />
             </Button>
           </div>
