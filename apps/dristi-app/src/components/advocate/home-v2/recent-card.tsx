@@ -25,8 +25,8 @@ const TAG_LOOK = "h-4.5 px-1.5 text-[11px]"; // ds-typography-allow: Home's smal
 
 /**
  * Card 6, "Recent cases": what you most recently filed or joined, newest first, five rows. Each row:
- * the parties and when; under them the number (with its bookmark) and a tag saying what happened,
- * in the Filings page's words. A row opens the case, or the fix for a returned filing.
+ * the parties and a tag saying what happened (in the Filings page's words); under them the number
+ * (with its bookmark) and when it happened. A row opens the case, or the fix for a returned filing.
  */
 export function RecentCasesCard({ today }: { today: string }) {
   const { tasks, cases: taskCases } = useTasks();
@@ -62,9 +62,13 @@ export function RecentCasesCard({ today }: { today: string }) {
                   href={it.href}
                   className="flex min-w-0 flex-col gap-1 rounded-lg px-2 py-2.5 outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none"
                 >
-                  <span className="flex min-w-0 items-baseline justify-between gap-3">
-                    <span className="min-w-0 truncate text-body-compact font-medium">{it.parties}</span>
-                    <span className="shrink-0 text-caption text-muted-foreground tabular-nums">{recentWhen(it.on, today)}</span>
+                  {/* Right column reads top to bottom: what happened, then when ("Joined / 17 Nov"),
+                      the date being the day it was filed, returned or joined (owner, 2026-11-19). */}
+                  <span className="flex min-w-0 items-center justify-between gap-3">
+                    <span className="min-w-0 truncate text-body-compact font-medium" title={it.parties}>{it.parties}</span>
+                    <Badge variant={TAG_VARIANT[it.kind]} className={cn("shrink-0", TAG_LOOK)}>
+                      {RECENT_TAG[it.kind]}
+                    </Badge>
                   </span>
                   <span className="flex min-w-0 items-center justify-between gap-3">
                     <span className="flex min-w-0 items-center gap-1.5 text-caption font-medium text-muted-foreground tabular-nums">
@@ -76,9 +80,7 @@ export function RecentCasesCard({ today }: { today: string }) {
                       ) : null}
                       <span className="truncate">{it.ref || "Not numbered yet"}</span>
                     </span>
-                    <Badge variant={TAG_VARIANT[it.kind]} className={cn("shrink-0", TAG_LOOK)}>
-                      {RECENT_TAG[it.kind]}
-                    </Badge>
+                    <span className="shrink-0 text-caption text-muted-foreground tabular-nums">{recentWhen(it.on, today)}</span>
                   </span>
                 </Link>
               </li>
