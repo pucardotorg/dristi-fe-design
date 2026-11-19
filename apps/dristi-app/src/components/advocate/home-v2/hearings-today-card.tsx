@@ -101,9 +101,9 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
       </CardHeader>
       {/* The card keeps its 3-court height whatever the day holds (owner rule: card sizes never
           change with data), so a quiet day or an empty one never squishes it. Courts are split by
-          a hairline (12px each side), so 3 rows = 266px on phones (16px under each name, plus 8px
-          more under the stat) and 246px from tablets up; the minimums round up to 272 / 248. */}
-      <CardContent className="flex min-h-68 flex-col max-sm:pt-2 sm:min-h-62">
+          a hairline (12px above, 16px below), so 3 rows = 274px on phones (16px under each name,
+          plus 8px more under the stat) and 254px from tablets up; minimums round up to 276 / 256. */}
+      <CardContent className="flex min-h-69 flex-col max-sm:pt-2 sm:min-h-64">
         {shown.length ? (
           <ul className="flex flex-col gap-8 pb-6">
             {shown.map((c) => (
@@ -330,8 +330,9 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
     /* Tablets up: 8px on top of the 32px gap, so courts sit 40px apart (owner trial, 2026-11-19;
        40 isn't a ladder step, so it's built from two that are). */
     /* A hairline between courts at every width (owner, 2026-11-19), midway between one court's
-       numbers and the next court's name: 12px each side (32px gap + 12px). */
-    <li className="relative flex min-w-0 flex-col gap-4 not-first:border-t not-first:border-hairline not-first:pt-3 sm:gap-3">
+       numbers and the next court's name: 12px above the line, 16px below it to the name (owner,
+       2026-11-19: 12px below felt tight). */
+    <li className="relative flex min-w-0 flex-col gap-4 not-first:border-t not-first:border-hairline not-first:pt-4 sm:gap-3">
       {fine ? null : (
         <button
           type="button"
