@@ -266,7 +266,8 @@ function TodayBox({ now }: { now: Date }) {
       <p className="text-[0.6875rem] leading-4 font-semibold tracking-wide text-brand-muted-foreground uppercase">
         {fmt({ month: "short", year: "numeric" })}
       </p>
-      <div className="flex h-18 w-full items-center justify-center rounded-xl border border-hairline bg-card text-brand-muted-foreground">
+      {/* The cards' own raised shadow, so the date sits on the page like they do (owner, 2026-11-19). */}
+      <div className="flex h-18 w-full items-center justify-center rounded-xl border border-hairline bg-card text-brand-muted-foreground shadow-raised">
         {/* ds-typography-allow: the Hearings home's date size, larger than the DS display role. */}
         <span className="text-[3.5rem] leading-none font-semibold tracking-tight tabular-nums">{fmt({ day: "2-digit" })}</span>
       </div>
