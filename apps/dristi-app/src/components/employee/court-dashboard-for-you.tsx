@@ -8,7 +8,7 @@ import { CaseListBox, CountButton, PanelHeader, plural, useCaseList } from "@/co
 import { CountBarChart } from "@/components/employee/count-bar-chart";
 import { DashboardDatePicker } from "@/components/employee/dashboard-date-picker";
 import { OverviewCard, type Opener } from "@/components/employee/court-dashboard-parts";
-import { dayCount, ForYouListCard, PANEL } from "@/components/employee/for-you-lists";
+import { dayCount, ForYouListCard, forYouListHasCases, NothingWaiting, PANEL } from "@/components/employee/for-you-lists";
 import { useReturnFocus } from "@/components/employee/return-focus";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,6 +16,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { holdsCmoView, summonsWithoutUpdate, unpaidProcess } from "@/lib/employee/cmo-view";
+import type { ForYouListId } from "@/lib/employee/for-you-lists";
 import { courtRoleLabel, type CourtRole } from "@/lib/employee/content";
 import {
   DAY_MS,
@@ -54,9 +56,13 @@ import { cn } from "@/lib/utils";
  *
  * The magistrate's is built (round 18, owner, 2026-11-15), from note 1.2, Magistrate a–d,
  * as round 11 lays them out, and designed around the acts only the magistrate does here:
- * writing judgments and giving next dates. Every other seat sees the product's "not built
- * yet" end state until its own view is designed (rounds 19 and 20), so the two tabs are
- * the same on every seat.
+ * writing judgments and giving next dates.
+ *
+ * The CMO / FSO's is built from round 19 (owner, 2026-11-17), from note 1.2, CMO/FSO a–d,
+ * on the scrutiny officer's seat (the Ahlmad's in Punjab & Haryana; `holdsCmoView`). It is
+ * the magistrate's "Cases waiting on you" panel with the CMO's own cards. Every other seat
+ * sees the product's "not built yet" end state until its own view is designed (round 20,
+ * the bench clerk), so the two tabs are the same on every seat.
  *
  * The tab holds only the magistrate's own items (owner, 2026-11-15): judgments against
  * their target, full width, then one card per list — the count as its headline, a few
@@ -93,6 +99,7 @@ export function ForYouView({
   court: CourtId;
 }) {
   if (role === "magistrate") return <MagistrateView docket={docket} court={court} />;
+  if (holdsCmoView(role)) return <WaitingSection docket={docket} lists={CMO_LISTS} />;
   return (
     <section aria-label={`For you, ${courtRoleLabel(role, court)}`} className={PANEL}>
       <Empty className="border-0 p-0 py-8">
@@ -110,60 +117,87 @@ export function ForYouView({
   );
 }
 
-/** What the "For you" count counts, said where the count is. */
-export const FOR_YOU_COUNT_NOTE = `Cases waiting on you: no next hearing date, next date far off, silent, and reserved for judgment more than ${JUDGMENT_DUE_DAYS} days`;
+/** What the "For you" count counts, said where the count is; `null` where there is no count. */
+export function forYouCountNote(role: CourtRole): string | null {
+  if (role === "magistrate") {
+    return `Cases waiting on you: no next hearing date, next date far off, silent, and reserved for judgment more than ${JUDGMENT_DUE_DAYS} days`;
+  }
+  if (holdsCmoView(role)) return "Cases waiting on you: silent, payment not made, summons with no update, and no next hearing date";
+  return null;
+}
 
 /**
- * The cases on the magistrate's own lists, each counted once: no next hearing date, next
- * date far off, silent, and reserved for judgment past the limit (owner, 2026-11-15).
+ * The cases on the seat's own lists, each counted once. The magistrate's: no next hearing
+ * date, next date far off, silent, and reserved for judgment past the limit (owner,
+ * 2026-11-15). The CMO / FSO's: silent, payment not made, summons with no update and no
+ * next hearing date; the cover checks have no data, so they add nothing (2026-11-17).
  */
 export function forYouCount(docket: CourtDocket, role: CourtRole): number | null {
-  if (role !== "magistrate") return null;
   const ids = new Set<number>();
-  for (const r of undatedCases(docket)) ids.add(r.case.id);
-  for (const r of farOffCases(docket)) ids.add(r.case.id);
-  for (const r of silentCases(docket)) ids.add(r.case.id);
-  for (const r of reservedForJudgment(docket)) if (r.days > JUDGMENT_DUE_DAYS) ids.add(r.case.id);
-  return ids.size;
+  if (role === "magistrate") {
+    for (const r of undatedCases(docket)) ids.add(r.case.id);
+    for (const r of farOffCases(docket)) ids.add(r.case.id);
+    for (const r of silentCases(docket)) ids.add(r.case.id);
+    for (const r of reservedForJudgment(docket)) if (r.days > JUDGMENT_DUE_DAYS) ids.add(r.case.id);
+    return ids.size;
+  }
+  if (holdsCmoView(role)) {
+    for (const r of silentCases(docket)) ids.add(r.case.id);
+    for (const r of unpaidProcess(docket)) ids.add(r.case.id);
+    for (const r of summonsWithoutUpdate(docket)) ids.add(r.case.id);
+    for (const r of undatedCases(docket)) ids.add(r.case.id);
+    return ids.size;
+  }
+  return null;
 }
 
 function MagistrateView({ docket, court }: { docket: CourtDocket; court: CourtId }) {
   return (
     <>
       <JudgmentsPanel docket={docket} court={court} />
-      <WaitingSection docket={docket} />
+      <WaitingSection docket={docket} lists={MAGISTRATE_LISTS} />
     </>
   );
 }
 
 /**
- * The magistrate's dashboard is one page (owner, 2026-11-16): their judgments, the cases
- * waiting on them, then their court. These are its first two parts; the court's sections
- * follow in `court-dashboard-screen.tsx`.
+ * The magistrate's lists, most pressing first: the dates only they give, what they write,
+ * the dates given too far off, the cases nobody has touched.
  */
-export { MagistrateView as MagistrateSections };
+const MAGISTRATE_LISTS: ForYouListId[] = ["undated", "reserved", "far", "silent"];
 
 /**
- * The cases waiting on the magistrate: one panel, its heading (no total: each card carries
- * its own count; owner, 2026-11-16), then one card per list inside it. Most pressing first: the dates only they give, what they write, the
- * dates given too far off, the cases nobody has touched. Two to a row once the content
- * area itself is wide enough for a card's three columns (56rem), not the screen. The
- * cards are previews; cases open from each list's own page.
+ * The CMO / FSO's lists (round 19, owner, 2026-11-17), in the note's order: silent (3a),
+ * payment not made (3b(a)), summons with no update (3b(c)), no next hearing date (3c). The
+ * cover checks (3b(b), 3d) have no data to count yet, so they have no list or card.
  */
-function WaitingSection({ docket }: { docket: CourtDocket }) {
+const CMO_LISTS: ForYouListId[] = ["silent", "unpaid", "summons", "undated"];
+
+/**
+ * The cases waiting on the seat: one panel, its heading (no total: each card carries its
+ * own count; owner, 2026-11-16), then a card for each list that has cases (owner,
+ * 2026-11-17: an empty list shows no card, and its card returns with its first case). Two
+ * to a row once the content area itself is wide enough for a card's three columns
+ * (56rem), not the screen. The cards are previews; cases open from each list's own page.
+ */
+function WaitingSection({ docket, lists }: { docket: CourtDocket; lists: ForYouListId[] }) {
+  const shown = lists.filter((id) => forYouListHasCases(id, docket));
   return (
     <section id="waiting" aria-labelledby="you-waiting" className={cn(PANEL, "scroll-mt-20")}>
       <h2 id="you-waiting" className="text-title-s font-semibold">
         Cases waiting on you
       </h2>
-      <div className="@container min-w-0">
-        <div className="grid min-w-0 gap-4 @4xl:grid-cols-2">
-          <ForYouListCard id="undated" docket={docket} />
-          <ForYouListCard id="reserved" docket={docket} />
-          <ForYouListCard id="far" docket={docket} />
-          <ForYouListCard id="silent" docket={docket} />
+      {shown.length ? (
+        <div className="@container min-w-0">
+          <div className="grid min-w-0 gap-4 @4xl:grid-cols-2">
+            {shown.map((id) => (
+              <ForYouListCard key={id} id={id} docket={docket} />
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <NothingWaiting />
+      )}
     </section>
   );
 }

@@ -18,7 +18,7 @@ import { CountUp, TrickleDots, useGrowIn } from "@/components/employee/court-das
 import { DashboardDatePicker } from "@/components/employee/dashboard-date-picker";
 import { EndedTable, OverviewCard, StageCells } from "@/components/employee/court-dashboard-parts";
 import { useCourtDocket } from "@/components/employee/docket-table";
-import { FOR_YOU_COUNT_NOTE, ForYouView, forYouCount, MagistrateSections } from "@/components/employee/court-dashboard-for-you";
+import { ForYouView, forYouCount, forYouCountNote } from "@/components/employee/court-dashboard-for-you";
 import { useCourtRole, useCourtSession } from "@/components/employee/use-court-role";
 import { CourtDayMark } from "@/components/employee/cause-list-date";
 import { useCourtToday } from "@/components/employee/use-court-today";
@@ -188,7 +188,6 @@ export function CourtDashboardScreen() {
   const { court: state } = useCourt();
   const view = React.useSyncExternalStore(subscribeToDashboardView, dashboardView, serverDashboardView);
   const mineCount = forYouCount(docket, role);
-  const magistrate = role === "magistrate";
 
   return (
     <TooltipProvider>
@@ -208,39 +207,10 @@ export function CourtDashboardScreen() {
           </div>
         </header>
 
-        {magistrate ? (
-          /* The magistrate's dashboard is one page, no tabs (owner, 2026-11-16): their
-             judgments, the cases waiting on them, then their court under its own heading —
-             the same sections every seat's Court tab shows. */
-          <>
-            <MagistrateSections docket={docket} court={state} />
-            <section id="court" aria-labelledby="your-court" className="flex min-w-0 scroll-mt-20 flex-col gap-4 border-t border-hairline pt-8">
-              <h2 id="your-court" className="text-title-s font-semibold">
-                Your court
-              </h2>
-              <Overview
-                docket={docket}
-                reading={reading}
-                withoutJudgments
-                picker={
-                  <DashboardDatePicker
-                    docket={docket}
-                    value={reading.selection}
-                    compare={compare}
-                    defaultValue={opening}
-                    onChange={(next, mode) => {
-                      setPicked(next.from === opening.from && next.to === opening.to ? null : next);
-                      setCompare(mode);
-                    }}
-                  />
-                }
-              />
-            </section>
-          </>
-        ) : (
-        /* Two views on every other seat (owner, 2026-11-15): the court's, the same for
-           everyone, and the seat's own. A line tab list, as the court queues draw theirs;
-           only "For you" carries a count, because counts mean work. */
+        {/* Two views on every seat, the magistrate's included (owner, 2026-11-15; restored
+            2026-11-16 at the stakeholders' ask, after a day as one page): the court's, the
+            same for everyone, and the seat's own. A line tab list, as the court queues draw
+            theirs; only "For you" carries a count, because counts mean work. */}
         <Tabs
           value={view}
           onValueChange={(next) => setDashboardView(next as DashboardView)}
@@ -251,16 +221,18 @@ export function CourtDashboardScreen() {
               <TabsTrigger value="court" className="h-10 flex-none gap-2 text-body-compact">
                 Court
               </TabsTrigger>
-              {/* The count says what it counts on hover and focus (owner, 2026-11-15). */}
+              {/* The count says what it counts on hover and focus (owner, 2026-11-15). The tab
+                  wraps the tooltip trigger, not the other way round: the outer part's state
+                  attribute is overwritten, and the tab needs "active" for its underline. */}
               {mineCount ? (
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <TabsTrigger value="mine" className="h-10 flex-none gap-2 text-body-compact">
+                  <TabsTrigger value="mine" asChild className="h-10 flex-none gap-2 text-body-compact">
+                    <TooltipTrigger>
                       For you
                       <span className="font-normal tabular-nums">{formatCount(mineCount)}</span>
-                    </TabsTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-pretty">{FOR_YOU_COUNT_NOTE}</TooltipContent>
+                    </TooltipTrigger>
+                  </TabsTrigger>
+                  <TooltipContent className="max-w-xs text-pretty">{forYouCountNote(role)}</TooltipContent>
                 </Tooltip>
               ) : (
                 <TabsTrigger value="mine" className="h-10 flex-none gap-2 text-body-compact">
@@ -293,7 +265,6 @@ export function CourtDashboardScreen() {
             {view !== "mine" ? null : <ForYouView docket={docket} role={role} court={state} />}
           </TabsContent>
         </Tabs>
-        )}
       </div>
     </TooltipProvider>
   );
@@ -354,14 +325,10 @@ function Overview({
   docket,
   reading,
   picker,
-  withoutJudgments = false,
 }: {
   docket: CourtDocket;
   reading: PeriodReading;
   picker: React.ReactNode;
-  /** The registers without their judgments count, which the magistrate's page shows at
-      its top (owner, 2026-11-16). */
-  withoutJudgments?: boolean;
 }) {
   const latest = docket.today;
   const { from, to } = reading.selection;
@@ -595,7 +562,7 @@ function Overview({
         <h3 id="dash-registers" className="text-body font-semibold">
           Registers
         </h3>
-        <ul className={cn("grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3", withoutJudgments ? "xl:grid-cols-5" : "xl:grid-cols-6")}>
+        <ul className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {(
             [
               ["ST pending", sets.st.length, "st", "after cognizance"],
@@ -605,7 +572,7 @@ function Overview({
               ["LPR", end.longPending, "longPending", `on the register · ${formatCount(out.toLongPending)} moved in`],
               ["Judgments", contestedRows.length, "contested", spanShort],
             ] as [string, number, OverviewList, string][]
-          ).filter(([label]) => !(withoutJudgments && label === "Judgments")).map(([label, n, key, sub]) => (
+          ).map(([label, n, key, sub]) => (
             <li key={label} className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
               <span className="text-body-compact font-medium">{label}</span>
               {n ? (

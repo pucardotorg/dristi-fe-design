@@ -1,8 +1,28 @@
 # Court dashboard and registers
-Updated: 2026-11-15
+Updated: 2026-11-17
 Status: in progress. The Overview redesign is implemented and committed on `feature-courtside-dashboard-v3` (not pushed); v3 is merged to `main` through PR #148
 
 ## Current outcome
+
+**2026-11-17, the CMO / FSO's For you (current).** Built from canvas round 19
+(https://claude.ai/artifact/C1mN8ALhhcnwpfwG1tSvFj) on the scrutiny officer's seat, and the
+Ahlmad's in Punjab & Haryana, where the Ahlmad holds scrutiny. The app has no CMO seat. The
+tab is the magistrate's "Cases waiting on you" panel with a card for each item on note 1.2's
+CMO/FSO list, in the note's order:
+- **Silent cases** (3a): the magistrate's list.
+- **Payment not made** (3b(a)): process issued more than 7 days ago and not paid.
+- **Summons with no update** (3b(c)): summons paid for more than 7 days ago and not delivered.
+- **No next hearing date** (3c): rows don't open anything for this seat.
+- The cover checks, **payment made, cover not submitted** (3b(b)) and **cover not
+  received 7 days before hearing** (3d), have no card: the docket has no cover to count.
+
+A list with no cases shows no card, on every seat; its card returns with its first case
+(owner, same day). If no list has a case, the panel says "No cases waiting on you". Each
+card opens its full list at `/employee/for-you/<slug>`. The For you count is
+the cases on the four counted lists. The magistrate's return from the one-page view
+to Court and For you tabs (stakeholders, 2026-11-16) is in the same change. Files:
+`cmo-view.ts` (+ test), `for-you-lists.ts`, `for-you-lists.tsx`,
+`court-dashboard-for-you.tsx`, `court-dashboard-screen.tsx`. Not committed.
 
 **2026-11-15, Court and For you (current).** Every seat's dashboard now has two tabs:
 **Court**, the all-users dashboard as before, and **For you**, the seat's own view. The
@@ -250,6 +270,9 @@ artifact (https://claude.ai/artifact/Vn5JjfdhnAGAzJRfQ4Db9k). Only Direction 1 a
 | 2026-11-15 | **Two views on every seat: Court and For you.** One page for everything was overwhelming and gave no clean way to rank court data against a seat's own items (owner). Tabs on every seat, not only the magistrate, so the pattern does not differ by seat (owner). Only For you carries a count, the distinct cases on the seat's lists; the page opens on Court (Satya: overview first for everyone), then on the view used last (coordinator). Round 17 weighed five structures; this is A. | Owner; opening rule is the coordinator's | implemented |
 | 2026-11-15 | **The magistrate's For you, built from round 18.** After two rejected passes (stubs and option switches; then parts placed per note line without thinking through each section), each section answers one question tied to one act: judgments with the cases reserved for judgment (what can still become this month's), registers month by month (round 11 gives item a as the register counts), next dates (no date first, as round 11 puts it first), silent cases, then the two items round 11 adds for the magistrate. Time to disposal is left out: round 11 does not give it to the magistrate. | Owner | implemented |
 | 2026-11-15 | **Defaults for undecided questions:** far-off is twice the stage's usual gap (the dashboard's existing rule; a single x days flagged 43 cognizance cases of 59); silent is 60 days (`COURT_LIMITS.silentDays`, placeholder); the target is kept per court in this browser and starts unset. | Coordinator; owner had no answer yet and asked to decide on the build | implemented, open |
+| 2026-11-16 | **Court and For you tabs come back for the magistrate.** Stakeholders asked for the split rather than one page; the one-page layout and its "Your court" section went, the design otherwise unchanged. The For you tab now wraps its count's tooltip trigger, so it keeps its active underline. | Owner | implemented |
+| 2026-11-17 | **The CMO / FSO's For you, built from round 19, on the scrutiny officer's seat.** Seat options were the scrutiny officer (FSO is the front office / scrutiny desk), a new CMO seat (would leave court-roles §3), or the bench clerk (round 20 is theirs); the owner picked the scrutiny officer, with the Ahlmad where that seat is missing. The two cover cards stay visible as not counted, since the docket has no cover. "Summons with no update" reads sent as the payment day and no update as not delivered, as the docket has neither a dispatch day nor status updates. No-next-hearing rows lead nowhere for this seat (note: "no need for link"). | Owner | implemented |
+| 2026-11-17 | **Empty lists show no card.** The owner saw empty cards (silent cases, the two cover checks) take space with nothing to act on: a list with no cases is left off the tab, on the magistrate's and the CMO's, and comes back once a case is on it. This replaces showing the cover cards as not counted. A seat with every list empty sees "No cases waiting on you" in the panel. | Owner | implemented |
 | 2026-11-15 | **Dialogs opened from state return focus to their opener** (`useReturnFocus`): the "Not built yet" dialog left focus on the page body, on Schedule hearing too. Fixed at the shared dialog. | Coordinator (ACCESSIBILITY.md §5) | implemented |
 
 ## Changes and tradeoffs

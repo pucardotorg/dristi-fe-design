@@ -7,6 +7,7 @@ import { ArrowRightIcon, CircleAlertIcon } from "lucide-react";
 import { TABLE_CELL, TABLE_HEAD, TABLE_HEAD_ROW, tableBodyClass, tableRowClass } from "@/components/chrome/table-plate";
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtDocket } from "@/components/employee/docket-table";
+import { useCourtRole } from "@/components/employee/use-court-role";
 import { ListFooter } from "@/components/employee/list-footer";
 import { NotBuiltDialog } from "@/components/employee/not-built-dialog";
 import { QueueAnnouncer } from "@/components/employee/queue-announcer";
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from "@/components/ui/empty";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PAYMENT_PENDING_DAYS, SUMMONS_UPDATE_DAYS, holdsCmoView, summonsWithoutUpdate, unpaidProcess } from "@/lib/employee/cmo-view";
 import { COURT_LIMITS, stageByKey, type CourtDocket, type DocketCase } from "@/lib/employee/court-docket";
 import { formatDay } from "@/lib/employee/court-flow";
 import { forYouListHref, FOR_YOU_LISTS, type ForYouListId } from "@/lib/employee/for-you-lists";
@@ -24,10 +26,16 @@ import { rowActivation, rowOpener, rowOpenerClass } from "@/lib/employee/row-act
 import { cn } from "@/lib/utils";
 
 /**
- * The magistrate's lists (note 1.2, Magistrate b–d, and the cases reserved for judgment),
- * each in two sizes (owner, 2026-11-15): a card on the "For you" tab — the count as its
- * headline, one fact, the three most urgent cases, and the way to all of them — and the
- * whole list on a page of its own, with the columns and pagination the tab used to carry.
+ * The seats' own lists, each in two sizes (owner, 2026-11-15): a card on the "For you" tab
+ * — the count as its headline, one fact, the three most urgent cases, and the way to all
+ * of them — and the whole list on a page of its own, with its columns and pagination.
+ *
+ * The magistrate's (note 1.2, Magistrate b–d, and the cases reserved for judgment) and the
+ * CMO / FSO's (CMO/FSO a–c, canvas round 19, owner, 2026-11-17). The CMO's two cover items
+ * (3b(b), 3d) have no data to count yet, so they are not lists and show no card.
+ *
+ * A list with no cases shows no card on the tab (owner, 2026-11-17); its card comes back
+ * once a case is on it. Its own page still says "none" when reached by its address.
  */
 
 export const PANEL = "flex min-w-0 flex-col gap-4 rounded-xl border border-hairline bg-card p-4 shadow-raised sm:p-6";
@@ -49,7 +57,8 @@ type Row = { case: DocketCase };
 /**
  * A list whose rows open the case they name: the court queues' row (cause title as the
  * opener, the case number beside it) on the dashboard's table plate, with the shared
- * footer. The list's own page.
+ * footer. The list's own page. With no `onOpen` the rows lead nowhere and stay still
+ * under the pointer: the CMO's no-next-hearing list, where the note asks for no link.
  */
 export function CaseTable<T extends Row>({
   id,
@@ -62,7 +71,7 @@ export function CaseTable<T extends Row>({
   caption: string;
   rows: T[];
   columns: Column<T>[];
-  onOpen: (c: DocketCase) => void;
+  onOpen?: (c: DocketCase) => void;
 }) {
   const [pageSize, setPageSize] = React.useState<HearingsPageSize>(PAGE_SIZE);
   const [page, setPage] = React.useState(1);
@@ -87,17 +96,21 @@ export function CaseTable<T extends Row>({
               ))}
             </TableRow>
           </TableHeader>
-          <TableBody className={tableBodyClass()}>
+          <TableBody className={tableBodyClass({ hover: Boolean(onOpen) })}>
             <tr aria-hidden="true">
               <td colSpan={columns.length + 2} className="h-2 p-0" />
             </tr>
             {pageRows.map((row) => (
-              <TableRow key={row.case.id} {...rowActivation(tableRowClass())}>
+              <TableRow key={row.case.id} {...(onOpen ? rowActivation(tableRowClass()) : { className: tableRowClass({ hover: false }) })}>
                 <TableCell className={cn(TABLE_CELL, "min-w-64 font-medium whitespace-normal")}>
-                  <button type="button" onClick={() => onOpen(row.case)} {...rowOpener} className={rowOpenerClass}>
-                    <span className="sr-only">Open </span>
-                    {row.case.title}
-                  </button>
+                  {onOpen ? (
+                    <button type="button" onClick={() => onOpen(row.case)} {...rowOpener} className={rowOpenerClass}>
+                      <span className="sr-only">Open </span>
+                      {row.case.title}
+                    </button>
+                  ) : (
+                    row.case.title
+                  )}
                 </TableCell>
                 <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
                   <Identifier value={row.case.caseNumber} label="case number" />
@@ -190,8 +203,9 @@ type ListSpec<T extends Row> = {
   preview: Column<T>;
   /** The page's columns, as the tab carried them. */
   full: Column<T>[];
-  /** Where a row leads; neither is built, so a row ends on "not built yet". */
-  opens: string;
+  /** Where a row leads; none is built, so a row ends on "not built yet". `null`: rows
+      lead nowhere. */
+  opens: string | null;
 };
 
 /** Days waiting, flagged once past the judgment-stage limit. */
@@ -213,8 +227,27 @@ const nextHearing: Column<Row> = {
 
 const titleOf = (id: ForYouListId) => FOR_YOU_LISTS.find((l) => l.id === id)!.title;
 
-/** Calls `visit` with the list's spec: one place that knows every list's columns. */
-function withList<R>(id: ForYouListId, docket: CourtDocket, visit: <T extends Row>(spec: ListSpec<T>) => R): R {
+/**
+ * A process figure with what it is under it: with no column headers, a bare day count
+ * would not say whose days they are.
+ */
+const withCaption = (main: React.ReactNode, caption: string) => (
+  <>
+    {main}
+    <span className="block text-caption text-muted-foreground">{caption}</span>
+  </>
+);
+
+/**
+ * Calls `visit` with the list's spec: one place that knows every list's columns. `cmo`:
+ * the CMO / FSO is reading, whose no-next-hearing rows lead nowhere (note 1.2, 3c).
+ */
+function withList<R>(
+  id: ForYouListId,
+  docket: CourtDocket,
+  cmo: boolean,
+  visit: <T extends Row>(spec: ListSpec<T>) => R,
+): R {
   const base = { id, title: titleOf(id), href: forYouListHref(id) };
   switch (id) {
     case "reserved": {
@@ -249,7 +282,7 @@ function withList<R>(id: ForYouListId, docket: CourtDocket, visit: <T extends Ro
           { header: "Last hearing", cell: (r) => (r.case.previousPosting === null ? "–" : formatDay(r.case.previousPosting)) },
           { header: "Since", numeric: true, cell: (r) => dayCount(r.days) },
         ],
-        opens: "the scheduling flow for this case",
+        opens: cmo ? null : "the scheduling flow for this case",
       });
     }
     case "far": {
@@ -303,6 +336,45 @@ function withList<R>(id: ForYouListId, docket: CourtDocket, visit: <T extends Ro
         opens: "the case file",
       });
     }
+    case "unpaid": {
+      const rows = unpaidProcess(docket);
+      return visit({
+        ...base,
+        rows,
+        fact: rows.length ? `longest ${dayCount(rows[0].days)} since issued` : "",
+        stat: rows.length ? { value: rows[0].days, days: true, label: "longest since issued", warn: true } : null,
+        rule: `Process issued more than ${PAYMENT_PENDING_DAYS} days ago and not paid`,
+        empty: "none",
+        preview: { header: "Unpaid for", cell: (r) => withCaption(dayCount(r.days), r.process.type) },
+        full: [
+          stageCell(),
+          { header: "Process", cell: (r) => r.process.type },
+          { header: "Issued", cell: (r) => formatDay(r.process.issued) },
+          { header: "Unpaid for", numeric: true, cell: (r) => dayCount(r.days) },
+          nextHearing,
+        ],
+        opens: "the payment task for this process",
+      });
+    }
+    case "summons": {
+      const rows = summonsWithoutUpdate(docket);
+      return visit({
+        ...base,
+        rows,
+        fact: rows.length ? `longest ${dayCount(rows[0].days)} since sent` : "",
+        stat: rows.length ? { value: rows[0].days, days: true, label: "longest since sent", warn: true } : null,
+        rule: `Summons sent more than ${SUMMONS_UPDATE_DAYS} days ago, with no delivery or return recorded`,
+        empty: "none",
+        preview: { header: "No update for", cell: (r) => withCaption(dayCount(r.days), `sent ${formatDay(r.process.paid!)}`) },
+        full: [
+          stageCell(),
+          { header: "Sent", cell: (r) => formatDay(r.process.paid!) },
+          { header: "No update for", numeric: true, cell: (r) => dayCount(r.days) },
+          nextHearing,
+        ],
+        opens: "the case's process status",
+      });
+    }
   }
 }
 
@@ -344,36 +416,38 @@ function PaperStack() {
   );
 }
 
+/** Whether a list has any case on it today: the tab shows a card only for those. */
+export function forYouListHasCases(id: ForYouListId, docket: CourtDocket): boolean {
+  return withList(id, docket, false, (spec) => spec.rows.length > 0);
+}
+
+/**
+ * The tab when none of the seat's lists has a case: the paper-stack illustration from the
+ * advocate's case file (owner, 2026-11-15) in the beige well, as an empty card drew it.
+ */
+export function NothingWaiting() {
+  return (
+    <Empty className="rounded-xl border-0 bg-surface-sunken p-6">
+      <EmptyHeader>
+        <EmptyMedia>
+          <PaperStack />
+        </EmptyMedia>
+        <EmptyDescription className="text-body-compact">No cases waiting on you</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+}
+
 /**
  * One list on the tab: title, the count as the headline with one fact, the three most
- * urgent cases (a still preview), then the way to all of them.
- *
- * With no cases the card keeps its row's height and says so under the paper-stack
- * illustration from the advocate's case file (owner, 2026-11-15), centred in the card.
+ * urgent cases (a still preview), then the way to all of them. Nothing when the list is
+ * empty: the tab leaves the card out until a case is on it (owner, 2026-11-17).
  */
 export function ForYouListCard({ id, docket }: { id: ForYouListId; docket: CourtDocket }) {
-  return withList(id, docket, (spec) => {
+  return withList(id, docket, false, (spec) => {
     const headingId = `you-${spec.id}`;
     const n = spec.rows.length;
-    if (!n) {
-      return (
-        <section aria-labelledby={headingId} className={CARD}>
-          <h2 id={headingId} className="text-body font-semibold">
-            {spec.title}
-          </h2>
-          {/* The beige well fills the card under its title, as the Judgments cards sit in
-              theirs (owner, 2026-11-15). */}
-          <Empty className="rounded-xl border-0 bg-surface-sunken p-6">
-            <EmptyHeader>
-              <EmptyMedia>
-                <PaperStack />
-              </EmptyMedia>
-              <EmptyDescription className="text-body-compact">{capitalise(spec.empty)}</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        </section>
-      );
-    }
+    if (!n) return null;
     return (
       <section aria-labelledby={headingId} className={CARD}>
         {/* The title with the worst case on one line under it, and the count on the right
@@ -425,9 +499,11 @@ export function ForYouListCard({ id, docket }: { id: ForYouListId; docket: Court
 /** A list in full, on its own page: the count under the title, then every case. */
 export function ForYouListScreen({ id }: { id: ForYouListId }) {
   const docket = useCourtDocket();
+  const cmo = holdsCmoView(useCourtRole());
   const [opening, setOpening] = React.useState<{ item: string; opens: string } | null>(null);
-  return withList(id, docket, (spec) => {
+  return withList(id, docket, cmo, (spec) => {
     const n = spec.rows.length;
+    const opens = spec.opens;
     return (
       <div className="flex min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">
         <header className="flex flex-col gap-2">
@@ -444,7 +520,7 @@ export function ForYouListScreen({ id }: { id: ForYouListId }) {
               caption={spec.title}
               rows={spec.rows}
               columns={spec.full}
-              onOpen={(c) => setOpening({ item: c.title, opens: spec.opens })}
+              onOpen={opens === null ? undefined : (c) => setOpening({ item: c.title, opens })}
             />
           </section>
         ) : null}
