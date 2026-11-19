@@ -17,7 +17,7 @@ import { UpdatesCard as UpdatesCarouselCard } from "@/components/advocate/home-v
 import { TodosCard } from "@/components/advocate/home-v2/todos-card";
 import { demoUpdates } from "@/components/advocate/home-v2/updates";
 import { notify } from "@/components/feedback";
-import { Button } from "@/components/ui/button";
+import { PANEL_CLASS } from "@/components/shell/panel";
 import {
   Card,
   CardAction,
@@ -283,21 +283,35 @@ function HomeCard({
 /* ── Launcher ─────────────────────────────────────────────────────────── */
 
 /**
- * The four ways to start something, as slim outline buttons (owner, 2026-11-19). Right of the
- * greeting on a desktop; under it on a phone or iPad, two to a row on a phone.
+ * The four ways to start something (owner, 2026-11-19: plain outline buttons didn't draw the
+ * eye). One white panel titled "Quick actions"; each action is a tile, its icon in a brand-tinted
+ * chip over its name, split by hairlines. Stacked tiles are narrow enough to sit right of the
+ * greeting at 1280 without cutting a name; under the greeting on a phone or iPad, four across.
  */
 function QuickActions() {
   return (
-    <nav aria-label="Start something" className="min-w-0">
-      <ul className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
+    <nav
+      aria-labelledby="home-quick-actions"
+      className={cn("flex min-w-0 flex-col gap-1 rounded-xl border bg-card px-2 pt-3 pb-2", PANEL_CLASS)}
+    >
+      <h2 id="home-quick-actions" className="px-2 text-caption font-semibold text-muted-foreground">
+        Quick actions
+      </h2>
+      <ul className="grid grid-cols-4 divide-x divide-hairline">
         {START.map(({ label, href, icon: Icon }) => (
-          <li key={label} className="flex min-w-0">
-            <Button asChild variant="outline" size="sm" className="w-full bg-card pointer-coarse:h-10">
-              <Link href={href}>
-                <Icon data-icon="inline-start" aria-hidden="true" />
-                <span className="truncate">{label}</span>
-              </Link>
-            </Button>
+          <li key={label} className="flex min-w-0 px-1 first:pl-0 last:pr-0">
+            <Link
+              href={href}
+              className="group/qa flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-lg px-1 py-2 text-center text-caption font-semibold outline-none lg:w-28 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none"
+            >
+              <span
+                aria-hidden="true"
+                className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-muted text-brand-muted-foreground transition-colors group-hover/qa:bg-brand-muted-hover"
+              >
+                <Icon className="size-4" />
+              </span>
+              <span className="line-clamp-2 min-w-0 text-balance">{label}</span>
+            </Link>
           </li>
         ))}
       </ul>
