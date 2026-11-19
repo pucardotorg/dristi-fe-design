@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRightIcon, BookmarkIcon, CalendarXIcon, ChevronDownIcon } from "lucide-react";
+import { ArrowRightIcon, BookmarkIcon, CalendarXIcon, CheckIcon, ChevronDownIcon } from "lucide-react";
 import { RefreshIcon, useRefreshPhase } from "@/components/advocate/refresh-button";
 import { advHome, fillCopy } from "@/lib/advocate/content";
 import { type Locale, pick } from "@/lib/onboarding/content";
@@ -289,9 +289,11 @@ function useBudget() {
  */
 /** The tag after a court's name, and what its hover says. None for a court with your items to come. */
 const TAGS = {
-  notStarted: { label: "Not started", hint: "Not in session yet" },
-  done: { label: "Done", hint: "All your items here are heard" },
-  finished: { label: "Finished", hint: "This court has finished for the day" },
+  notStarted: { label: "Not started", hint: "Not in session yet", tone: "court" },
+  /* About YOU, not the court (owner, 2026-11-19: "Done" read the same as "Finished"). Green with a
+     tick, like a ready ring, so it can't be mistaken for the court's grey state tags. */
+  done: { label: "Your items heard", hint: "All your items in this court are heard", tone: "you" },
+  finished: { label: "Finished", hint: "This court has finished for the day", tone: "court" },
 } as const;
 
 function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean }) {
@@ -309,7 +311,8 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
             20px tall, -my-0.5 keeps it centred on the 16px name line. */}
         {tag ? (
           <Hint text={tag.hint}>
-            <Badge variant="secondary" className="-my-0.5 h-5 px-1.5">
+            <Badge variant={tag.tone === "you" ? "success" : "secondary"} className="-my-0.5 h-5 px-1.5">
+              {tag.tone === "you" ? <CheckIcon data-icon="inline-start" aria-hidden="true" /> : null}
               {tag.label}
             </Badge>
           </Hint>
