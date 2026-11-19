@@ -35,7 +35,17 @@ const TONE: Record<MustDoGroup["key"], { square: string; ink: string }> = {
  * A row: the task and its case (and, if a hearing today needs it, an amber tag saying so), the
  * timing in its own right-aligned column, and the task's own verb, which acts in place.
  */
-export function TodosCard({ tasks, today, onAct }: { tasks: HomeTask[]; today: string; onAct: (t: HomeTask) => void }) {
+export function TodosCard({
+  tasks,
+  today,
+  onAct,
+  className,
+}: {
+  tasks: HomeTask[];
+  today: string;
+  onAct: (t: HomeTask) => void;
+  className?: string;
+}) {
   const groups = React.useMemo(() => mustDo(HOME_CALENDAR, tasks, today), [tasks, today]);
   const waiting = React.useMemo(() => waitingOnYou(HOME_CALENDAR, tasks, today), [tasks, today]);
   const urgentCount = groups.reduce((n, g) => n + g.tasks.length, 0);
@@ -51,7 +61,7 @@ export function TodosCard({ tasks, today, onAct }: { tasks: HomeTask[]; today: s
   const more = tab === "urgent" ? Math.max(0, urgentCount - ROWS) : Math.max(0, waiting.length - ROWS);
 
   return (
-    <Card variant="raised" role="region" aria-labelledby="home-todos" className="w-full min-w-0 gap-4">
+    <Card variant="raised" role="region" aria-labelledby="home-todos" className={cn("w-full min-w-0 gap-4", className)}>
       {/* Title left, the toggle across the right half (owner: it was too small); stacked on phones. */}
       <CardHeader className="flex flex-wrap items-center justify-between gap-3">
         <CardTitle>
@@ -75,9 +85,15 @@ export function TodosCard({ tasks, today, onAct }: { tasks: HomeTask[]; today: s
         </SegmentedControl>
       </CardHeader>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
-        {tab === "urgent" ? (
-          urgentCount ? (
+      {/* Both tabs drawn in one grid cell, the inactive one hidden, so the card is always as tall as
+          its taller tab and switching never moves the page (owner, 2026-11-19). */}
+      <CardContent className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)]">
+        <div
+          className={cn("flex min-w-0 flex-col gap-3 [grid-area:1/1]", tab !== "urgent" && "pointer-events-none opacity-0")}
+          aria-hidden={tab !== "urgent" || undefined}
+          inert={tab !== "urgent"}
+        >
+          {urgentCount ? (
             <>
               <ul aria-label="Counts" className="flex flex-wrap gap-x-4 gap-y-1">
                 {groups.map((g) => (
@@ -111,19 +127,26 @@ export function TodosCard({ tasks, today, onAct }: { tasks: HomeTask[]; today: s
             </>
           ) : (
             <Empty icon={CheckCheckIcon} title="Nothing urgent" body="Nothing is overdue or due before the next working day." />
-          )
-        ) : waiting.length ? (
-          <>
-            <p className="text-caption font-medium text-muted-foreground tabular-nums">{waitingSummary(waiting, today)}</p>
-            <ul className="flex flex-col">
-              {waiting.slice(0, ROWS).map((t) => (
-                <WaitingRow key={t.id} task={t} today={today} onAct={onAct} />
-              ))}
-            </ul>
-          </>
-        ) : (
-          <Empty icon={UserCheckIcon} title="Nobody is waiting on you" body="Nothing prepared for you or asked of you is open." />
-        )}
+          )}
+        </div>
+        <div
+          className={cn("flex min-w-0 flex-col gap-3 [grid-area:1/1]", tab !== "waiting" && "pointer-events-none opacity-0")}
+          aria-hidden={tab !== "waiting" || undefined}
+          inert={tab !== "waiting"}
+        >
+          {waiting.length ? (
+            <>
+              <p className="text-caption font-medium text-muted-foreground tabular-nums">{waitingSummary(waiting, today)}</p>
+              <ul className="flex flex-col">
+                {waiting.slice(0, ROWS).map((t) => (
+                  <WaitingRow key={t.id} task={t} today={today} onAct={onAct} />
+                ))}
+              </ul>
+            </>
+          ) : (
+            <Empty icon={UserCheckIcon} title="Nobody is waiting on you" body="Nothing prepared for you or asked of you is open." />
+          )}
+        </div>
       </CardContent>
 
       {/* Footer as on Your hearings: what's left on the left, where it all lives on the right. */}

@@ -193,15 +193,17 @@ export function DashboardHomeV2({
                 hearings). Right: Updates, Your week ahead, then Recent cases. Must do today and
                 Waiting on you merged into Your to-dos; Insights is out of draft 2 for this release
                 (tag home-v2-before-todos keeps it; draft 1 runs it). */}
-            <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+            {/* On a desktop both columns run to the same bottom: the last card in each grows to meet the
+                other column's end (owner, 2026-11-19: Your to-dos ends where Recent cases ends). */}
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] xl:items-stretch">
               <div className="flex min-w-0 flex-col gap-6">
                 <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />
-                <TodosCard tasks={day.tasks} today={day.today} onAct={act} />
+                <TodosCard tasks={day.tasks} today={day.today} onAct={act} className="xl:flex-1" />
               </div>
               <div className="flex min-w-0 flex-col gap-6">
                 <UpdatesCarouselCard updates={updates} now={nowDate} />
                 <ComingUpCard day={day} />
-                <RecentCasesCard today={day.today} />
+                <RecentCasesCard today={day.today} className="xl:flex-1" />
               </div>
             </div>
           </>

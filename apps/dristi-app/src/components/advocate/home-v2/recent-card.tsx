@@ -28,7 +28,7 @@ const TAG_LOOK = "h-4.5 px-1.5 text-[11px]"; // ds-typography-allow: Home's smal
  * the parties and a tag saying what happened (in the Filings page's words); under them the number
  * (with its bookmark) and when it happened. A row opens the case, or the fix for a returned filing.
  */
-export function RecentCasesCard({ today }: { today: string }) {
+export function RecentCasesCard({ today, className }: { today: string; className?: string }) {
   const { tasks, cases: taskCases } = useTasks();
   const items = React.useMemo(
     () =>
@@ -45,7 +45,7 @@ export function RecentCasesCard({ today }: { today: string }) {
   const shown = items.slice(0, RECENT_ROWS);
 
   return (
-    <Card variant="raised" role="region" aria-labelledby="home-recent" className="min-w-0 gap-3">
+    <Card variant="raised" role="region" aria-labelledby="home-recent" className={cn("min-w-0 gap-3", className)}>
       <CardHeader>
         <CardTitle>
           <h2 id="home-recent" className="text-body font-semibold">
@@ -53,7 +53,7 @@ export function RecentCasesCard({ today }: { today: string }) {
           </h2>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         {shown.length ? (
           <ul className="-mx-2 flex flex-col">
             {shown.map((it) => (
