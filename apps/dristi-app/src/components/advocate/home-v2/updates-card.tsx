@@ -91,7 +91,7 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
           gap; it reaches 16px into the card's padding so the title keeps one line at 1280. */}
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center justify-between">
-          <h2 id="home-updates" className="text-title-s font-semibold whitespace-nowrap">
+          <h2 id="home-updates" className="text-body font-semibold whitespace-nowrap">
             Updates on your cases
           </h2>
           {total ? <CountButton total={total} onClick={() => openList()} className="-mr-4 -ml-2 px-2" /> : null}

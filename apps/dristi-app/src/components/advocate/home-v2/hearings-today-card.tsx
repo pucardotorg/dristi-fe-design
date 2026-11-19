@@ -74,7 +74,7 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
     <Card variant="raised" role="region" aria-labelledby="home-hearings" className="min-w-0 gap-4">
       <CardHeader className="items-center">
         <CardTitle className="min-w-0">
-          <h2 id="home-hearings" className="flex flex-wrap items-center gap-x-1 text-title-s font-semibold">
+          <h2 id="home-hearings" className="flex flex-wrap items-center gap-x-1 text-body font-semibold">
             Your hearings
             <DayMenu
               day={day}
@@ -196,7 +196,7 @@ function DayMenu({ day, setDay, dates }: { day: Day; setDay: (d: Day) => void; d
           variant="ghost"
           size="sm"
           aria-label={`${day === "today" ? `Today, ${dates.today}` : `${nextName}, ${dates.next}`}. Change day`}
-          className="-mx-1 h-auto gap-1.5 px-1 py-0 text-title-s font-semibold"
+          className="-mx-1 h-auto gap-1.5 px-1 py-0 text-body font-semibold"
         >
           {label}
           <span aria-hidden="true" className="flex size-4 items-center justify-center rounded-full border border-input bg-accent-strong">
