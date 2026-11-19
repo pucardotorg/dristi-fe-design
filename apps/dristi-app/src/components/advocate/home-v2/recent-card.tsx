@@ -78,7 +78,7 @@ export function RecentCasesCard({ today, className }: { today: string; className
                           <span className="sr-only">Bookmarked case. </span>
                         </>
                       ) : null}
-                      <span className="truncate">{it.ref || "Not numbered yet"}</span>
+                      <span className="truncate">{it.ref || "No case number yet"}</span>
                     </span>
                     <span className="shrink-0 text-caption text-muted-foreground tabular-nums">{recentWhen(it.on, today)}</span>
                   </span>

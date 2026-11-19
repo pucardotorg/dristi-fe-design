@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRightIcon,
   ChevronDownIcon,
@@ -33,6 +33,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { addDays, nextWorkingDay } from "@/lib/advocate/prepared-ahead";
 import {
   comingUp,
   HOME_CALENDAR,
@@ -93,6 +94,22 @@ const START: { label: string; hint: string; href: string; icon: LucideIcon }[] =
 
 /* "Morning, Anjali": shorter than "Good morning" so a phone fits the greeting beside its Quick
    actions button (owner, 2026-11-19). */
+/** DEMO: copies today's own due tasks into a heavy day (8 overdue, 6 due today, 5 due tomorrow). */
+function busyDay(day: ReturnType<typeof homeDay>): ReturnType<typeof homeDay> {
+  const template = day.tasks.filter((t) => t.dueOn && !t.waiting && !t.completions?.length);
+  const tomorrow = nextWorkingDay(HOME_CALENDAR, day.today);
+  const plan: [string, number][] = [
+    ...Array.from({ length: 7 }, (_, i): [string, number] => [addDays(day.today, -(i + 1)), i]),
+    ...Array.from({ length: 4 }, (_, i): [string, number] => [day.today, i + 7]),
+    ...Array.from({ length: 3 }, (_, i): [string, number] => [tomorrow, i + 11]),
+  ];
+  const extra = plan.map(([dueOn, i]) => {
+    const t = template[i % template.length];
+    return { ...t, id: `${t.id}-busy-${i}`, dueOn, blocks: undefined };
+  });
+  return { ...day, tasks: [...day.tasks, ...extra] };
+}
+
 function greetingFor(hour: number): string {
   if (hour < 12) return "Morning";
   if (hour < 17) return "Afternoon";
@@ -109,7 +126,10 @@ export function DashboardHomeV2({
   firstName: string;
   card?: V2Card | null;
 }) {
-  const [base] = React.useState(() => homeDay());
+  /* DEMO: `?busy=1` gives a heavy day (many overdue, due today and due tomorrow tasks) to try the
+     to-dos cap and the desktop's sticky right column. Draft 2 only; the real day is untouched. */
+  const busy = useSearchParams().get("busy") === "1";
+  const [base] = React.useState(() => (busy ? busyDay(homeDay()) : homeDay()));
   /* Completed on this visit: task id → when. Held in memory, so a refresh restores the day. */
   const [doneNow, setDoneNow] = React.useState<Record<string, string>>({});
 

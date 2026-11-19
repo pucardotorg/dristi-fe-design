@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRightIcon, BookmarkIcon, CheckCheckIcon, ChevronDownIcon, ClockIcon, UserCheckIcon } from "lucide-react";
+import { ArrowRightIcon, BookmarkIcon, CheckCheckIcon, ChevronDownIcon, RotateCcwClockIcon, UserCheckIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,17 +56,21 @@ export function TodosCard({
   /* "Show N more" opens a tab's whole list in place, as Your hearings does with its courts. */
   const [all, setAll] = React.useState<Record<Tab, boolean>>({ urgent: false, waiting: false });
 
-  /* Overdue and due today always show in full: hiding either would hide what is pressing (owner,
-     2026-11-19). The next working day fills what is left of the six rows; the rest wait behind
-     "Show N more". */
-  const shown = groups.map((g) => ({
-    ...g,
-    shown: all.urgent || g.key !== "tomorrow" ? g.tasks : g.tasks.slice(0, Math.max(0, ROWS - pressing)),
-  }));
+  /* Six rows, filled in order: overdue first, then due today, then the next working day. What
+     doesn't fit waits behind "Show N more", which says which groups it holds (owner, 2026-11-19). */
+  const shown = groups.map((g, i) => {
+    const before = groups.slice(0, i).reduce((n, x) => n + x.tasks.length, 0);
+    return { ...g, shown: all.urgent ? g.tasks : g.tasks.slice(0, Math.max(0, ROWS - before)) };
+  });
   const hidden = {
     urgent: urgentCount - shown.reduce((n, g) => n + g.shown.length, 0),
     waiting: all.waiting ? 0 : Math.max(0, waiting.length - ROWS),
   };
+  /* "2 due today · 3 due tomorrow": the groups the hidden urgent rows come from. */
+  const hiddenBreakdown = shown
+    .filter((g) => g.tasks.length > g.shown.length)
+    .map((g) => `${g.tasks.length - g.shown.length} ${g.label.toLowerCase()}`)
+    .join(" · ");
   const expandable = hidden[tab] > 0 || all[tab];
 
   return (
@@ -116,7 +120,7 @@ export function TodosCard({
                       aria-labelledby={`todo-${g.key}`}
                       className="flex flex-col not-first:mt-1 not-first:border-t not-first:border-hairline not-first:pt-3"
                     >
-                      <h3 id={`todo-${g.key}`} className={cn("text-caption font-semibold", TONE[g.key].ink)}>
+                      <h3 id={`todo-${g.key}`} className={cn("text-body-compact font-semibold", TONE[g.key].ink)}>
                         {/* Each group's full count rides its heading (owner, 2026-11-19: the legend row
                             above went, to give the rows its space). */}
                         {g.label} · <span className="tabular-nums">{g.tasks.length}</span>
@@ -164,7 +168,16 @@ export function TodosCard({
             aria-expanded={all[tab]}
             onClick={() => setAll((a) => ({ ...a, [tab]: !a[tab] }))}
           >
-            {all[tab] ? "Show fewer" : `Show ${hidden[tab]} more ${hidden[tab] === 1 ? "task" : "tasks"}`}
+            {all[tab] ? (
+              "Show fewer"
+            ) : (
+              <>
+                Show {hidden[tab]} more {hidden[tab] === 1 ? "task" : "tasks"}
+                {tab === "urgent" && hiddenBreakdown ? (
+                  <span className="font-normal text-muted-foreground">({hiddenBreakdown})</span>
+                ) : null}
+              </>
+            )}
             <ChevronDownIcon
               data-icon="inline-end"
               aria-hidden="true"
@@ -257,7 +270,8 @@ function WaitingRow({ task: t, today, onAct }: { task: HomeTask; today: string; 
       when={
         /* A clock and a short age: "Today", "5D", "2M" (owner, 2026-11-19). Read out in full. */
         <span className={cn("inline-flex items-center justify-end gap-1", days >= 3 && "font-semibold text-foreground")}>
-          <ClockIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          {/* The clock from a case's header (its history button), Dristi's "time since" mark. */}
+          <RotateCcwClockIcon aria-hidden="true" className="size-3.5 shrink-0" />
           <span aria-hidden="true">{waitAge(days)}</span>
           <span className="sr-only">Waiting {days === 0 ? "since today" : waitWords(days)}</span>
         </span>
