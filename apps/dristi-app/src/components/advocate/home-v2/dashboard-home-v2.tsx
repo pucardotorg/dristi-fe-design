@@ -1,5 +1,6 @@
 "use client";
 
+import "./quick.css";
 import "./week.css";
 
 import * as React from "react";
@@ -374,11 +375,14 @@ function QuickActions({ phone }: { phone?: boolean }) {
  */
 function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
   const newVak = useNewVak();
-  /* Wide with its words each time it appears, then round 1.5s later. */
+  /* Wide with its words each time it appears, then round 1.5s later. "idle" until first shown, so
+     nothing animates on load; then "in" / "out" drive the morphs (quick.css). */
   const [wide, setWide] = React.useState(true);
   const [shown, setShown] = React.useState(show);
+  const [state, setState] = React.useState<"idle" | "in" | "out">(show ? "in" : "idle");
   if (shown !== show) {
     setShown(show);
+    setState(show ? "in" : "out");
     if (show) setWide(true);
   }
   React.useEffect(() => {
@@ -386,14 +390,11 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
     const id = window.setTimeout(() => setWide(false), 1500);
     return () => window.clearTimeout(id);
   }, [show]);
-  const away = !show && "pointer-events-none opacity-0";
   return (
     <>
       <div
-        className={cn(
-          "fixed right-4 z-40 transition-[opacity,translate] duration-300 ease-out motion-reduce:transition-none xl:hidden",
-          away ? cn(away, "translate-y-4") : "translate-y-0",
-        )}
+        data-state={state}
+        className={cn("qa-fab fixed right-4 z-40 xl:hidden", !show && "pointer-events-none")}
         style={{ bottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}
         inert={!show}
       >
@@ -419,25 +420,25 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
         </QuickActionsDrawer>
       </div>
 
-      <div
-        className={cn(
-          "pointer-events-none fixed inset-x-0 z-40 flex justify-center transition-[opacity,translate] duration-300 ease-out motion-reduce:transition-none max-xl:hidden",
-          away ? cn("opacity-0", "-translate-y-2") : "translate-y-0",
-        )}
-        style={{ top }}
-        inert={!show}
-      >
+      <div className="pointer-events-none fixed inset-x-0 z-40 flex justify-center max-xl:hidden" style={{ top }} inert={!show}>
         <nav
           aria-label="Quick actions"
-          className="pointer-events-auto flex items-center gap-1 rounded-full border border-hairline bg-card p-1 shadow-overlay"
+          data-state={state}
+          /* Hairlines between the four (owner, 2026-11-19). */
+          className={cn(
+            "qa-bar flex items-center divide-x divide-hairline rounded-full border border-hairline bg-card p-1 shadow-overlay [&>*]:px-1 [&>*:first-child]:pl-0 [&>*:last-child]:pr-0",
+            show && "pointer-events-auto",
+          )}
         >
           {START.map(({ label, href, icon: Icon }) => (
-            <Button key={label} asChild variant="ghost" size="sm" className="rounded-full">
-              <Link href={href} onClick={href === "/vakalatnama" ? newVak : undefined}>
-                <Icon data-icon="inline-start" aria-hidden="true" className="text-brand-muted-foreground" />
-                {label}
-              </Link>
-            </Button>
+            <span key={label} className="flex">
+              <Button asChild variant="ghost" size="sm" className="rounded-full">
+                <Link href={href} onClick={href === "/vakalatnama" ? newVak : undefined}>
+                  <Icon data-icon="inline-start" aria-hidden="true" className="text-brand-muted-foreground" />
+                  {label}
+                </Link>
+              </Button>
+            </span>
           ))}
         </nav>
       </div>
