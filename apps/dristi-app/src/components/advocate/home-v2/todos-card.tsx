@@ -40,14 +40,11 @@ export function TodosCard({
   today,
   onAct,
   className,
-  onExpandedChange,
 }: {
   tasks: HomeTask[];
   today: string;
   onAct: (t: HomeTask) => void;
   className?: string;
-  /** Tells the page when a tab's full list is open, so the other column doesn't stretch with it. */
-  onExpandedChange?: (expanded: boolean) => void;
 }) {
   const groups = React.useMemo(() => mustDo(HOME_CALENDAR, tasks, today), [tasks, today]);
   const waiting = React.useMemo(() => waitingOnYou(HOME_CALENDAR, tasks, today), [tasks, today]);
@@ -71,7 +68,6 @@ export function TodosCard({
     waiting: all.waiting ? 0 : Math.max(0, waiting.length - ROWS),
   };
   const expandable = hidden[tab] > 0 || all[tab];
-  React.useEffect(() => onExpandedChange?.(all[tab]), [all, tab, onExpandedChange]);
 
   return (
     <Card variant="raised" role="region" aria-labelledby="home-todos" className={cn("w-full min-w-0 gap-4", className)}>

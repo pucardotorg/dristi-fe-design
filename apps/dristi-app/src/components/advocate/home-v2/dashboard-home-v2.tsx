@@ -132,8 +132,6 @@ export function DashboardHomeV2({
   const nowDate = React.useMemo(() => new Date(base.now), [base.now]);
   const updates = React.useMemo(() => demoUpdates(nowDate), [nowDate]);
 
-  const [todosOpen, setTodosOpen] = React.useState(false);
-
   const act = (task: HomeTask) => {
     setDoneNow((prev) => ({
       ...prev,
@@ -195,20 +193,20 @@ export function DashboardHomeV2({
                 hearings). Right: Updates, Your week ahead, then Recent cases. Must do today and
                 Waiting on you merged into Your to-dos; Insights is out of draft 2 for this release
                 (tag home-v2-before-todos keeps it; draft 1 runs it). */}
-            {/* On a desktop both columns run to the same bottom: the last card in each grows to meet the
-                other column's end (owner, 2026-11-19: Your to-dos ends where Recent cases ends). */}
-            <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] xl:items-stretch">
+            <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
               <div className="flex min-w-0 flex-col gap-6">
                 <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />
-                <TodosCard tasks={day.tasks} today={day.today} onAct={act} className="xl:flex-1" onExpandedChange={setTodosOpen} />
+                <TodosCard tasks={day.tasks} today={day.today} onAct={act} />
               </div>
-              {/* While Your to-dos shows its full list, this column keeps its own height instead of
-                  stretching with it (owner, 2026-11-19). */}
-              <div className={cn("flex min-w-0 flex-col gap-6", todosOpen && "xl:self-start")}>
+              {/* 768 to 1279px (iPad Pro upright, iPad mini sideways): Updates and Your week ahead side
+                  by side, Recent cases under them; a carousel stretched across an iPad read empty
+                  (owner, 2026-11-19). Desktop: one column that sticks once its end is in view, while
+                  the left column scrolls on (owner, 2026-11-19). */}
+              <StickyColumn className="flex min-w-0 flex-col gap-6 md:grid md:grid-cols-2 xl:flex">
                 <UpdatesCarouselCard updates={updates} now={nowDate} />
                 <ComingUpCard day={day} />
-                <RecentCasesCard today={day.today} className="xl:flex-1" />
-              </div>
+                <RecentCasesCard today={day.today} className="md:col-span-2" />
+              </StickyColumn>
             </div>
           </>
         )}
@@ -293,6 +291,45 @@ function QuickActions({ phone }: { phone?: boolean }) {
         <ul className="grid grid-cols-2 gap-2">{tiles()}</ul>
       </nav>
     </>
+  );
+}
+
+/**
+ * The desktop right column: it scrolls with the page until its own end reaches the bottom of the
+ * screen, then stays there while the left column scrolls on (the "sticky sidebar"). A column taller
+ * than the screen therefore never hides its end; one shorter than the screen simply sits under the
+ * top bar. The stop is worked out from the column's height and the window's, and redone whenever
+ * either changes. Below 1280px the cards stack and nothing sticks.
+ */
+function StickyColumn({ className, children }: { className?: string; children: React.ReactNode }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [top, setTop] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const wide = window.matchMedia("(min-width: 1280px)");
+    const place = () => {
+      if (!wide.matches) return setTop(null);
+      /* Under the shell's top bar with the page's own 24px gap, or higher if the column is taller
+         than the room below the bar: then its end lands 24px above the screen's bottom. */
+      const bar = document.querySelector<HTMLElement>("[data-slot=app-header], header")?.offsetHeight ?? 0;
+      setTop(Math.min(bar + 24, window.innerHeight - el.offsetHeight - 24));
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(el);
+    window.addEventListener("resize", place);
+    wide.addEventListener("change", place);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", place);
+      wide.removeEventListener("change", place);
+    };
+  }, []);
+  return (
+    <div ref={ref} className={cn(className, "xl:sticky xl:self-start")} style={top === null ? undefined : { top }}>
+      {children}
+    </div>
   );
 }
 
