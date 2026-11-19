@@ -132,6 +132,8 @@ export function DashboardHomeV2({
   const nowDate = React.useMemo(() => new Date(base.now), [base.now]);
   const updates = React.useMemo(() => demoUpdates(nowDate), [nowDate]);
 
+  const [todosOpen, setTodosOpen] = React.useState(false);
+
   const act = (task: HomeTask) => {
     setDoneNow((prev) => ({
       ...prev,
@@ -198,9 +200,11 @@ export function DashboardHomeV2({
             <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] xl:items-stretch">
               <div className="flex min-w-0 flex-col gap-6">
                 <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />
-                <TodosCard tasks={day.tasks} today={day.today} onAct={act} className="xl:flex-1" />
+                <TodosCard tasks={day.tasks} today={day.today} onAct={act} className="xl:flex-1" onExpandedChange={setTodosOpen} />
               </div>
-              <div className="flex min-w-0 flex-col gap-6">
+              {/* While Your to-dos shows its full list, this column keeps its own height instead of
+                  stretching with it (owner, 2026-11-19). */}
+              <div className={cn("flex min-w-0 flex-col gap-6", todosOpen && "xl:self-start")}>
                 <UpdatesCarouselCard updates={updates} now={nowDate} />
                 <ComingUpCard day={day} />
                 <RecentCasesCard today={day.today} className="xl:flex-1" />

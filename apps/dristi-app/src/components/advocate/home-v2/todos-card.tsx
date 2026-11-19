@@ -40,11 +40,14 @@ export function TodosCard({
   today,
   onAct,
   className,
+  onExpandedChange,
 }: {
   tasks: HomeTask[];
   today: string;
   onAct: (t: HomeTask) => void;
   className?: string;
+  /** Tells the page when a tab's full list is open, so the other column doesn't stretch with it. */
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
   const groups = React.useMemo(() => mustDo(HOME_CALENDAR, tasks, today), [tasks, today]);
   const waiting = React.useMemo(() => waitingOnYou(HOME_CALENDAR, tasks, today), [tasks, today]);
@@ -68,6 +71,7 @@ export function TodosCard({
     waiting: all.waiting ? 0 : Math.max(0, waiting.length - ROWS),
   };
   const expandable = hidden[tab] > 0 || all[tab];
+  React.useEffect(() => onExpandedChange?.(all[tab]), [all, tab, onExpandedChange]);
 
   return (
     <Card variant="raised" role="region" aria-labelledby="home-todos" className={cn("w-full min-w-0 gap-4", className)}>
@@ -83,8 +87,6 @@ export function TodosCard({
           value={tab}
           onValueChange={(v) => v && setTab(v as Tab)}
           aria-label="Which to-dos"
-          /* Compact: a 32px well, so the toggle doesn't outweigh the title (owner, 2026-11-19). */
-          size="compact"
           className="w-full sm:w-1/2 [&>*]:flex-1"
         >
           <SegmentedControlItem value="urgent">
@@ -175,7 +177,8 @@ export function TodosCard({
         )}
         <Button asChild variant="outline" size="sm" className="-mr-3">
           <Link href={tab === "waiting" ? `${TASKS_HREF}?view=waiting` : TASKS_HREF}>
-            Take action
+            {/* Named for what it opens, like Recent cases' "All cases" (owner, 2026-11-19). */}
+            All tasks
             <ArrowRightIcon data-icon="inline-end" aria-hidden="true" />
           </Link>
         </Button>
