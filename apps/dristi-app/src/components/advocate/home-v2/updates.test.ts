@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { type CaseUpdate, SLIDE_CAP, demoUpdates, listFrom, orderUpdates, slidesOf, updateHref, whenLabel } from "./updates";
+import { type CaseUpdate, SLIDE_CAP, demoUpdates, splitFrom, orderUpdates, slidesOf, updateHref, whenLabel } from "./updates";
 
 const u = (id: string, hoursAgo: number, bookmarked = false): CaseUpdate => ({
   id,
@@ -39,16 +39,21 @@ describe("slidesOf", () => {
   });
 });
 
-describe("listFrom", () => {
+describe("splitFrom", () => {
   const all = [u("a", 1), u("b", 2, true), u("c", 3)];
-  it("the tapped update leads, the rest keep their order", () => {
-    assert.deepEqual(listFrom(all, "c").map((x) => x.id), ["c", "b", "a"]);
+  it("opened from a slide: that update apart, the rest in the stated order without it", () => {
+    const { opened, rest } = splitFrom(all, "c");
+    assert.equal(opened?.id, "c");
+    assert.deepEqual(rest.map((x) => x.id), ["b", "a"]);
   });
-  it("opened from the count: plain order", () => {
-    assert.deepEqual(listFrom(all).map((x) => x.id), ["b", "a", "c"]);
+  it("opened from the count: no opened update, everything in order", () => {
+    const { opened, rest } = splitFrom(all);
+    assert.equal(opened, undefined);
+    assert.deepEqual(rest.map((x) => x.id), ["b", "a", "c"]);
   });
   it("every update appears once", () => {
-    assert.equal(new Set(listFrom(all, "a").map((x) => x.id)).size, 3);
+    const { opened, rest } = splitFrom(all, "a");
+    assert.equal(new Set([opened!, ...rest].map((x) => x.id)).size, 3);
   });
 });
 

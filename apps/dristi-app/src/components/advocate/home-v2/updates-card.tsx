@@ -13,7 +13,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
-import { type CaseUpdate, SLIDE_MS, listFrom, slidesOf, updateHref, whenLabel } from "./updates";
+import { type CaseUpdate, SLIDE_MS, slidesOf, splitFrom, updateHref, whenLabel } from "./updates";
 
 /**
  * Card 4, draft 2: "Updates on your cases" (owner, 2026-11-19). One update at a time, like a
@@ -323,40 +323,32 @@ function UpdatesList({
   nonce: number;
   onOpenChange: (open: boolean) => void;
 }) {
-  const rows = listFrom(updates, firstId);
+  const { opened, rest } = splitFrom(updates, firstId);
   const title = `${updates.length} ${updates.length === 1 ? "update" : "updates"} on your cases`;
-  const list = (
-    <ul className="flex flex-col divide-y divide-hairline">
-      {rows.map((u, i) => (
-        <li key={u.id} className="relative">
-          <Link
-            href={updateHref(u)}
-            className="-mx-2 flex min-h-14 flex-col gap-0.5 rounded-lg px-2 py-3 outline-none hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-focus-ring"
-          >
-            <span className="text-body-compact font-medium text-foreground">{u.what}</span>
-            <span className="flex min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
-              {u.bookmarked ? (
-                <>
-                  <BookmarkIcon aria-hidden="true" className="size-3 shrink-0 fill-current" />
-                  <span className="sr-only">Bookmarked case. </span>
-                </>
-              ) : null}
-              <span className="shrink-0 font-medium text-foreground tabular-nums">{u.caseNumber}</span>
-              <span aria-hidden="true">·</span>
-              <span className="truncate">{u.caseTitle}</span>
-              <span aria-hidden="true">·</span>
-              <span className="shrink-0 whitespace-nowrap tabular-nums">{whenLabel(u.at, now)}</span>
-            </span>
-          </Link>
-          {/* The Hearings home's "look here" stroke, once, around the update you tapped. */}
-          {i === 0 && firstId ? (
-            <span key={nonce} aria-hidden="true" className="pointer-events-none absolute -inset-x-2 inset-y-1">
-              <svg className="cause-trace-run size-full overflow-visible">
-                <rect className="cause-trace-rect" pathLength={100} />
-              </svg>
-            </span>
-          ) : null}
-        </li>
+  const ORDER = "Bookmarked cases first, then newest.";
+  const label = "text-caption font-medium text-muted-foreground";
+  const body = opened ? (
+    /* Opened from a slide: that update apart on top (traced), then everything else in order. */
+    <div className="flex flex-col gap-4 pb-4">
+      <section aria-label="The update you opened" className="flex flex-col gap-1">
+        <p className={label}>You opened</p>
+        <ul>
+          <UpdateRow update={opened} now={now} trace={nonce} />
+        </ul>
+      </section>
+      <section aria-label="All other updates" className="flex flex-col gap-1 border-t border-hairline pt-4">
+        <p className={label}>All other updates · {ORDER}</p>
+        <ul className="flex flex-col divide-y divide-hairline">
+          {rest.map((u) => (
+            <UpdateRow key={u.id} update={u} now={now} />
+          ))}
+        </ul>
+      </section>
+    </div>
+  ) : (
+    <ul className="flex flex-col divide-y divide-hairline pb-4">
+      {rest.map((u) => (
+        <UpdateRow key={u.id} update={u} now={now} />
       ))}
     </ul>
   );
@@ -367,9 +359,9 @@ function UpdatesList({
         <SheetContent side="right" className="flex flex-col gap-0 sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{title}</SheetTitle>
-            <SheetDescription>Bookmarked cases first, then newest.</SheetDescription>
+            <SheetDescription>{opened ? "The one you opened, then all the others." : ORDER}</SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">{list}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4">{body}</div>
         </SheetContent>
       </Sheet>
     );
@@ -379,10 +371,49 @@ function UpdatesList({
       <DrawerContent style={{ height: "75dvh", paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
         <DrawerHeader className="text-left">
           <DrawerTitle className="text-left">{title}</DrawerTitle>
-          <DrawerDescription className="text-left">Bookmarked cases first, then newest.</DrawerDescription>
+          <DrawerDescription className="text-left">{opened ? "The one you opened, then all the others." : ORDER}</DrawerDescription>
         </DrawerHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4">{list}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4">{body}</div>
       </DrawerContent>
     </Drawer>
+  );
+}
+
+/**
+ * One update in the list: the headline, then a line with the case number and parties on the left
+ * (cut with "…" when long) and the time pinned to the right, so times line up in one column
+ * whatever the case name (owner, 2026-11-19). `trace` draws the Hearings home's "look here" stroke.
+ */
+function UpdateRow({ update: u, now, trace }: { update: CaseUpdate; now: Date; trace?: number }) {
+  return (
+    <li className="relative">
+      <Link
+        href={updateHref(u)}
+        className="-mx-2 flex min-h-14 flex-col gap-1.5 rounded-lg px-2 py-3 outline-none hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-focus-ring"
+      >
+        <span className="text-body-compact font-medium text-foreground">{u.what}</span>
+        <span className="flex min-w-0 items-center justify-between gap-3 text-caption text-muted-foreground">
+          <span className="flex min-w-0 items-center gap-1.5">
+            {u.bookmarked ? (
+              <>
+                <BookmarkIcon aria-hidden="true" className="size-3 shrink-0 fill-current" />
+                <span className="sr-only">Bookmarked case. </span>
+              </>
+            ) : null}
+            <span className="shrink-0 font-medium text-foreground tabular-nums">{u.caseNumber}</span>
+            <span aria-hidden="true">·</span>
+            <span className="truncate">{u.caseTitle}</span>
+          </span>
+          <span className="shrink-0 whitespace-nowrap tabular-nums">{whenLabel(u.at, now)}</span>
+        </span>
+      </Link>
+      {trace !== undefined ? (
+        <span key={trace} aria-hidden="true" className="pointer-events-none absolute -inset-x-2 inset-y-1">
+          <svg className="cause-trace-run size-full overflow-visible">
+            <rect className="cause-trace-rect" pathLength={100} />
+          </svg>
+        </span>
+      ) : null}
+    </li>
   );
 }

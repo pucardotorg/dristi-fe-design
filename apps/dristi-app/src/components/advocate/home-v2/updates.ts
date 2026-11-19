@@ -48,11 +48,15 @@ export function slidesOf(updates: CaseUpdate[]): CaseUpdate[] {
   return orderUpdates(updates).slice(0, SLIDE_CAP);
 }
 
-/** The full list opened from a slide: the tapped update first, then the rest in order. */
-export function listFrom(updates: CaseUpdate[], firstId?: string): CaseUpdate[] {
+/**
+ * The full list. Opened from a slide, that update stands apart on top and the rest follow in the
+ * usual order (bookmarked first, then newest), so the order the list states stays true (owner,
+ * 2026-11-19). Opened from the count, everything is in the usual order.
+ */
+export function splitFrom(updates: CaseUpdate[], openedId?: string): { opened?: CaseUpdate; rest: CaseUpdate[] } {
   const ordered = orderUpdates(updates);
-  const first = ordered.find((u) => u.id === firstId);
-  return first ? [first, ...ordered.filter((u) => u.id !== firstId)] : ordered;
+  const opened = ordered.find((u) => u.id === openedId);
+  return { opened, rest: opened ? ordered.filter((u) => u.id !== openedId) : ordered };
 }
 
 /** Where an update opens: its case's history. */
