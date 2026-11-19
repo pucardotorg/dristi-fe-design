@@ -89,7 +89,14 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
   const openList = (firstId?: string) => setList((l) => ({ open: true, firstId, nonce: l.nonce + 1 }));
 
   return (
-    <Card variant="raised" role="region" aria-labelledby="home-updates" className="min-w-0 gap-3">
+    <Card
+      variant="raised"
+      role="region"
+      aria-labelledby="home-updates"
+      /* 8px under the dots' row, so the space below the dots equals the space above them (17px)
+         (owner, 2026-11-19). With no slides the empty line keeps the usual padding. */
+      className={cn("min-w-0 gap-3", frames > 1 && "pb-2")}
+    >
       {/* The count sits right of the title whenever both fit on one line, and drops under it only
           when the card is too narrow (a 375px phone). Decided by the room there is, not by
           breakpoint (owner, 2026-11-19: on a 440px phone it fits). The button's own padding is the
