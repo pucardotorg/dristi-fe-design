@@ -6,8 +6,6 @@ import {
   BookmarkIcon,
   FilePlusIcon,
   FileTextIcon,
-  GavelIcon,
-  HistoryIcon,
   ScrollTextIcon,
   UserPlusIcon,
   type LucideIcon,
@@ -16,11 +14,10 @@ import {
 import { HearingsTodayCard } from "@/components/advocate/home-v2/hearings-today-card";
 import { DEMO_COURTS, DEMO_NEXT_COURTS } from "@/components/advocate/home-v2/hearings-today";
 import { UpdatesCard as UpdatesCarouselCard } from "@/components/advocate/home-v2/updates-card";
+import { TodosCard } from "@/components/advocate/home-v2/todos-card";
 import { demoUpdates } from "@/components/advocate/home-v2/updates";
-import { PreparedAheadInsights } from "@/components/advocate/prepared-ahead";
 import { notify } from "@/components/feedback";
 import { PANEL_CLASS } from "@/components/shell/panel";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -30,27 +27,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  SegmentedControl,
-  SegmentedControlItem,
 } from "@/components/ui/segmented-control";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
   comingUp,
-  daysBetween,
   HOME_CALENDAR,
   homeDay,
   longDay,
-  mustDo,
   shortDay,
-  waitingOnYou,
   type HomeTask,
-  type MustDoGroup,
 } from "@/lib/advocate/home-dashboard";
-import { preparedAhead } from "@/lib/advocate/prepared-ahead";
 import { cn } from "@/lib/utils";
 
 /**
@@ -98,16 +85,7 @@ const START: { label: string; hint: string; href: string; icon: LucideIcon }[] =
     },
   ];
 
-const TASKS_HREF = "/tasks";
-const MUST_DO_CAP = 6;
-const WAITING_CAP = 4;
 
-/** Group ink: the rail beside each row and its heading. Words carry the meaning too. */
-const GROUP_TONE: Record<MustDoGroup["key"], { rail: string; ink: string }> = {
-  overdue: { rail: "bg-destructive", ink: "text-destructive-ink" },
-  today: { rail: "bg-warning", ink: "text-warning-ink" },
-  tomorrow: { rail: "bg-muted-foreground", ink: "text-muted-foreground" },
-};
 
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -182,8 +160,8 @@ export function DashboardHomeV2({
             {card === "1" ? (
               <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />
             ) : null}
-            {card === "2" ? <MustDoCard day={day} onAct={act} /> : null}
-            {card === "3" ? <WaitingCard day={day} onAct={act} /> : null}
+            {/* Cards 2 and 3 are one card now, "Your to-dos" (owner, 2026-11-19). */}
+            {card === "2" || card === "3" ? <TodosCard tasks={day.tasks} today={day.today} onAct={act} /> : null}
             {card === "4" ? <UpdatesCarouselCard updates={updates} now={nowDate} /> : null}
             {card === "5" ? <ComingUpCard day={day} /> : null}
           </div>
@@ -193,23 +171,18 @@ export function DashboardHomeV2({
               <Launcher />
             </Blank>
 
+            {/* Row 1: Your hearings | Your to-dos (same height). Row 2: Coming up | Updates.
+                Must do today and Waiting on you merged into Your to-dos; Insights is out of
+                draft 2 for this release (tag home-v2-before-todos keeps it; draft 1 runs it). */}
             <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-              <div className="flex min-w-0 flex-col gap-6">
-                <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />
-                <Blank>
-                  <MustDoCard day={day} onAct={act} />
-                </Blank>
+              <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />
+              <div className="flex min-w-0 xl:self-stretch">
+                <TodosCard tasks={day.tasks} today={day.today} onAct={act} />
               </div>
-              <div className="flex min-w-0 flex-col gap-6">
-                <Blank>
-                  <WaitingCard day={day} onAct={act} />
-                </Blank>
-                {/* Card 4 is being redesigned now (owner, 2026-11-19), so it shows. */}
-                <UpdatesCarouselCard updates={updates} now={nowDate} />
-                <Blank>
-                  <ComingUpCard day={day} />
-                </Blank>
-              </div>
+              <Blank>
+                <ComingUpCard day={day} />
+              </Blank>
+              <UpdatesCarouselCard updates={updates} now={nowDate} />
             </div>
           </>
         )}
@@ -243,15 +216,6 @@ function Blank({ className, children }: { className?: string; children: React.Re
   );
 }
 
-/** The mark a bookmarked case carries everywhere: the Cases page's bookmark, filled. */
-function Bookmarked({ className }: { className?: string }) {
-  return (
-    <span className={cn("inline-flex shrink-0 text-chart-3", className)}>
-      <BookmarkIcon aria-hidden="true" className="size-3.5 fill-current" />
-      <span className="sr-only">Bookmarked case</span>
-    </span>
-  );
-}
 
 /** A Home card: numbered question, title, one control on the right, capped body, footer link. */
 function HomeCard({
@@ -307,42 +271,7 @@ function HomeCard({
   );
 }
 
-/** "+3 more · Take action": what did not fit, and the page that holds all of it. */
-function MoreLink({
-  more,
-  label,
-  href,
-}: {
-  more?: string | null;
-  label: string;
-  href: string;
-}) {
-  return (
-    <p className="flex min-w-0 flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground">
-      {more ? (
-        <>
-          <span className="tabular-nums">{more}</span>
-          <span aria-hidden="true">·</span>
-        </>
-      ) : null}
-      <Link
-        href={href}
-        className="inline-flex min-h-10 items-center gap-1 rounded-sm font-medium text-primary underline decoration-border underline-offset-4 outline-none hover:decoration-current focus-visible:ring-3 focus-visible:ring-focus-ring"
-      >
-        {label}
-      </Link>
-    </p>
-  );
-}
 
-/** Nothing here today: the card keeps its size and says so. */
-function Nothing({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex flex-1 items-center justify-center rounded-lg bg-surface-sunken p-6 text-center text-body-compact text-muted-foreground">
-      {children}
-    </div>
-  );
-}
 
 /* ── Launcher ─────────────────────────────────────────────────────────── */
 
@@ -379,309 +308,6 @@ function Launcher() {
   );
 }
 
-/* ── ② Must do today ──────────────────────────────────────────────────── */
-
-function MustDoCard({
-  day,
-  onAct,
-}: {
-  day: ReturnType<typeof homeDay>;
-  onAct: (t: HomeTask) => void;
-}) {
-  const [view, setView] = React.useState<"list" | "insights">("list");
-  const groups = mustDo(HOME_CALENDAR, day.tasks, day.today);
-  const insights = React.useMemo(
-    () => preparedAhead(HOME_CALENDAR, day.tasks, day.today),
-    [day.tasks, day.today],
-  );
-
-  /* Fill the cap in group order: overdue first, then today, then tomorrow. */
-  const shown = groups.map((g, i) => {
-    const before = groups.slice(0, i).reduce((n, x) => n + x.tasks.length, 0);
-    return { ...g, shown: g.tasks.slice(0, Math.max(0, MUST_DO_CAP - before)) };
-  });
-  const hidden = shown.flatMap((g) => g.tasks.slice(g.shown.length));
-  const total = groups.reduce((n, g) => n + g.tasks.length, 0);
-
-  return (
-    <HomeCard
-      n={2}
-      id="home-must-do"
-      title="Must do today"
-      className="xl:h-164"
-      action={
-        <SegmentedControl
-          type="single"
-          size="compact"
-          value={view}
-          onValueChange={(v) => v && setView(v as "list" | "insights")}
-          aria-label="Show as"
-        >
-          <SegmentedControlItem value="list">List</SegmentedControlItem>
-          <SegmentedControlItem value="insights">Insights</SegmentedControlItem>
-        </SegmentedControl>
-      }
-      footer={
-        view === "list" ? (
-          <MoreLink
-            more={hidden.length ? `+${hidden.length} more` : null}
-            label="Take action"
-            href={TASKS_HREF}
-          />
-        ) : null
-      }
-    >
-      {view === "insights" ? (
-        <PreparedAheadInsights data={insights} tasksHref={TASKS_HREF} />
-      ) : total === 0 ? (
-        <Nothing>Nothing due today or tomorrow.</Nothing>
-      ) : (
-        <div className="flex min-h-0 flex-col gap-4">
-          <ul aria-label="Counts" className="flex flex-wrap gap-x-4 gap-y-1">
-            {groups.map((g) => (
-              <li
-                key={g.key}
-                className="flex items-center gap-1.5 text-caption font-medium text-muted-foreground"
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn("size-2.5 rounded-xs", GROUP_TONE[g.key].rail)}
-                />
-                <span className="font-semibold text-foreground tabular-nums">
-                  {g.tasks.length}
-                </span>
-                {g.label.toLowerCase()}
-              </li>
-            ))}
-          </ul>
-          <div className="flex flex-col gap-3">
-            {shown
-              .filter((g) => g.shown.length)
-              .map((g) => (
-                <section
-                  key={g.key}
-                  aria-labelledby={`must-${g.key}`}
-                  className="flex flex-col gap-1"
-                >
-                  <h3
-                    id={`must-${g.key}`}
-                    className={cn(
-                      "text-caption font-semibold",
-                      GROUP_TONE[g.key].ink,
-                    )}
-                  >
-                    {g.label}
-                  </h3>
-                  <ul className="flex flex-col">
-                    {g.shown.map((t) => (
-                      <MustDoRow
-                        key={t.id}
-                        task={t}
-                        group={g}
-                        today={day.today}
-                        onAct={onAct}
-                      />
-                    ))}
-                  </ul>
-                </section>
-              ))}
-          </div>
-        </div>
-      )}
-    </HomeCard>
-  );
-}
-
-function MustDoRow({
-  task: t,
-  group,
-  today,
-  onAct,
-}: {
-  task: HomeTask;
-  group: MustDoGroup;
-  today: string;
-  onAct: (t: HomeTask) => void;
-}) {
-  const late = group.key === "overdue" ? daysBetween(t.dueOn!, today) : 0;
-  const due =
-    group.key === "overdue"
-      ? `${late} ${late === 1 ? "day" : "days"} overdue`
-      : group.key === "today"
-        ? "Today"
-        : group.label.replace(/^Due (\w)/, (_, c: string) => c.toUpperCase());
-  const blocks = t.blocks
-    ? `Blocks item ${t.blocks.item} in ${t.blocks.court} today`
-    : null;
-  const dueTone =
-    group.key === "overdue"
-      ? "font-semibold text-destructive-ink"
-      : "font-medium text-muted-foreground";
-  return (
-    <li className="flex min-h-14 items-center gap-3 rounded-lg py-2 pr-1">
-      <span
-        aria-hidden="true"
-        className={cn(
-          "w-1 self-stretch rounded-full",
-          GROUP_TONE[group.key].rail,
-        )}
-      />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="flex min-w-0 items-center gap-1.5 text-body-compact font-medium">
-          {t.bookmarked ? <Bookmarked /> : null}
-          <span className="line-clamp-2 min-w-0">{t.title}</span>
-          {blocks ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="relative inline-flex shrink-0 rounded-sm text-warning-ink outline-none after:absolute after:-inset-3 focus-visible:ring-3 focus-visible:ring-focus-ring pointer-coarse:hidden"
-                >
-                  <GavelIcon aria-hidden="true" className="size-4" />
-                  <span className="sr-only">{blocks}</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{blocks}</TooltipContent>
-            </Tooltip>
-          ) : null}
-        </p>
-        <p className="line-clamp-2 text-caption font-medium text-muted-foreground">
-          {t.caseTitle}
-          {/* Touch has no hover: the hearing it blocks is said in the line. */}
-          {blocks && t.blocks ? (
-            <span aria-hidden="true" className="hidden pointer-coarse:inline">
-              {" "}
-              · Blocks item {t.blocks.item}, {t.blocks.court}
-            </span>
-          ) : null}
-        </p>
-        {/* Phones: the due cue joins the text, so the title keeps the width. */}
-        <p className={cn("text-caption tabular-nums sm:hidden", dueTone)}>
-          {due}
-        </p>
-      </div>
-      <span
-        className={cn(
-          "shrink-0 text-caption tabular-nums max-sm:hidden",
-          dueTone,
-        )}
-      >
-        {due}
-      </span>
-      <Button
-        variant="outline"
-        size="xs"
-        className="shrink-0 pointer-coarse:h-10 pointer-coarse:px-4"
-        onClick={() => onAct(t)}
-      >
-        {t.verb}
-        <span className="sr-only">: {t.title}</span>
-      </Button>
-    </li>
-  );
-}
-
-/* ── ③ Waiting on you ─────────────────────────────────────────────────── */
-
-function WaitingCard({
-  day,
-  onAct,
-}: {
-  day: ReturnType<typeof homeDay>;
-  onAct: (t: HomeTask) => void;
-}) {
-  const all = waitingOnYou(HOME_CALENDAR, day.tasks, day.today);
-  const shown = all.slice(0, WAITING_CAP);
-  const more = all.length - shown.length;
-  return (
-    <HomeCard
-      n={3}
-      id="home-waiting"
-      title="Waiting on you"
-      className="xl:h-118"
-      action={
-        <span className="text-caption font-medium text-muted-foreground">
-          Bookmarked first
-        </span>
-      }
-      footer={
-        <MoreLink
-          more={more > 0 ? `+${more} more` : null}
-          label="Take action"
-          href={`${TASKS_HREF}?view=waiting`}
-        />
-      }
-    >
-      {shown.length ? (
-        <ul className="flex flex-col divide-y divide-hairline">
-          {shown.map((t) => {
-            const days = daysBetween(t.waiting!.since.slice(0, 10), day.today);
-            const age =
-              days === 0 ? "Today" : `${days} ${days === 1 ? "day" : "days"}`;
-            const long = days >= 3;
-            return (
-              <li key={t.id} className="flex min-h-14 items-center gap-3 py-2">
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <p className="flex min-w-0 items-center gap-1.5 text-body-compact font-medium">
-                    {t.bookmarked ? <Bookmarked /> : null}
-                    <span className="line-clamp-2 min-w-0">{t.title}</span>
-                  </p>
-                  <p className="line-clamp-2 text-caption font-medium text-muted-foreground">
-                    {t.caseTitle} ·{" "}
-                    {t.waiting!.how === "prepared"
-                      ? "Prepared by"
-                      : "Raised by"}{" "}
-                    {t.waiting!.by}
-                  </p>
-                  <p
-                    className={cn(
-                      "flex items-center gap-1 text-caption tabular-nums sm:sr-only",
-                      long
-                        ? "font-semibold text-foreground"
-                        : "font-medium text-muted-foreground",
-                    )}
-                  >
-                    <HistoryIcon
-                      aria-hidden="true"
-                      className="size-3.5 shrink-0"
-                    />
-                    {days === 0 ? "Waiting since today" : `Waiting ${age}`}
-                  </p>
-                </div>
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "flex w-16 shrink-0 items-center gap-1 text-caption tabular-nums max-sm:hidden",
-                    long
-                      ? "font-semibold text-foreground"
-                      : "font-medium text-muted-foreground",
-                  )}
-                >
-                  <HistoryIcon
-                    aria-hidden="true"
-                    className="size-3.5 shrink-0"
-                  />
-                  <span>{age}</span>
-                </span>
-                <Button
-                  variant="outline"
-                  size="xs"
-                  className="shrink-0 pointer-coarse:h-10 pointer-coarse:px-4"
-                  onClick={() => onAct(t)}
-                >
-                  {t.verb}
-                  <span className="sr-only">: {t.title}</span>
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <Nothing>Nobody is waiting on you.</Nothing>
-      )}
-    </HomeCard>
-  );
-}
 
 
 
