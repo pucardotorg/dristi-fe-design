@@ -41,8 +41,8 @@ export function courtStatus(c: CourtHearings): CourtStatus {
 /** Demo day: 9 courts, so the card shows 3 and keeps 6 behind "Show more courts". */
 export const DEMO_COURTS: CourtHearings[] = [
   /* A crowded list with your items spread out: folding has to tighten to fit. */
-  /* Owner, 2026-11-19: two courts where your item is the one being heard, tasks still pending. */
-  { court: "Sessions Court", now: 30, last: 70, mine: [{ item: 30, pending: 1 }, { item: 32 }, { item: 44, pending: 2 }, { item: 57, bookmarked: true }] },
+  /* Owner, 2026-11-19: courts where your item is the one being heard: Sessions ready, ACJM with tasks pending. */
+  { court: "Sessions Court", now: 30, last: 70, mine: [{ item: 30 }, { item: 32 }, { item: 44, pending: 2 }, { item: 57, bookmarked: true }] },
   { court: "24×7 ON Court", now: 20, last: 50, mine: [{ item: 23, bookmarked: true }, { item: 24 }, { item: 25, bookmarked: true }, { item: 31 }] },
   { court: "CJM Court", now: 20, last: 50, mine: [{ item: 22, bookmarked: true, pending: 1 }, { item: 27, bookmarked: true }] },
   { court: "ACJM Court", now: 17, last: 50, mine: [{ item: 17, pending: 2 }, { item: 19, bookmarked: true, pending: 2 }, { item: 20 }] },
@@ -53,7 +53,7 @@ export const DEMO_COURTS: CourtHearings[] = [
   /* Owner, 2026-11-19: all your items heard while the court sits → "Done" tag. */
   { court: "JFCM Court", now: 35, last: 40, mine: [{ item: 12 }] },
   /* Owner, 2026-11-19: a court that has finished → full line, "Finished" tag, sorted last. */
-  { court: "Additional Sessions Court", now: 28, last: 28, mine: [{ item: 9 }], finished: true },
+  { court: "Additional Sessions Court", now: 28, last: 28, mine: [{ item: 3 }, { item: 9 }, { item: 14 }, { item: 20 }, { item: 25 }], finished: true },
 ];
 
 /**
@@ -205,15 +205,15 @@ export function courtLine(raw: CourtHearings, room: number): CourtLine {
   const budget = Math.floor(room);
   const c = normalizeCourt(raw);
   const mineAt = new Map(c.mine.map((m) => [m.item, m]));
-  /* Finished: the whole list is heard. One line across the row, 1 to last, yours inside it.
-     A few real items sit on it as plain dots, evenly spaced (owner, 2026-11-19: a bare 1 ···· 28
-     looked empty next to the other rows). Each is an actual item and hovers as one, so the line
-     still covers every item once; as many as fit, up to three. */
+  /* Finished: the whole list is heard. One line across the row, 1 to last, with YOUR items on it
+     as grey rings, as many as fit (owner, 2026-11-19: your items, not arbitrary ones). Any that
+     don't fit stay inside a dotted stretch whose hover names them ("includes your 20, 25"). */
   if (c.finished) {
-    let stops = Math.min(3, Math.floor((c.last - 1) / (BAR_MIN + 1)) - 1);
-    let heard = finishedLine(c.last, Math.max(0, stops));
-    while (stops > 0 && cost(heard) > budget) heard = finishedLine(c.last, --stops);
-    return { heard, live: { item: 0 }, ahead: [], heardMine: c.mine.map((m) => m.item) };
+    let k = c.mine.length;
+    let heard = finishedLine(c, k, mineAt);
+    while (k > 0 && cost(heard) > budget) heard = finishedLine(c, --k, mineAt);
+    const shown = new Set(heard.filter((p) => p.kind === "dot" && p.mine).map((p) => (p.kind === "dot" ? p.item : 0)));
+    return { heard, live: { item: 0 }, ahead: [], heardMine: c.mine.map((m) => m.item).filter((i) => !shown.has(i)) };
   }
   const heardMine = c.mine.filter((m) => c.now && m.item < c.now).map((m) => m.item);
   const heard: TrackPart[] =
@@ -267,20 +267,27 @@ export function courtLine(raw: CourtHearings, room: number): CourtLine {
   };
 }
 
-/** A finished court's heard line: 1, `stops` evenly spaced items, the last; folds between. */
-function finishedLine(last: number, stops: number): TrackPart[] {
-  const at = new Set<number>([1, last]);
-  for (let k = 1; k <= stops; k++) at.add(1 + Math.round((k * (last - 1)) / (stops + 1)));
-  const points = [...at].sort((a, b) => a - b);
+/**
+ * A finished court's heard line: 1, `k` of your items spread across the ones you have, the last;
+ * dotted stretches between. Runs shorter than BAR_MIN stay as dots.
+ */
+function finishedLine(c: CourtHearings, k: number, mineAt: Map<number, HearingMine>): TrackPart[] {
+  const yours = c.mine.map((m) => m.item);
+  const pick =
+    k >= yours.length ? yours : k <= 0 ? [] : k === 1 ? [yours[Math.floor((yours.length - 1) / 2)]] : Array.from({ length: k }, (_, i) => yours[Math.round((i * (yours.length - 1)) / (k - 1))]);
+  const points = [...new Set<number>([1, c.last, ...pick])].sort((a, b) => a - b);
   const parts: TrackPart[] = [];
-  points.forEach((item, k) => {
-    parts.push({ kind: "dot", item, state: "heard", label: item === 1 || item === last });
-    const next = points[k + 1];
+  points.forEach((item, i) => {
+    const mine = pick.includes(item) ? mineAt.get(item) : undefined;
+    parts.push({ kind: "dot", item, state: "heard", mine, label: Boolean(mine) || item === 1 || item === c.last });
+    const next = points[i + 1];
     if (next === undefined || next - item < 2) return;
     if (next - item - 1 < BAR_MIN) {
-      for (let i = item + 1; i < next; i++) parts.push({ kind: "dot", item: i, state: "heard" });
+      for (let j = item + 1; j < next; j++) parts.push({ kind: "dot", item: j, state: "heard" });
     } else {
-      parts.push({ kind: "bar", from: item + 1, to: next - 1, state: "heard", span: { from: item, to: next } });
+      /* The hover counts the plain end dots it joins, not your rings. */
+      const nextMine = pick.includes(next);
+      parts.push({ kind: "bar", from: item + 1, to: next - 1, state: "heard", span: { from: mine ? item + 1 : item, to: nextMine ? next - 1 : next } });
     }
   });
   return parts;

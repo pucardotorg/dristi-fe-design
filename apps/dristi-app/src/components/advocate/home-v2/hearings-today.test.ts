@@ -55,7 +55,7 @@ function assertInvariants(raw: CourtHearings, budget: number) {
   for (const m of c.mine) {
     const asHeard = line.heardMine.includes(m.item) ? 1 : 0;
     const asLive = line.live.item === m.item && line.live.mine ? 1 : 0;
-    const asRing = line.ahead.filter((p) => p.kind === "dot" && p.item === m.item && p.mine).length;
+    const asRing = [...line.heard, ...line.ahead].filter((p) => p.kind === "dot" && p.item === m.item && p.mine).length;
     const asMore = line.ahead.filter((p) => p.kind === "more" && p.mine.some((x) => x.item === m.item)).length;
     assert.equal(asHeard + asLive + asRing + asMore, 1, `your item ${m.item} shown once: ${where}`);
   }
@@ -251,20 +251,21 @@ describe("courtLine: situations in a day's hearing", () => {
     assert.ok(end.kind === "dot" && end.item === 150 && !end.label);
   });
 
-  it("a finished court: one heard line from 1 to the last, yours inside it, no live pill", () => {
+  const five = [3, 9, 14, 20, 25];
+
+  it("a finished court shows your items on its line as rings, all of them when they fit", () => {
     // Desktop: the full row is about 25 dots of room.
-    const line = assertInvariants(court(28, 28, [9], { finished: true }), 25);
-    assert.deepEqual(line.heardMine, [9]);
-    assert.deepEqual(
-      line.heard.map((p) => (p.kind === "dot" ? p.item : `${p.from}-${p.to}`)),
-      [1, "2-7", 8, "9-14", 15, "16-20", 21, "22-27", 28],
-      "1 and 28 numbered, three real items evenly spaced between",
-    );
+    const line = assertInvariants(court(28, 28, five, { finished: true }), 25);
+    assert.deepEqual(line.heard.filter((p) => p.kind === "dot" && p.mine).map((p) => (p.kind === "dot" ? p.item : 0)), five);
+    assert.deepEqual(line.heardMine, [], "nothing left for the hover");
   });
 
-  it("a finished court on a phone keeps one dot in the middle (1 · 15 · 28)", () => {
-    const line = assertInvariants(court(28, 28, [9], { finished: true }), 12);
-    assert.deepEqual(line.heard.filter((p) => p.kind === "dot").map((p) => (p.kind === "dot" ? p.item : 0)), [1, 15, 28]);
+  it("a finished court on a phone shows the items that fit; the rest are named in the hover", () => {
+    const line = assertInvariants(court(28, 28, five, { finished: true }), 12);
+    const shown = line.heard.filter((p) => p.kind === "dot" && p.mine).map((p) => (p.kind === "dot" ? p.item : 0));
+    assert.ok(shown.length >= 1 && shown.length < five.length);
+    assert.deepEqual([...shown, ...line.heardMine].sort((a, b) => a - b), five, "every one of yours is shown or named");
+    assert.ok(cost(line.heard) <= 12);
   });
 
   it("a short finished list keeps it simple", () => {
@@ -373,7 +374,7 @@ describe("orderCourts", () => {
 
 describe("hearingCount", () => {
   it("counts your items across courts", () => {
-    assert.equal(hearingCount(orderCourts(DEMO_COURTS)), 18);
+    assert.equal(hearingCount(orderCourts(DEMO_COURTS)), 22);
     assert.equal(hearingCount(orderCourts(DEMO_NEXT_COURTS)), 9);
     assert.equal(hearingCount([]), 0);
   });

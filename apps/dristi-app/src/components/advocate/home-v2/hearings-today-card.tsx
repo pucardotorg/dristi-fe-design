@@ -308,7 +308,11 @@ const TAGS = {
 function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean }) {
   const [aheadRef, budget] = useBudget();
   const { heard, live, ahead, heardMine } = courtLine(c, budget ?? 18);
-  const note = heardMine.length ? `includes your ${heardMine.join(", ")}` : undefined;
+  /* Each heard stretch names the items of yours folded inside it. */
+  const noteFor = (p: Extract<TrackPart, { kind: "bar" }>) => {
+    const inside = heardMine.filter((i) => i >= p.span.from && i <= p.span.to);
+    return inside.length ? `includes your ${inside.join(", ")}` : undefined;
+  };
   const status = courtStatus(c);
   /* Not on the next working day: every court is not started then, so the tag would only repeat. */
   const tag = status === "live" || (status === "notStarted" && !today) ? null : TAGS[status];
@@ -334,7 +338,7 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
           {heard.map((p, i) => (
             <React.Fragment key={partKey(p)}>
               {i > 0 ? <span aria-hidden="true" className="h-px w-0.5 shrink-0" /> : null}
-              {p.kind === "bar" ? <Fold part={p} note={note} /> : p.kind === "dot" ? <Dot part={p} /> : null}
+              {p.kind === "bar" ? <Fold part={p} note={noteFor(p)} /> : p.kind === "dot" ? <Dot part={p} /> : null}
             </React.Fragment>
           ))}
         </div>
@@ -345,7 +349,7 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
               <React.Fragment key={partKey(p)}>
                 {/* The dotted line runs right up to the dot at 1 (2px). */}
                 {i > 0 ? <span aria-hidden="true" className="h-px w-0.5 shrink-0" /> : null}
-                {p.kind === "bar" ? <Fold part={p} note={note} /> : p.kind === "dot" ? <Dot part={p} /> : null}
+                {p.kind === "bar" ? <Fold part={p} note={noteFor(p)} /> : p.kind === "dot" ? <Dot part={p} /> : null}
               </React.Fragment>
             ))}
           </div>
@@ -645,9 +649,9 @@ function Dot({ part: p }: { part: Extract<TrackPart, { kind: "dot" }> }) {
         p.mine || p.label ? "w-4 shrink-0" : "w-4 min-w-2 shrink",
       )}
     >
-      {p.mine ? <Ring mine={p.mine} fill={fill} /> : <span className={cn("relative size-2 rounded-full", fill)} />}
+      {p.mine ? <Ring mine={p.mine} fill={fill} heard={p.state === "heard"} /> : <span className={cn("relative size-2 rounded-full", fill)} />}
       {p.label ? (
-        <span className={cn(NUMBER, p.mine ? (p.mine.pending ? "text-destructive-ink" : "text-success-ink") : "text-muted-foreground")}>
+        <span className={cn(NUMBER, p.mine && p.state !== "heard" ? (p.mine.pending ? "text-destructive-ink" : "text-success-ink") : "text-muted-foreground")}>
           {p.item}
         </span>
       ) : null}
@@ -680,8 +684,9 @@ function Dot({ part: p }: { part: Extract<TrackPart, { kind: "dot" }> }) {
  * Your item: a 16px ring on the line (1.5 stroke), red with tasks pending, green when ready.
  * Inside: the item's own dot, or a small bookmark when the case is bookmarked.
  */
-function Ring({ mine, fill }: { mine: HearingMine; fill: string }) {
-  const tone = mine.pending ? "text-destructive" : "text-success";
+function Ring({ mine, fill, heard }: { mine: HearingMine; fill: string; heard?: boolean }) {
+  /* Heard (a finished court): grey, still marked as yours, no longer asking anything of you. */
+  const tone = heard ? "text-muted-foreground" : mine.pending ? "text-destructive" : "text-success";
   return (
     <span aria-hidden="true" className={cn("relative flex size-4 items-center justify-center", tone)}>
       <svg viewBox="0 0 16 16" className="absolute inset-0 size-4" fill="none" stroke="currentColor" strokeWidth={1.5}>
