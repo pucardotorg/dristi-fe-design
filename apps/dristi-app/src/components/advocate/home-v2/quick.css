@@ -4,15 +4,15 @@
    Phones and iPads: the round button grows out of its corner with a small overshoot; leaving, it
    shrinks back to nothing. Before it has ever shown it simply isn't there (no animation on load).
    Reduced motion: it appears and goes at once. */
+/* One continuous motion, no hold in the middle (owner, 2026-11-19: the pause read as a delay):
+   the circle grows and opens into the bar together. */
 @keyframes qa-bar-in {
-  0% { transform: scale(0); clip-path: inset(0 calc(50% - 23px) round 9999px); }
-  35% { transform: scale(1); clip-path: inset(0 calc(50% - 23px) round 9999px); }
-  100% { transform: scale(1); clip-path: inset(0 0 round 9999px); }
+  from { transform: scale(0.4); clip-path: inset(0 calc(50% - 23px) round 9999px); }
+  to { transform: scale(1); clip-path: inset(0 0 round 9999px); }
 }
 @keyframes qa-bar-out {
-  0% { transform: scale(1); clip-path: inset(0 0 round 9999px); }
-  65% { transform: scale(1); clip-path: inset(0 calc(50% - 23px) round 9999px); }
-  100% { transform: scale(0); clip-path: inset(0 calc(50% - 23px) round 9999px); }
+  from { transform: scale(1); clip-path: inset(0 0 round 9999px); }
+  to { transform: scale(0.4); clip-path: inset(0 calc(50% - 23px) round 9999px); visibility: hidden; }
 }
 @keyframes qa-fab-in {
   0% { transform: scale(0); }
@@ -24,9 +24,9 @@
   to { transform: scale(0); }
 }
 .qa-bar { transform-origin: center; }
-.qa-bar[data-state="idle"] { transform: scale(0); }
-.qa-bar[data-state="in"] { animation: qa-bar-in 520ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-.qa-bar[data-state="out"] { animation: qa-bar-out 360ms cubic-bezier(0.4, 0, 0.6, 1) both; }
+.qa-bar[data-state="idle"] { visibility: hidden; }
+.qa-bar[data-state="in"] { animation: qa-bar-in 380ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.qa-bar[data-state="out"] { animation: qa-bar-out 240ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .qa-fab { transform-origin: bottom right; }
 .qa-fab[data-state="idle"] { transform: scale(0); }
 .qa-fab[data-state="in"] { animation: qa-fab-in 420ms cubic-bezier(0.34, 1.4, 0.64, 1) both; }

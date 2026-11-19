@@ -424,17 +424,23 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
         <nav
           aria-label="Quick actions"
           data-state={state}
-          /* Hairlines between the four (owner, 2026-11-19). */
+          /* The filled court colour, as the phone button and primary buttons, so it stands out over
+             the white cards; hairlines between the four (owner, 2026-11-19). */
           className={cn(
-            "qa-bar flex items-center divide-x divide-hairline rounded-full border border-hairline bg-card p-1 shadow-overlay [&>*]:px-1 [&>*:first-child]:pl-0 [&>*:last-child]:pr-0",
+            "qa-bar flex items-center divide-x divide-primary-foreground/20 rounded-full bg-primary p-1 text-primary-foreground shadow-overlay [&>*]:px-1 [&>*:first-child]:pl-0 [&>*:last-child]:pr-0",
             show && "pointer-events-auto",
           )}
         >
           {START.map(({ label, href, icon: Icon }) => (
             <span key={label} className="flex">
-              <Button asChild variant="ghost" size="sm" className="rounded-full">
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="rounded-full text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground focus-visible:ring-primary-foreground/50"
+              >
                 <Link href={href} onClick={href === "/vakalatnama" ? newVak : undefined}>
-                  <Icon data-icon="inline-start" aria-hidden="true" className="text-brand-muted-foreground" />
+                  <Icon data-icon="inline-start" aria-hidden="true" className="opacity-80" />
                   {label}
                 </Link>
               </Button>
