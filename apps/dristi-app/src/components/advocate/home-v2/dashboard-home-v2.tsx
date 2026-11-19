@@ -94,7 +94,7 @@ const START: { label: string; hint: string; href: string; icon: LucideIcon }[] =
 
 /* "Morning, Anjali": shorter than "Good morning" so a phone fits the greeting beside its Quick
    actions button (owner, 2026-11-19). */
-/** DEMO: copies today's own due tasks into a heavy day (8 overdue, 6 due today, 5 due tomorrow). */
+/** DEMO: copies today's own tasks into a heavy day: 8 overdue, 7 due today, 5 due tomorrow, 16 waiting. */
 function busyDay(day: ReturnType<typeof homeDay>): ReturnType<typeof homeDay> {
   const template = day.tasks.filter((t) => t.dueOn && !t.waiting && !t.completions?.length);
   const tomorrow = nextWorkingDay(HOME_CALENDAR, day.today);
@@ -107,7 +107,14 @@ function busyDay(day: ReturnType<typeof homeDay>): ReturnType<typeof homeDay> {
     const t = template[i % template.length];
     return { ...t, id: `${t.id}-busy-${i}`, dueOn, blocks: undefined };
   });
-  return { ...day, tasks: [...day.tasks, ...extra] };
+  /* And 10 more waiting on you, a day to six weeks old, so its "Show N more" shows too. */
+  const waitingTemplate = day.tasks.filter((t) => t.waiting);
+  const waiting = Array.from({ length: 10 }, (_, i) => {
+    const t = waitingTemplate[i % waitingTemplate.length];
+    const since = `${addDays(day.today, -[2, 6, 9, 12, 15, 21, 28, 33, 40, 45][i])}${t.waiting!.since.slice(10)}`;
+    return { ...t, id: `${t.id}-busy-w${i}`, bookmarked: false, createdAt: since, waiting: { ...t.waiting!, since } };
+  });
+  return { ...day, tasks: [...day.tasks, ...extra, ...waiting] };
 }
 
 function greetingFor(hour: number): string {

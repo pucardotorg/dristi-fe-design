@@ -12,8 +12,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { HOME_CALENDAR, type HomeTask, type MustDoGroup, daysBetween, mustDo, waitingOnYou } from "@/lib/advocate/home-dashboard";
 import { cn } from "@/lib/utils";
 
-/** Rows shown per tab (filled in group order on Urgent); the rest are in Take action. */
+/** Waiting on you shows six rows before its "Show N more"; each Urgent group shows two. */
 const ROWS = 6;
+const PER_GROUP = 2;
 const TASKS_HREF = "/tasks";
 
 type Tab = "urgent" | "waiting";
@@ -54,25 +55,11 @@ export function TodosCard({
   /* Opens on Urgent when anything is overdue or due today, otherwise on Waiting on you. */
   const [tab, setTab] = React.useState<Tab>(() => (pressing > 0 || !waiting.length ? "urgent" : "waiting"));
 
-  /* "Show N more" opens a tab's whole list in place, as Your hearings does with its courts. */
-  const [all, setAll] = React.useState<Record<Tab, boolean>>({ urgent: false, waiting: false });
-
-  /* Six rows, filled in order: overdue first, then due today, then the next working day. What
-     doesn't fit waits behind "Show N more", which says which groups it holds (owner, 2026-11-19). */
-  const shown = groups.map((g, i) => {
-    const before = groups.slice(0, i).reduce((n, x) => n + x.tasks.length, 0);
-    return { ...g, shown: all.urgent ? g.tasks : g.tasks.slice(0, Math.max(0, ROWS - before)) };
-  });
-  const hidden = {
-    urgent: urgentCount - shown.reduce((n, g) => n + g.shown.length, 0),
-    waiting: all.waiting ? 0 : Math.max(0, waiting.length - ROWS),
-  };
-  /* "2 due today · 3 due tomorrow": the groups the hidden urgent rows come from. */
-  const hiddenBreakdown = shown
-    .filter((g) => g.tasks.length > g.shown.length)
-    .map((g) => `${g.tasks.length - g.shown.length} ${g.label.toLowerCase()}`)
-    .join(" · ");
-  const expandable = hidden[tab] > 0 || all[tab];
+  /* Each Urgent group shows its first two rows and its own "Show N more", so every group's
+     heading and first tasks are always in view (owner, 2026-11-19). Waiting on you is one list:
+     six rows, then its own "Show N more". Each opens in place, as Your hearings does. */
+  const [open, setOpen] = React.useState<Record<string, boolean>>({});
+  const toggle = (key: string) => setOpen((o) => ({ ...o, [key]: !o[key] }));
 
   return (
     <Card variant="raised" role="region" aria-labelledby="home-todos" className={cn("w-full min-w-0 gap-4", className)}>
@@ -113,8 +100,8 @@ export function TodosCard({
           {urgentCount ? (
             <>
               <div className="flex flex-col">
-                {shown
-                  .filter((g) => g.shown.length)
+                {groups
+                  .filter((g) => g.tasks.length)
                   .map((g) => (
                     <section
                       key={g.key}
@@ -127,10 +114,11 @@ export function TodosCard({
                         {g.label} · <span className="tabular-nums">{g.tasks.length}</span>
                       </h3>
                       <ul className="flex flex-col">
-                        {g.shown.map((t) => (
+                        {(open[g.key] ? g.tasks : g.tasks.slice(0, PER_GROUP)).map((t) => (
                           <UrgentRow key={t.id} task={t} group={g} today={today} onAct={onAct} />
                         ))}
                       </ul>
+                      <MoreToggle total={g.tasks.length} cap={PER_GROUP} open={!!open[g.key]} onToggle={() => toggle(g.key)} />
                     </section>
                   ))}
               </div>
@@ -147,10 +135,11 @@ export function TodosCard({
           {waiting.length ? (
             <>
               <ul className="flex flex-col">
-                {(all.waiting ? waiting : waiting.slice(0, ROWS)).map((t) => (
+                {(open.waiting ? waiting : waiting.slice(0, ROWS)).map((t) => (
                   <WaitingRow key={t.id} task={t} today={today} onAct={onAct} />
                 ))}
               </ul>
+              <MoreToggle total={waiting.length} cap={ROWS} open={!!open.waiting} onToggle={() => toggle("waiting")} />
             </>
           ) : (
             <Empty icon={UserCheckIcon} title="Nobody is waiting on you" body="Nothing prepared for you or asked of you is open." />
@@ -158,35 +147,8 @@ export function TodosCard({
         </div>
       </CardContent>
 
-      {/* Footer as on Your hearings: what's left on the left, where it all lives on the right. */}
-      <CardFooter className="justify-between gap-4 py-3">
-        {expandable ? (
-          /* What's hidden, on its own line under the button (owner, 2026-11-19). */
-          <div className="flex min-w-0 flex-col items-start">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-ml-3"
-              aria-expanded={all[tab]}
-              aria-describedby={!all[tab] && tab === "urgent" && hiddenBreakdown ? "todo-hidden" : undefined}
-              onClick={() => setAll((a) => ({ ...a, [tab]: !a[tab] }))}
-            >
-              {all[tab] ? "Show fewer" : `Show ${hidden[tab]} more ${hidden[tab] === 1 ? "task" : "tasks"}`}
-              <ChevronDownIcon
-                data-icon="inline-end"
-                aria-hidden="true"
-                className={cn("motion-safe:transition-transform", all[tab] && "rotate-180")}
-              />
-            </Button>
-            {!all[tab] && tab === "urgent" && hiddenBreakdown ? (
-              <span id="todo-hidden" className="text-caption text-muted-foreground tabular-nums">
-                {hiddenBreakdown}
-              </span>
-            ) : null}
-          </div>
-        ) : (
-          <span />
-        )}
+      {/* Footer: where every task lives. Each section opens its own rest in place above. */}
+      <CardFooter className="justify-end gap-4 py-3">
         <Button asChild variant="outline" size="sm" className="-mr-3">
           <Link href={tab === "waiting" ? `${TASKS_HREF}?view=waiting` : TASKS_HREF}>
             {/* Named for what it opens, like Recent cases' "All cases" (owner, 2026-11-19). */}
@@ -196,6 +158,22 @@ export function TodosCard({
         </Button>
       </CardFooter>
     </Card>
+  );
+}
+
+/** "Show 3 more ⌄" under a section, "Show fewer ⌃" once open; nothing when all already fit. */
+function MoreToggle({ total, cap, open, onToggle }: { total: number; cap: number; open: boolean; onToggle: () => void }) {
+  if (total <= cap) return null;
+  const more = total - cap;
+  return (
+    <Button variant="ghost" size="xs" className="-ml-2 self-start text-muted-foreground" aria-expanded={open} onClick={onToggle}>
+      {open ? "Show fewer" : `Show ${more} more`}
+      <ChevronDownIcon
+        data-icon="inline-end"
+        aria-hidden="true"
+        className={cn("motion-safe:transition-transform", open && "rotate-180")}
+      />
+    </Button>
   );
 }
 
