@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import {
   ArrowRightIcon,
+  BookmarkIcon,
   FilePlusIcon,
   FileTextIcon,
   ScrollTextIcon,
@@ -287,7 +288,12 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
             ["bg-muted-foreground/50", "Tasks due"],
           ].map(([fill, text]) => (
             <li key={text} className="flex items-center gap-1.5 text-caption font-medium text-muted-foreground">
-              <span aria-hidden="true" className={cn("size-2.5 rounded-xs", fill)} />
+              {/* The bookmarked share's key is the bookmark itself, in the bar's colour. */}
+              {fill === "bg-chart-1" ? (
+                <BookmarkIcon aria-hidden="true" className="size-3 fill-current text-chart-1" />
+              ) : (
+                <span aria-hidden="true" className={cn("size-2.5 rounded-xs", fill)} />
+              )}
               {text}
             </li>
           ))}
@@ -306,7 +312,8 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                 <span aria-hidden="true" className="flex flex-1 items-end justify-center gap-1 border-b border-hairline">
                   {/* Hearings: the bookmarked part at the base, the rest lighter above it. */}
                   <span className="flex h-full w-3 flex-col items-center justify-end gap-0.5">
-                    <span className="text-caption font-semibold tabular-nums">{d.hearings}</span>
+                    {/* ds-typography-allow: bar counts a step under caption (11px), owner 2026-11-19. */}
+                    <span className="text-[0.6875rem] leading-4 font-semibold tabular-nums">{d.hearings}</span>
                     <span
                       className="flex w-full flex-col overflow-hidden rounded-t-xs"
                       style={{ height: `calc((100% - 1.25rem) * ${d.hearings / max})`, minHeight: d.hearings ? 2 : 0 }}
@@ -316,7 +323,8 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                     </span>
                   </span>
                   <span className="flex h-full w-3 flex-col items-center justify-end gap-0.5">
-                    <span className="text-caption font-medium text-muted-foreground tabular-nums">{d.tasks}</span>
+                    {/* ds-typography-allow: bar counts a step under caption (11px), owner 2026-11-19. */}
+                    <span className="text-[0.6875rem] leading-4 font-medium text-muted-foreground tabular-nums">{d.tasks}</span>
                     <span
                       className="w-full rounded-t-xs bg-muted-foreground/50"
                       style={{ height: `calc((100% - 1.25rem) * ${d.tasks / max})`, minHeight: d.tasks ? 2 : 0 }}
