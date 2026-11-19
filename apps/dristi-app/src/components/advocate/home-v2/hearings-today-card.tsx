@@ -662,10 +662,6 @@ function Live({ item, mine }: { item: number; mine?: HearingMine }) {
   const size = String(item).length > 2 ? "size-6" : "size-5";
   const pill = (
     <span aria-hidden="true" className="relative flex size-4 shrink-0 items-center justify-center">
-      {/* A plain grey dot holds the place until the live circle pops over it, so the line never
-          shows a gap (owner, 2026-11-19). */}
-      <span className={cn("absolute size-2 rounded-full", UPCOMING_FILL)} />
-      <span className="hearing-pop hearing-pop-live absolute inset-0 flex items-center justify-center">
       <span
         /* Pin every pulse to the page clock's start, so all courts pulse together. Done each time
            the animation actually starts (first paint, a remount, a court shown later), not once on
@@ -689,7 +685,6 @@ function Live({ item, mine }: { item: number; mine?: HearingMine }) {
         )}
       >
         {item}
-      </span>
       </span>
     </span>
   );
@@ -892,7 +887,7 @@ function Dot({ part: p }: { part: Extract<TrackPart, { kind: "dot" }> }) {
         <span className={cn("relative size-2 rounded-full", fill)} />
       )}
       {p.label ? (
-        <span className={cn(NUMBER, p.mine && p.state !== "heard" ? (p.mine.pending ? "text-destructive-ink" : "text-success-ink") : "text-muted-foreground")}>
+        <span className={cn(NUMBER, p.mine && "hearing-pop", p.mine && p.state !== "heard" ? (p.mine.pending ? "text-destructive-ink" : "text-success-ink") : "text-muted-foreground")}>
           {p.item}
         </span>
       ) : null}

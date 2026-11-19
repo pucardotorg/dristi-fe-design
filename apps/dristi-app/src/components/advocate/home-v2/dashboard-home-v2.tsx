@@ -389,6 +389,12 @@ function TodayBox({ now }: { now: Date }) {
 
 /* ── ⑤ Your week ahead ──────────────────────────────────────────────────────── */
 
+/* Day by day (owner, 2026-11-19): each day's bars rise, then its counts come up out of them, then
+   the next day starts. A bar takes 600ms (week.css) and is all but up by 480ms, when its count
+   rises; the next day starts 260ms after the last. */
+const DAY_STEP = 260;
+const NUM_AFTER = 480;
+
 function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
   const week = comingUp(HOME_CALENDAR, day);
   const max = Math.max(1, ...week.flatMap((d) => [d.hearings, d.tasks]));
@@ -471,7 +477,7 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                       fixed floor that would overstate it. */}
                   <span className="flex h-full w-3 flex-col items-center justify-end gap-0.5">
                     {/* ds-typography-allow: bar counts a step under caption (11px), owner 2026-11-19. */}
-                    <span className="week-num text-[0.6875rem] leading-4 font-semibold tabular-nums" style={{ animationDelay: `${i * 90 + 700}ms` }}>
+                    <span className="week-num text-[0.6875rem] leading-4 font-semibold tabular-nums" style={{ animationDelay: `${i * DAY_STEP + NUM_AFTER}ms` }}>
                       {d.hearings}
                     </span>
                     <span
@@ -479,7 +485,7 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                       style={{
                         height: `calc((100% - 1.25rem) * ${d.hearings / max})`,
                         minHeight: d.hearings ? 4 : 0,
-                        animationDelay: `${i * 90}ms`,
+                        animationDelay: `${i * DAY_STEP}ms`,
                       }}
                     >
                       <span className="w-full bg-chart-1/40" style={{ flexGrow: plain }} />
@@ -502,7 +508,7 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                     <span
                       // ds-typography-allow: bar counts a step under caption (11px), owner 2026-11-19.
                       className="week-num text-[0.6875rem] leading-4 font-medium text-muted-foreground tabular-nums"
-                      style={{ animationDelay: `${i * 90 + 745}ms` }}
+                      style={{ animationDelay: `${i * DAY_STEP + 60 + NUM_AFTER}ms` }}
                     >
                       {d.tasks}
                     </span>
@@ -511,7 +517,7 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                       style={{
                         height: `calc((100% - 1.25rem) * ${d.tasks / max})`,
                         minHeight: d.tasks ? 4 : 0,
-                        animationDelay: `${i * 90 + 45}ms`,
+                        animationDelay: `${i * DAY_STEP + 60}ms`,
                       }}
                     />
                   </span>
