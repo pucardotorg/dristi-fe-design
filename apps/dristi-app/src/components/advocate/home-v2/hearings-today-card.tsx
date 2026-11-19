@@ -61,10 +61,18 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
   /* The rings pop once, on arriving at Home. After that the card is settled: courts opened with
      "Show N more" and the other day's courts appear already in place (owner, 2026-11-19: popping
      again on every switch was irritating). A new visit to Home pops them again. */
+  /* The pop starts once the page is live (the frame after mount), not at the first server-drawn
+     paint: on a slow load that paint can come and go before anyone is looking, which is why the
+     rings seemed not to pop on a refresh while the week's bars did (owner, 2026-11-19). */
+  const [arrive, setArrive] = React.useState(false);
   const [settled, setSettled] = React.useState(false);
   React.useEffect(() => {
-    const id = window.setTimeout(() => setSettled(true), 1200);
-    return () => window.clearTimeout(id);
+    const frame = requestAnimationFrame(() => setArrive(true));
+    const id = window.setTimeout(() => setSettled(true), 1400);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(id);
+    };
   }, []);
   /* The title's day menu: today, or the next working day. That is called "Tomorrow" when it is
      tomorrow, and "Next working day" only when a weekend or holiday falls between. */
@@ -81,7 +89,7 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
   const hidden = ordered.length - SHOWN;
 
   return (
-    <Card variant="raised" role="region" aria-labelledby="home-hearings" data-settled={settled} className="min-w-0 gap-4">
+    <Card variant="raised" role="region" aria-labelledby="home-hearings" data-arrive={arrive} data-settled={settled} className="min-w-0 gap-4">
       <CardHeader className="items-center">
         <CardTitle className="min-w-0">
           <h2 id="home-hearings" className="flex flex-wrap items-center gap-x-1 text-body font-semibold">

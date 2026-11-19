@@ -270,7 +270,7 @@ function QuickActions({ phone }: { phone?: boolean }) {
           href={href}
           onClick={href === "/vakalatnama" ? newVak : undefined}
           className={cn(
-            "group/qa flex h-14 min-w-0 flex-1 items-center gap-2 rounded-xl border bg-card px-2.5 text-body-compact font-semibold outline-none transition-colors hover:border-brand-muted-hover hover:bg-brand-muted/40 focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none",
+            "group/qa flex h-14 min-w-0 flex-1 items-center gap-1.5 rounded-xl border bg-card px-2 text-body-compact font-semibold outline-none transition-colors hover:border-brand-muted-hover hover:bg-brand-muted/40 focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none",
             PANEL_CLASS,
           )}
         >
