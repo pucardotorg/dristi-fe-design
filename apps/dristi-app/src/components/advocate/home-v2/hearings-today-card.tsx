@@ -10,7 +10,10 @@ import { useLocale } from "@/components/shell/locale";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { PageOutcome } from "@/components/ui/outcome";
+import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -104,18 +107,23 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
             ))}
           </ul>
         ) : (
-          /* Same empty state as the Hearings home's empty day: DS Empty on a sunken panel. */
-          <Empty className="mb-6 bg-surface-sunken">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <CalendarXIcon aria-hidden="true" />
-              </EmptyMedia>
-              <EmptyTitle>
-                {day === "today" ? "No hearings today" : dates.tomorrow ? "No hearings tomorrow" : `No hearings on ${dates.next}`}
-              </EmptyTitle>
-              <EmptyDescription>None of your cases is listed in any court that day.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          /* The DS's neutral outcome: "nothing to do, nothing wrong" (feedback-states rule), flat,
+             no glow, the act's own icon. Still: an empty day is a state, not an event, so it
+             doesn't replay its entrance each time you switch day. Centred in the card's
+             fixed height (owner, 2026-11-19). */
+          <div className="flex flex-1 items-center justify-center pb-6">
+            <PageOutcome
+              tone="neutral"
+              icon={CalendarXIcon}
+              as="p"
+              still
+              title={day === "today" ? "No hearings today" : dates.tomorrow ? "No hearings tomorrow" : `No hearings on ${dates.next}`}
+              body="None of your cases is listed in any court that day."
+              /* Inside a card its page-size title (24px) would outshout the card's own 20px
+                 heading, so it steps down to body size here. */
+              className="py-0 [&_p:first-of-type]:text-body"
+            />
+          </div>
         )}
       </CardContent>
       <CardFooter className="justify-between gap-4 py-3">
@@ -272,7 +280,8 @@ function useBudget() {
   React.useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const measure = () => setBudget(Math.max(6, Math.floor((el.clientWidth + GAP) / DOT_PITCH)));
+    /* Kept fractional: courtLine folds in whole dots but checks B1's crowded rows exactly. */
+    const measure = () => setBudget(Math.max(6, (el.clientWidth + GAP) / DOT_PITCH));
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -322,9 +331,9 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
         /* Finished: no live pill; the heard line runs the whole row, 1 to the last. */
         <div className="flex h-4 min-w-0 items-center">
           {heard.map((p, i) => (
-            <React.Fragment key={p.kind === "bar" ? "heard" : p.item}>
+            <React.Fragment key={partKey(p)}>
               {i > 0 ? <span aria-hidden="true" className="h-px w-0.5 shrink-0" /> : null}
-              {p.kind === "bar" ? <Fold part={p} note={note} /> : <Dot part={p} />}
+              {p.kind === "bar" ? <Fold part={p} note={note} /> : p.kind === "dot" ? <Dot part={p} /> : null}
             </React.Fragment>
           ))}
         </div>
@@ -332,10 +341,10 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
         <div className="flex h-4 min-w-0 items-center">
           <div className="flex h-4 w-1/4 min-w-0 shrink-0 items-center justify-end max-sm:w-1/5">
             {heard.map((p, i) => (
-              <React.Fragment key={p.kind === "bar" ? "heard" : p.item}>
+              <React.Fragment key={partKey(p)}>
                 {/* The dotted line runs right up to the dot at 1 (2px). */}
                 {i > 0 ? <span aria-hidden="true" className="h-px w-0.5 shrink-0" /> : null}
-                {p.kind === "bar" ? <Fold part={p} note={note} /> : <Dot part={p} />}
+                {p.kind === "bar" ? <Fold part={p} note={note} /> : p.kind === "dot" ? <Dot part={p} /> : null}
               </React.Fragment>
             ))}
           </div>
@@ -343,12 +352,12 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
           <span aria-hidden="true" className="h-px w-1.5 shrink-0" />
           <Live item={live.item} mine={live.mine} />
           <div ref={aheadRef} className="flex h-4 min-w-0 flex-1 items-center">
-            <Stretch parts={ahead} budget={budget ?? 0} lead />
+            <Stretch parts={ahead} budget={budget ?? 0} court={c} lead />
           </div>
         </div>
       ) : (
         <div ref={aheadRef} className="flex h-4 min-w-0 items-center">
-          <Stretch parts={ahead} budget={budget ?? 0} />
+          <Stretch parts={ahead} budget={budget ?? 0} court={c} />
         </div>
       )}
     </li>
@@ -363,32 +372,142 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
 function Stretch({
   parts,
   budget,
+  court,
   lead,
 }: {
   parts: TrackPart[];
   budget: number;
+  court: CourtHearings;
   /** Also draw the gap before the first part (it follows the live pill). */
   lead?: boolean;
 }) {
   const spread = !parts.some((p) => p.kind === "bar");
-  const squeeze = budget > 0 && cost(parts) > budget;
+  const squeeze = budget > 0 && cost(parts) > Math.floor(budget);
   return (
     <>
       {parts.map((p, i) => {
-        const byFold = p.kind === "bar" || parts[i - 1]?.kind === "bar";
+        const prev = parts[i - 1];
+        /* A dotted line runs up to the dots it joins (2px); a tight gap sits flush between two rings. */
+        const byFold = p.kind === "bar" || prev?.kind === "bar" || prev?.kind === "more";
+        const byTight = (p.kind === "bar" && p.tight) || (prev?.kind === "bar" && prev.tight);
         return (
-          <React.Fragment key={p.kind === "bar" ? `b${p.from}` : p.item}>
-            {i > 0 || lead ? (
+          <React.Fragment key={partKey(p)}>
+            {(i > 0 || lead) && !byTight ? (
               <span
                 aria-hidden="true"
                 className={cn("h-px", spread ? "min-w-px flex-1" : byFold ? "w-0.5 shrink" : "w-2 shrink", squeeze && "min-w-0")}
               />
             ) : null}
-            {p.kind === "bar" ? <Fold part={p} squeeze={squeeze} /> : <Dot part={p} />}
+            {p.kind === "bar" ? (
+              <Fold part={p} squeeze={squeeze} />
+            ) : p.kind === "more" ? (
+              <More part={p} court={court} />
+            ) : (
+              <Dot part={p} />
+            )}
           </React.Fragment>
         );
       })}
     </>
+  );
+}
+
+function partKey(p: TrackPart) {
+  return p.kind === "dot" ? `d${p.item}` : `${p.kind}${p.from}`;
+}
+
+/**
+ * "+N": your items that don't fit a crowded row (phones, mostly). Red if any of them has tasks
+ * pending, green otherwise, like a ring. Then a dotted line on to the list's last item.
+ * Tap (touch) opens a bottom drawer listing them; with a mouse, a click opens a small popover.
+ * Both show the same list (owner, 2026-11-19).
+ */
+function More({ part: p, court }: { part: Extract<TrackPart, { kind: "more" }>; court: CourtHearings }) {
+  const fine = useMediaQuery("(pointer: fine)");
+  const pending = p.mine.some((m) => m.pending);
+  const label = `${p.mine.length} more of your items: ${p.mine.map((m) => m.item).join(", ")}`;
+  const chip = (
+    <button
+      type="button"
+      aria-label={label}
+      className={cn(
+        "relative flex h-5 shrink-0 items-center rounded-full px-1.5 text-caption font-semibold tabular-nums outline-none focus-visible:ring-3 focus-visible:ring-focus-ring",
+        /* Touch: a 44px tap target around the 20px chip. */
+        "after:absolute after:-inset-3 pointer-fine:after:hidden",
+        pending ? "bg-destructive-muted text-destructive-ink" : "bg-success-muted text-success-ink",
+      )}
+    >
+      +{p.mine.length}
+    </button>
+  );
+  const title = `${p.mine.length} more of your items`;
+  const where = court.now ? `${court.court} · on item ${court.now} of ${court.last}` : `${court.court} · not started`;
+  return (
+    <>
+      {fine ? (
+        <Popover>
+          <PopoverTrigger asChild>{chip}</PopoverTrigger>
+          <PopoverContent align="start" className="w-72">
+            <PopoverHeader>
+              <PopoverTitle>{title}</PopoverTitle>
+              <PopoverDescription>{where}</PopoverDescription>
+            </PopoverHeader>
+            <MineList mine={p.mine} now={court.now} />
+          </PopoverContent>
+        </Popover>
+      ) : (
+        <Drawer>
+          <DrawerTrigger asChild>{chip}</DrawerTrigger>
+          <DrawerContent style={{ paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
+            <DrawerHeader className="text-left">
+              <DrawerTitle>{title}</DrawerTitle>
+              <DrawerDescription>{where}</DrawerDescription>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4">
+              <MineList mine={p.mine} now={court.now} />
+            </div>
+            <DrawerFooter>
+              <Button asChild variant="outline">
+                <Link href="/advocate">
+                  Go to Hearings
+                  <ArrowRightIcon data-icon="inline-end" aria-hidden="true" />
+                </Link>
+              </Button>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+      )}
+      <span aria-hidden="true" className="h-px w-0.5 shrink-0" />
+      <span aria-hidden="true" className="relative flex h-4 min-w-6 flex-1 items-center">
+        <DottedLine className="h-1 w-full text-border" />
+      </span>
+    </>
+  );
+}
+
+/** Your items as rows: the ring, the item, how far off it is, and what it needs. */
+function MineList({ mine, now }: { mine: HearingMine[]; now: number }) {
+  return (
+    <ul className="flex flex-col divide-y divide-hairline">
+      {mine.map((m) => {
+        /* Items still to be heard before yours: the live one counts as being heard already. */
+        const away = now ? m.item - now - 1 : m.item - 1;
+        return (
+          <li key={m.item} className="flex items-center gap-3 py-3">
+            <Ring mine={m} fill={UPCOMING_FILL} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="text-body-compact font-medium tabular-nums">Item {m.item}</span>
+              <span className={cn("text-caption", m.pending ? "text-destructive-ink" : "text-muted-foreground")}>
+                {[m.pending ? pendingText(m.pending) : "Ready", m.bookmarked ? "Bookmarked case" : null].filter(Boolean).join(" · ")}
+              </span>
+            </div>
+            <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
+              {away === 0 ? "Next" : `${away} ${away === 1 ? "item" : "items"} before it`}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -504,7 +623,10 @@ function Fold({
   const heard = p.state === "heard";
   return (
     <Hint text={`Items ${p.span.from} to ${p.span.to} · ${heard ? "Heard" : "Yet to be heard"}${note ? ` · ${note}` : ""}`}>
-      <span aria-hidden="true" className={cn("relative flex h-4 flex-1 items-center", squeeze ? "min-w-6" : "min-w-8")}>
+      <span
+        aria-hidden="true"
+        className={cn("relative flex h-4 items-center", p.tight ? "w-2 shrink-0" : cn("flex-1", squeeze ? "min-w-6" : "min-w-8"))}
+      >
         <DottedLine className={cn("h-1 w-full", heard ? "text-input" : "text-border")} />
       </span>
     </Hint>
