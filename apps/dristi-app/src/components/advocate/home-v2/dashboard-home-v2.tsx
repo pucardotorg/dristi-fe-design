@@ -284,7 +284,13 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
   const tasks = week.reduce((n, d) => n + d.tasks, 0);
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   return (
-    <Card variant="raised" role="region" aria-labelledby="home-week" className="min-w-0 gap-3">
+    <Card
+      variant="raised"
+      role="region"
+      aria-labelledby="home-week"
+      /* 16px under the title, the next rung up from 12 (owner, 2026-11-19: it felt tight). */
+      className="min-w-0 gap-4"
+    >
       {/* Title and the week's totals, as Your hearings shows its day's (owner, 2026-11-19: "Coming
           up" said too little). Working days, so not "next 7 days": holidays are skipped. */}
       <CardHeader>
