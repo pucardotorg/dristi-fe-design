@@ -4,7 +4,7 @@ import "@/components/advocate/cause-list.css";
 
 import * as React from "react";
 import Link from "next/link";
-import { BookmarkIcon, ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon } from "lucide-react";
+import { BookmarkIcon, ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon, PlusIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,7 +71,13 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
     };
   }, []);
 
-  const running = slides.length > 1 && !paused && !hover && !focusIn && inView && !hidden && !reduced && !list.open;
+  const total = updates.length;
+  /* Updates past the carousel's cap: they get a last slide of their own that says so and opens
+     the list (owner, 2026-11-19: "14 updates" over 10 slides read as missing ones). */
+  const more = total - slides.length;
+  const frames = slides.length + (more > 0 ? 1 : 0);
+
+  const running = frames > 1 && !paused && !hover && !focusIn && inView && !hidden && !reduced && !list.open;
 
   /* One timer per slide, so every slide gets its full 4.5s, also after an arrow or a swipe. */
   React.useEffect(() => {
@@ -81,7 +87,6 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
   }, [api, running, at]);
 
   const openList = (firstId?: string) => setList((l) => ({ open: true, firstId, nonce: l.nonce + 1 }));
-  const total = updates.length;
 
   return (
     <Card variant="raised" role="region" aria-labelledby="home-updates" className="min-w-0 gap-3">
@@ -111,7 +116,7 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
           <>
             <Carousel
               setApi={setApi}
-              opts={{ loop: slides.length > 1, align: "start" }}
+              opts={{ loop: frames > 1, align: "start" }}
               aria-label="Updates on your cases"
               /* Hover pauses it only over the slide and its arrows, not the card's padding. */
               onPointerEnter={(e) => e.pointerType === "mouse" && setHover(true)}
@@ -119,13 +124,18 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
             >
               <CarouselContent>
                 {slides.map((u, i) => (
-                  <CarouselItem key={u.id} aria-label={`${i + 1} of ${slides.length}`}>
+                  <CarouselItem key={u.id} aria-label={`${i + 1} of ${frames}`}>
                     <Slide update={u} now={now} fine={fine} onOpen={() => openList(u.id)} />
                   </CarouselItem>
                 ))}
+                {more > 0 ? (
+                  <CarouselItem key="more" aria-label={`${frames} of ${frames}`}>
+                    <MoreSlide more={more} total={total} onOpen={() => openList()} />
+                  </CarouselItem>
+                ) : null}
               </CarouselContent>
               {/* Round arrows floating on the slide's two edges (owner, 2026-11-19); smaller on touch. */}
-              {slides.length > 1 ? (
+              {frames > 1 ? (
                 <>
                   <SideArrow side="left" fine={fine} onClick={() => api?.scrollPrev()} />
                   <SideArrow side="right" fine={fine} onClick={() => api?.scrollNext()} />
@@ -133,9 +143,9 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
               ) : null}
             </Carousel>
 
-            {slides.length > 1 ? (
+            {frames > 1 ? (
               <div className="relative flex items-center justify-center">
-                <Dots slides={slides} at={at} onPick={(i) => api?.scrollTo(i)} />
+                <Dots slides={slides} more={more > 0} at={at} onPick={(i) => api?.scrollTo(i)} />
                 {reduced ? null : (
                   <Button
                     variant="ghost"
@@ -205,6 +215,37 @@ function SideArrow({ side, fine, onClick }: { side: "left" | "right"; fine: bool
 }
 
 /**
+ * The slide's surface (owner, 2026-11-19: the plain grey read as a wireframe). A quiet wash of the
+ * brand green from the top left, fading into the card's own grey, with a hairline edge. Hover
+ * deepens the green a step. Tokens only, so dark mode follows.
+ */
+const SLIDE_SKIN =
+  "rounded-xl border border-hairline bg-linear-to-br from-brand-muted via-surface-sunken to-surface-sunken outline-none transition-colors hover:from-brand-muted-hover focus-visible:ring-3 focus-visible:ring-focus-ring";
+
+/**
+ * The last slide when there are more updates than slides: how many more, and the way to all of
+ * them. It opens the same list as the count beside the title.
+ */
+function MoreSlide({ more, total, onOpen }: { more: number; total: number; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn("flex h-48 w-full flex-col items-center justify-center gap-1 px-6 py-4 text-center", SLIDE_SKIN)}
+    >
+      <span className="text-title font-semibold tabular-nums text-foreground">+{more}</span>
+      <span className="text-body-compact text-muted-foreground">
+        more {more === 1 ? "update" : "updates"} on your cases
+      </span>
+      <span className="mt-3 inline-flex items-center gap-1 text-body-compact font-semibold text-foreground">
+        See all {total}
+        <ChevronRightIcon aria-hidden="true" className="size-4" />
+      </span>
+    </button>
+  );
+}
+
+/**
  * One update, filling the slide (owner, 2026-11-19: no empty middle). Top: its category (the same
  * grey badge as the case's own updates) and when. Middle: what happened, as the headline. Bottom:
  * the case number with a bookmark for a bookmarked case, then the parties. The whole slide is the
@@ -246,7 +287,7 @@ function Slide({ update: u, now, fine, onOpen }: { update: CaseUpdate; now: Date
   const look =
     /* A fixed 192px on every screen (owner, 2026-11-19: 208 was more than needed): the card's
        height never changes with the update shown. */
-    "flex h-48 w-full flex-col items-start gap-3 rounded-xl bg-surface-sunken px-6 py-4 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring";
+    `flex h-48 w-full flex-col items-start gap-3 px-6 py-4 text-left ${SLIDE_SKIN}`;
   return fine ? (
     <Link href={updateHref(u)} className={look} title={u.what}>
       {body}
@@ -262,7 +303,8 @@ function Slide({ update: u, now, fine, onOpen }: { update: CaseUpdate; now: Date
  * One dot per slide; a bookmarked case's dot is a small bookmark. The current one is darker
  * (and a dot widens to a pill). Each is a 24px target around its small mark.
  */
-function Dots({ slides, at, onPick }: { slides: CaseUpdate[]; at: number; onPick: (i: number) => void }) {
+function Dots({ slides, more, at, onPick }: { slides: CaseUpdate[]; more: boolean; at: number; onPick: (i: number) => void }) {
+  const count = slides.length + (more ? 1 : 0);
   return (
     <div className="flex items-center justify-center">
       {slides.map((u, i) => {
@@ -271,7 +313,7 @@ function Dots({ slides, at, onPick }: { slides: CaseUpdate[]; at: number; onPick
           <button
             key={u.id}
             type="button"
-            aria-label={`Update ${i + 1} of ${slides.length}${u.bookmarked ? ", bookmarked case" : ""}`}
+            aria-label={`Update ${i + 1} of ${count}${u.bookmarked ? ", bookmarked case" : ""}`}
             aria-current={on ? "true" : undefined}
             onClick={() => onPick(i)}
             /* 16px apart (owner, 2026-11-19), still 24px tall to tap. */
@@ -293,6 +335,21 @@ function Dots({ slides, at, onPick }: { slides: CaseUpdate[]; at: number; onPick
           </button>
         );
       })}
+      {more ? (
+        <button
+          type="button"
+          aria-label="More updates"
+          aria-current={at === slides.length ? "true" : undefined}
+          onClick={() => onPick(slides.length)}
+          className="flex h-6 w-4 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-focus-ring"
+        >
+          <PlusIcon
+            aria-hidden="true"
+            strokeWidth={3}
+            className={cn("size-2.5 transition-colors", at === slides.length ? "text-foreground" : "text-input")}
+          />
+        </button>
+      ) : null}
     </div>
   );
 }
