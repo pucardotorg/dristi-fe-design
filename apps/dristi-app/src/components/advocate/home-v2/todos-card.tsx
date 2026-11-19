@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRightIcon, BookmarkIcon, CheckCheckIcon, ChevronDownIcon, GavelIcon, UserCheckIcon } from "lucide-react";
+import { ArrowRightIcon, BookmarkIcon, CheckCheckIcon, ChevronDownIcon, ClockIcon, UserCheckIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -197,13 +197,9 @@ function waitingSummary(tasks: HomeTask[], today: string) {
 }
 
 function UrgentRow({ task: t, group, today, onAct }: { task: HomeTask; group: MustDoGroup; today: string; onAct: (t: HomeTask) => void }) {
+  /* Only overdue rows say when: "Due today" and "Due tomorrow" rows sit under headings that
+     already say it (owner, 2026-11-19). */
   const late = group.key === "overdue" ? daysBetween(t.dueOn!, today) : 0;
-  const when =
-    group.key === "overdue"
-      ? `${late} ${late === 1 ? "day" : "days"} late`
-      : group.key === "today"
-        ? "Today"
-        : group.label.replace(/^Due (\w)/, (_, c: string) => c.toUpperCase());
   return (
     <Row
       task={t}
@@ -211,16 +207,40 @@ function UrgentRow({ task: t, group, today, onAct }: { task: HomeTask; group: Mu
       detail={<span className="truncate">{t.caseTitle}</span>}
       flag={
         t.blocks ? (
-          /* In words (owner: the gavel alone didn't say it): a hearing today needs this done. */
-          <Badge variant="warning" className="h-auto max-w-full py-0.5 whitespace-normal">
-            <GavelIcon data-icon="inline-start" aria-hidden="true" />
-            Needed for item {t.blocks.item} at {t.blocks.court} today
+          /* Short, no icon (owner, 2026-11-19: the long line and the gavel didn't read). The amber
+             tag under Due today says a hearing today needs this; the full sentence is on hover and
+             for screen readers. */
+          <Badge
+            variant="warning"
+            className="h-auto max-w-full py-0.5 whitespace-normal"
+            title={`Needed for item ${t.blocks.item} at ${t.blocks.court} today`}
+          >
+            <span className="sr-only">Needed today </span>
+            For item {t.blocks.item} · {t.blocks.court}
           </Badge>
         ) : null
       }
-      when={<span className={group.key === "overdue" ? "font-semibold text-destructive-ink" : undefined}>{when}</span>}
+      when={
+        group.key === "overdue" ? (
+          <span className="font-semibold text-destructive-ink">
+            {late} {late === 1 ? "day" : "days"} late
+          </span>
+        ) : null
+      }
     />
   );
+}
+
+/** "Today" · "5D" (under a month) · "2M" (30 days and more). */
+export function waitAge(days: number): string {
+  if (days <= 0) return "Today";
+  if (days < 30) return `${days}D`;
+  return `${Math.floor(days / 30)}M`;
+}
+function waitWords(days: number): string {
+  if (days < 30) return `${days} ${days === 1 ? "day" : "days"}`;
+  const m = Math.floor(days / 30);
+  return `${m} ${m === 1 ? "month" : "months"}`;
 }
 
 function WaitingRow({ task: t, today, onAct }: { task: HomeTask; today: string; onAct: (t: HomeTask) => void }) {
@@ -235,8 +255,11 @@ function WaitingRow({ task: t, today, onAct }: { task: HomeTask; today: string; 
         </span>
       }
       when={
-        <span className={days >= 3 ? "font-semibold text-foreground" : undefined}>
-          {days === 0 ? "Today" : `${days} ${days === 1 ? "day" : "days"}`}
+        /* A clock and a short age: "Today", "5D", "2M" (owner, 2026-11-19). Read out in full. */
+        <span className={cn("inline-flex items-center justify-end gap-1", days >= 3 && "font-semibold text-foreground")}>
+          <ClockIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          <span aria-hidden="true">{waitAge(days)}</span>
+          <span className="sr-only">Waiting {days === 0 ? "since today" : waitWords(days)}</span>
         </span>
       }
     />
@@ -257,7 +280,7 @@ function Row({
   task: HomeTask;
   detail: React.ReactNode;
   flag?: React.ReactNode;
-  when: React.ReactNode;
+  when?: React.ReactNode;
   onAct: (t: HomeTask) => void;
 }) {
   return (
@@ -277,7 +300,9 @@ function Row({
         </span>
         {flag}
       </div>
-      <span className="w-20 shrink-0 text-right text-caption text-muted-foreground tabular-nums max-sm:w-auto">{when}</span>
+      {when ? (
+        <span className="w-20 shrink-0 text-right text-caption text-muted-foreground tabular-nums max-sm:w-auto">{when}</span>
+      ) : null}
       <Button
         variant="outline"
         size="xs"
