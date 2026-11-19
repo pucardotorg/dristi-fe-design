@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRightIcon, BookmarkIcon, CalendarXIcon, CheckIcon, ChevronDownIcon } from "lucide-react";
+import { ArrowRightIcon, BookmarkIcon, CalendarXIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { RefreshIcon, useRefreshPhase } from "@/components/advocate/refresh-button";
 import { advHome, fillCopy } from "@/lib/advocate/content";
 import { type Locale, pick } from "@/lib/onboarding/content";
@@ -10,7 +10,7 @@ import { useLocale } from "@/components/shell/locale";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { PageOutcome } from "@/components/ui/outcome";
 import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -30,7 +30,9 @@ import {
   cost,
   courtLine,
   courtStatus,
+  courtTimeline,
   hearingCount,
+  type TimelineEntry,
   isTomorrow,
   nextWorkingDay,
   orderCourts,
@@ -84,7 +86,7 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
             />
           </h2>
           {/* Phones: the stat sits under the title; the header row has no room for it. */}
-          <Stat courts={ordered} className="mt-2 sm:hidden" />
+          <Stat courts={ordered} className="mt-1 sm:hidden" />
         </CardTitle>
         {/* Phones: the button sits on the title's line (self-start, nudged to centre on its 28px
             line); from sm up the whole row centres. Stat sits close to the button (owner). */}
@@ -99,8 +101,11 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
       </CardHeader>
       {/* The card keeps its 3-court height whatever the day holds (owner rule: card sizes never
           change with data), so a quiet day or an empty one never squishes it. Rows sit 48px apart
-          on phones and 32px from tablets up (owner, 2026-11-19), so 3 rows = 252px / 220px. */}
-      <CardContent className="flex min-h-63 flex-col sm:min-h-55">
+          on phones and 32px from tablets up (owner, 2026-11-19), so 3 rows = 264px / 220px (phones
+          also keep 16px under each court name). */}
+      {/* Phones: 8px more between the stat and the first court (owner, 2026-11-19), counted in
+          the fixed height too (272px). */}
+      <CardContent className="flex min-h-68 flex-col max-sm:pt-2 sm:min-h-59">
         {shown.length ? (
           <ul className="flex flex-col gap-12 pb-6 sm:gap-8">
             {shown.map((c) => (
@@ -317,8 +322,24 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
   const status = courtStatus(c);
   /* Not on the next working day: every court is not started then, so the tag would only repeat. */
   const tag = status === "live" || (status === "notStarted" && !today) ? null : TAGS[status];
+  /* Touch (any coarse pointer, tablets included): dots are 24px apart, too close to tap one by one,
+     so the whole row is one tap target that opens the court's drawer, where every hover is written
+     out. Mouse keeps the hovers. */
+  const fine = useMediaQuery("(pointer: fine)");
+  const [open, setOpen] = React.useState(false);
   return (
-    <li className="flex min-w-0 flex-col gap-3">
+    /* Phones: 16px between the court name and its line (owner, 2026-11-19); 12px from tablets up. */
+    /* Tablets up: 8px on top of the 32px gap, so courts sit 40px apart (owner trial, 2026-11-19;
+       40 isn't a ladder step, so it's built from two that are). */
+    <li className="relative flex min-w-0 flex-col gap-4 sm:gap-3 sm:not-first:pt-2">
+      {fine ? null : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={`${c.court}: details`}
+          className="absolute -inset-x-2 -inset-y-2 z-10 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-focus-ring active:bg-accent/40"
+        />
+      )}
       <div className="flex min-w-0 items-start gap-2">
         <CourtName name={c.court} said={courtSaid(c, today)} />
         {/* A small neutral tag right after the name; it never shrinks, a long name wraps beside it.
@@ -331,7 +352,10 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
             </Badge>
           </Hint>
         ) : null}
+        {/* Touch: a chevron says the row opens. */}
+        {fine ? null : <ChevronRightIcon aria-hidden="true" className="ml-auto size-4 shrink-0 text-muted-foreground" />}
       </div>
+      {fine ? null : <CourtSheet court={c} today={today} open={open} onOpenChange={setOpen} />}
       {status === "finished" ? (
         /* Finished: no live pill; the heard line runs the whole row, 1 to the last. Measured, so
            its in-between dots match the room it has. */
@@ -432,83 +456,135 @@ function More({ part: p, court }: { part: Extract<TrackPart, { kind: "more" }>; 
   const fine = useMediaQuery("(pointer: fine)");
   const pending = p.mine.some((m) => m.pending);
   const label = `${p.mine.length} more of your items: ${p.mine.map((m) => m.item).join(", ")}`;
-  const chip = (
-    <button
-      type="button"
-      aria-label={label}
-      className={cn(
-        "relative flex h-5 shrink-0 items-center rounded-full px-1.5 text-caption font-semibold tabular-nums outline-none focus-visible:ring-3 focus-visible:ring-focus-ring",
-        /* Touch: a 44px tap target around the 20px chip. */
-        "after:absolute after:-inset-3 pointer-fine:after:hidden",
-        pending ? "bg-destructive-muted text-destructive-ink" : "bg-success-muted text-success-ink",
-      )}
-    >
-      +{p.mine.length}
-    </button>
+  const look = cn(
+    "relative flex h-5 shrink-0 items-center rounded-full px-1.5 text-caption font-semibold tabular-nums",
+    pending ? "bg-destructive-muted text-destructive-ink" : "bg-success-muted text-success-ink",
   );
-  const title = `${p.mine.length} more of your items`;
-  const where = court.now ? `${court.court} · on item ${court.now} of ${court.last}` : `${court.court} · not started`;
-  return (
+  const line = (
     <>
-      {fine ? (
-        <Popover>
-          <PopoverTrigger asChild>{chip}</PopoverTrigger>
-          <PopoverContent align="start" className="w-72">
-            <PopoverHeader>
-              <PopoverTitle>{title}</PopoverTitle>
-              <PopoverDescription>{where}</PopoverDescription>
-            </PopoverHeader>
-            <MineList mine={p.mine} now={court.now} />
-          </PopoverContent>
-        </Popover>
-      ) : (
-        <Drawer>
-          <DrawerTrigger asChild>{chip}</DrawerTrigger>
-          <DrawerContent style={{ paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
-            <DrawerHeader className="text-left">
-              <DrawerTitle>{title}</DrawerTitle>
-              <DrawerDescription>{where}</DrawerDescription>
-            </DrawerHeader>
-            <div className="overflow-y-auto px-4">
-              <MineList mine={p.mine} now={court.now} />
-            </div>
-            <DrawerFooter>
-              <Button asChild variant="outline">
-                <Link href="/advocate">
-                  Go to Hearings
-                  <ArrowRightIcon data-icon="inline-end" aria-hidden="true" />
-                </Link>
-              </Button>
-            </DrawerFooter>
-          </DrawerContent>
-        </Drawer>
-      )}
       <span aria-hidden="true" className="h-px w-0.5 shrink-0" />
       <span aria-hidden="true" className="relative flex h-4 min-w-6 flex-1 items-center">
         <DottedLine className="h-1 w-full text-border" />
       </span>
     </>
   );
+  /* Touch: just the chip; tapping the row opens the court's drawer, which lists these too. */
+  if (!fine) {
+    return (
+      <>
+        <span aria-hidden="true" className={look}>
+          +{p.mine.length}
+        </span>
+        {line}
+      </>
+    );
+  }
+  return (
+    <>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button type="button" aria-label={label} className={cn(look, "outline-none focus-visible:ring-3 focus-visible:ring-focus-ring")}>
+            +{p.mine.length}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-72">
+          <PopoverHeader>
+            <PopoverTitle>{p.mine.length} more of your items</PopoverTitle>
+            <PopoverDescription>{courtWhere(court)}</PopoverDescription>
+          </PopoverHeader>
+          <MineList mine={p.mine} court={court} />
+        </PopoverContent>
+      </Popover>
+      {line}
+    </>
+  );
 }
 
-/** Your items as rows: the ring, the item, how far off it is, and what it needs. */
-function MineList({ mine, now }: { mine: HearingMine[]; now: number }) {
+/** "Sessions Court · on item 30 of 70" and the like. */
+function courtWhere(c: CourtHearings) {
+  return c.finished ? `${c.court} · finished` : c.now ? `${c.court} · on item ${c.now} of ${c.last}` : `${c.court} · not started`;
+}
+
+/**
+ * Touch: the court's drawer. Everything the hovers say on desktop, written out: where the court
+ * is, each of your items with its ring and state, and the rest of the list in one line.
+ */
+function CourtSheet({
+  court: c,
+  today,
+  open,
+  onOpenChange,
+}: {
+  court: CourtHearings;
+  today: boolean;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
+  const status = courtStatus(c);
+  const tag = status === "live" || (status === "notStarted" && !today) ? null : TAGS[status];
+  /* Owner, 2026-11-19: no summary line; the line itself says where the court is. The header
+     counts only your hearings here. */
+  const yours = `Your ${c.mine.length} ${c.mine.length === 1 ? "hearing" : "hearings"}`;
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      {/* Fixed at three quarters of the screen whatever the court (owner, 2026-11-19); the line
+          scrolls between the pinned header and footer. */}
+      <DrawerContent style={{ height: "75dvh", paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
+        <DrawerHeader className="flex-row items-start justify-between gap-3 text-left">
+          <div className="flex min-w-0 items-start gap-2">
+            <DrawerTitle className="text-left">{c.court}</DrawerTitle>
+            {tag ? (
+              <Badge variant={tag.tone === "you" ? "success" : "secondary"} className="h-5 px-1.5">
+                {tag.tone === "you" ? <CheckIcon data-icon="inline-start" aria-hidden="true" /> : null}
+                {tag.label}
+              </Badge>
+            ) : null}
+          </div>
+          <DrawerDescription className="shrink-0 pt-0.5 text-right tabular-nums">{yours}</DrawerDescription>
+        </DrawerHeader>
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4">
+          <CourtTimeline court={c} />
+        </div>
+        <DrawerFooter>
+          <Button asChild variant="outline">
+            <Link href="/advocate">
+              Go to Hearings
+              <ArrowRightIcon data-icon="inline-end" aria-hidden="true" />
+            </Link>
+          </Button>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+/** Your items as rows: the ring, the item, what it needs, and where it stands in the list. */
+function MineList({ mine, court: c }: { mine: HearingMine[]; court: CourtHearings }) {
   return (
     <ul className="flex flex-col divide-y divide-hairline">
       {mine.map((m) => {
+        const heard = Boolean(c.finished) || (c.now > 0 && m.item < c.now);
+        const live = !c.finished && c.now > 0 && m.item === c.now;
         /* Items still to be heard before yours: the live one counts as being heard already. */
-        const away = now ? m.item - now - 1 : m.item - 1;
+        const away = c.now ? m.item - c.now - 1 : m.item - 1;
+        const state = heard ? "Heard" : live ? "Happening now" : m.pending ? pendingText(m.pending) : "Ready";
+        const extra = [live && m.pending ? pendingText(m.pending) : null, m.bookmarked ? "Bookmarked case" : null];
         return (
           <li key={m.item} className="flex items-center gap-3 py-3">
-            <Ring mine={m} fill={UPCOMING_FILL} />
+            <Ring mine={m} fill={heard ? HEARD_FILL : UPCOMING_FILL} heard={heard} />
             <div className="flex min-w-0 flex-1 flex-col">
               <span className="text-body-compact font-medium tabular-nums">Item {m.item}</span>
-              <span className={cn("text-caption", m.pending ? "text-destructive-ink" : "text-muted-foreground")}>
-                {[m.pending ? pendingText(m.pending) : "Ready", m.bookmarked ? "Bookmarked case" : null].filter(Boolean).join(" · ")}
+              <span
+                className={cn(
+                  "text-caption",
+                  !heard && m.pending ? "text-destructive-ink" : live ? "text-success-ink" : "text-muted-foreground",
+                )}
+              >
+                {[state, ...extra].filter(Boolean).join(" · ")}
               </span>
             </div>
             <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
-              {away === 0 ? "Next" : `${away} ${away === 1 ? "item" : "items"} before it`}
+              {heard ? "" : live ? "Now" : away === 0 ? "Next" : `${away} ${away === 1 ? "item" : "items"} before it`}
             </span>
           </li>
         );
@@ -519,6 +595,36 @@ function MineList({ mine, now }: { mine: HearingMine[]; now: number }) {
 
 /** Pulse period. Every live pill keys its pulse to the page clock, so all courts pulse together. */
 const PULSE_MS = 2400;
+
+/**
+ * The drawer's live mark: a small green dot with the same synced pulse, ringed in your colour when
+ * it's yours. Its number sits in the drawer's left column, so the dot doesn't repeat it.
+ */
+function LiveDot({ mine }: { mine?: HearingMine }) {
+  const ring = React.useRef<HTMLSpanElement>(null);
+  React.useEffect(() => {
+    const id = requestAnimationFrame(() => pinPulse(ring.current));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return (
+    <span aria-hidden="true" className="relative flex size-4 items-center justify-center">
+      <span
+        ref={ring}
+        onAnimationStart={(ev) => pinPulse(ev.currentTarget)}
+        /* Starts 20px wide, so it pulses out past the ring around a dot of yours. */
+        className="absolute size-5 rounded-full bg-success motion-safe:animate-ping"
+        style={{ animationDuration: `${PULSE_MS}ms` }}
+      />
+      <span
+        className={cn(
+          "relative size-3 rounded-full bg-success",
+          mine && "outline-2 outline-offset-2",
+          mine && (mine.pending ? "outline-destructive" : "outline-success"),
+        )}
+      />
+    </span>
+  );
+}
 
 /** Starts an element's pulse at the page clock's zero, the same point every other pill uses. */
 function pinPulse(el: HTMLElement | null) {
@@ -590,13 +696,121 @@ function Live({ item, mine }: { item: number; mine?: HearingMine }) {
 }
 
 /** A dotted line drawn as an SVG stroke with round caps: smooth, evenly spaced 1.5px dots. */
-function DottedLine({ className }: { className?: string }) {
+function DottedLine({ vertical, className }: { vertical?: boolean; className?: string }) {
   return (
     <span aria-hidden="true" className={className}>
       <svg className="block size-full overflow-visible" fill="none">
-        <line x1="0" y1="50%" x2="100%" y2="50%" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeDasharray="0 5" />
+        <line
+          x1={vertical ? "50%" : "0"}
+          y1={vertical ? "0" : "50%"}
+          x2={vertical ? "50%" : "100%"}
+          y2={vertical ? "100%" : "50%"}
+          stroke="currentColor"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeDasharray="0 5"
+        />
       </svg>
     </span>
+  );
+}
+
+/**
+ * Touch drawer: the card's line turned on its side (owner, 2026-11-19). The same marks (plain
+ * dots at 1 and the end, the live pill, your rings, grey once heard) on a dotted rail, dark where
+ * heard and light to come; every gap says how many items it holds. Text sits beside each mark.
+ */
+function CourtTimeline({ court: c }: { court: CourtHearings }) {
+  const entries = courtTimeline(c);
+  /* A rail segment is heard when the entry it leads into is heard (or is the live one). */
+  const heardOf = (e?: TimelineEntry) => (e ? e.heard || (e.kind === "point" && e.role === "live") : false);
+  /* Three columns (owner, 2026-11-19): numbers and gap counts on the left, the line, words on the right. */
+  const LEFT = "w-28 shrink-0 text-right tabular-nums";
+  return (
+    /* A short line stretches its gaps to fill the drawer's fixed height (owner, 2026-11-19). */
+    <ol className="flex flex-1 flex-col pb-2">
+      {entries.map((e, i) => {
+        const before = entries[i - 1];
+        const after = entries[i + 1];
+        /* The rail fills its slot without giving the SVG a height of its own (it would default to 150px). */
+        const rail = (heard: boolean) => (
+          <span className="relative min-h-0 w-1 flex-1">
+            <DottedLine vertical className={cn("absolute inset-0", heard ? "text-muted-foreground" : "text-border")} />
+          </span>
+        );
+        if (e.kind === "gap") {
+          const n = e.to - e.from + 1;
+          return (
+            <li key={`g${e.from}`} className="flex min-h-8 grow gap-3">
+              <p className={cn(LEFT, "self-center py-1 text-caption text-muted-foreground")}>
+                {/* "to come" read as if these were yours (owner, 2026-11-19): they are the others in between. */}
+                {n} {n === 1 ? "item" : "items"} {e.heard ? "heard" : "in between"}
+              </p>
+              <div aria-hidden="true" className="flex w-6 shrink-0 flex-col items-center">
+                {rail(e.heard)}
+              </div>
+            </li>
+          );
+        }
+        const yours = Boolean(e.mine);
+        const live = e.role === "live";
+        const title = live ? "Happening now" : yours ? "Yours" : e.role === "first" ? "First item" : "Last item";
+        /* Only tasks pending is red; everything else in the caption stays grey. */
+        const notes: { text: string; red?: boolean }[] = [];
+        if (e.heard && yours) notes.push({ text: "Heard" });
+        if (live && yours) notes.push({ text: "Yours" });
+        if (!e.heard && e.mine?.pending) notes.push({ text: pendingText(e.mine.pending), red: true });
+        if (e.mine?.bookmarked) notes.push({ text: "Bookmarked case" });
+        const numberTone = live
+          ? "text-success-ink"
+          : yours && !e.heard
+            ? e.mine!.pending
+              ? "text-destructive-ink"
+              : "text-success-ink"
+            : "text-muted-foreground";
+        return (
+          <li key={`p${e.item}`} className="flex gap-3">
+            {/* Number, mark and title share one 24px line, 12px from the row's top (under the rail stub). */}
+            <p className={cn(LEFT, "mt-3 flex h-6 items-center justify-end text-body-compact", yours || live ? "font-semibold" : "font-medium", numberTone)}>
+              {e.item}
+            </p>
+            <div aria-hidden="true" className="flex w-6 shrink-0 flex-col items-center">
+              <span className="flex h-3 w-1 flex-col">{before ? rail(heardOf(e)) : null}</span>
+              <span className="flex size-6 items-center justify-center">
+                {live ? (
+                  <LiveDot mine={e.mine} />
+                ) : e.mine ? (
+                  <Ring mine={e.mine} fill={e.heard ? HEARD_FILL : UPCOMING_FILL} heard={e.heard} large />
+                ) : (
+                  <span className={cn("size-2.5 rounded-full", e.heard ? HEARD_FILL : UPCOMING_FILL)} />
+                )}
+              </span>
+              <span className="flex w-1 flex-1 flex-col">{after ? rail(heardOf(after)) : null}</span>
+            </div>
+            <div className="flex min-w-0 flex-col pt-3 pb-2">
+              <span
+                className={cn(
+                  "flex h-6 items-center text-body-compact",
+                  live ? "font-semibold text-success-ink" : yours ? "font-semibold" : "font-medium text-muted-foreground",
+                )}
+              >
+                {title}
+              </span>
+              {notes.length ? (
+                <span className="text-caption text-muted-foreground">
+                  {notes.map((n, k) => (
+                    <React.Fragment key={n.text}>
+                      {k > 0 ? " · " : null}
+                      <span className={n.red ? "text-destructive-ink" : undefined}>{n.text}</span>
+                    </React.Fragment>
+                  ))}
+                </span>
+              ) : null}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -685,15 +899,22 @@ function Dot({ part: p }: { part: Extract<TrackPart, { kind: "dot" }> }) {
  * Your item: a 16px ring on the line (1.5 stroke), red with tasks pending, green when ready.
  * Inside: the item's own dot, or a small bookmark when the case is bookmarked.
  */
-function Ring({ mine, fill, heard }: { mine: HearingMine; fill: string; heard?: boolean }) {
+function Ring({ mine, fill, heard, large }: { mine: HearingMine; fill: string; heard?: boolean; large?: boolean }) {
   /* Heard (a finished court): grey, still marked as yours, no longer asking anything of you. */
   const tone = heard ? "text-muted-foreground" : mine.pending ? "text-destructive" : "text-success";
+  /* `large`: the drawer's 20px ring with a 10px dot or bookmark inside (owner, 2026-11-19: the
+     bookmark was hard to see at 8px); the card keeps 16px. */
+  const inner = large ? "size-2.5" : "size-2";
   return (
-    <span aria-hidden="true" className={cn("relative flex size-4 items-center justify-center", tone)}>
-      <svg viewBox="0 0 16 16" className="absolute inset-0 size-4" fill="none" stroke="currentColor" strokeWidth={1.5}>
-        <circle cx="8" cy="8" r="7.25" />
+    <span aria-hidden="true" className={cn("relative flex items-center justify-center", large ? "size-5" : "size-4", tone)}>
+      <svg viewBox={large ? "0 0 20 20" : "0 0 16 16"} className="absolute inset-0 size-full" fill="none" stroke="currentColor" strokeWidth={1.5}>
+        {large ? <circle cx="10" cy="10" r="9.25" /> : <circle cx="8" cy="8" r="7.25" />}
       </svg>
-      {mine.bookmarked ? <BookmarkIcon className="size-2 fill-current" strokeWidth={3} /> : <span className={cn("size-2 rounded-full", fill)} />}
+      {mine.bookmarked ? (
+        <BookmarkIcon className={cn(inner, "fill-current")} strokeWidth={3} />
+      ) : (
+        <span className={cn(inner, "rounded-full", fill)} />
+      )}
     </span>
   );
 }
