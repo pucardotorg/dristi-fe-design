@@ -471,7 +471,9 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                       fixed floor that would overstate it. */}
                   <span className="flex h-full w-3 flex-col items-center justify-end gap-0.5">
                     {/* ds-typography-allow: bar counts a step under caption (11px), owner 2026-11-19. */}
-                    <span className="text-[0.6875rem] leading-4 font-semibold tabular-nums">{d.hearings}</span>
+                    <span className="week-num text-[0.6875rem] leading-4 font-semibold tabular-nums" style={{ animationDelay: `${i * 90 + 700}ms` }}>
+                      {d.hearings}
+                    </span>
                     <span
                       className="week-bar flex w-full flex-col overflow-hidden rounded-t-xs"
                       style={{
@@ -497,7 +499,13 @@ function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
                   </span>
                   <span className="flex h-full w-3 flex-col items-center justify-end gap-0.5">
                     {/* ds-typography-allow: bar counts a step under caption (11px), owner 2026-11-19. */}
-                    <span className="text-[0.6875rem] leading-4 font-medium text-muted-foreground tabular-nums">{d.tasks}</span>
+                    <span
+                      // ds-typography-allow: bar counts a step under caption (11px), owner 2026-11-19.
+                      className="week-num text-[0.6875rem] leading-4 font-medium text-muted-foreground tabular-nums"
+                      style={{ animationDelay: `${i * 90 + 745}ms` }}
+                    >
+                      {d.tasks}
+                    </span>
                     <span
                       className="week-bar w-full rounded-t-xs bg-muted-foreground/50"
                       style={{

@@ -661,8 +661,11 @@ function Live({ item, mine }: { item: number; mine?: HearingMine }) {
   }, []);
   const size = String(item).length > 2 ? "size-6" : "size-5";
   const pill = (
-    /* Pops in last, after your items (hearings.css). */
-    <span aria-hidden="true" className="hearing-pop hearing-pop-live relative flex size-4 shrink-0 items-center justify-center">
+    <span aria-hidden="true" className="relative flex size-4 shrink-0 items-center justify-center">
+      {/* A plain grey dot holds the place until the live circle pops over it, so the line never
+          shows a gap (owner, 2026-11-19). */}
+      <span className={cn("absolute size-2 rounded-full", UPCOMING_FILL)} />
+      <span className="hearing-pop hearing-pop-live absolute inset-0 flex items-center justify-center">
       <span
         /* Pin every pulse to the page clock's start, so all courts pulse together. Done each time
            the animation actually starts (first paint, a remount, a court shown later), not once on
@@ -686,6 +689,7 @@ function Live({ item, mine }: { item: number; mine?: HearingMine }) {
         )}
       >
         {item}
+      </span>
       </span>
     </span>
   );
@@ -882,10 +886,8 @@ function Dot({ part: p }: { part: Extract<TrackPart, { kind: "dot" }> }) {
       )}
     >
       {p.mine ? (
-        /* Your items pop in after the line is drawn (hearings.css). */
-        <span className="hearing-pop relative flex">
-          <Ring mine={p.mine} fill={fill} heard={p.state === "heard"} />
-        </span>
+        /* The dot stays put; only your ring pops around it (hearings.css). */
+        <Ring mine={p.mine} fill={fill} heard={p.state === "heard"} pop />
       ) : (
         <span className={cn("relative size-2 rounded-full", fill)} />
       )}
@@ -923,7 +925,7 @@ function Dot({ part: p }: { part: Extract<TrackPart, { kind: "dot" }> }) {
  * Your item: a 16px ring on the line (1.5 stroke), red with tasks pending, green when ready.
  * Inside: the item's own dot, or a small bookmark when the case is bookmarked.
  */
-function Ring({ mine, fill, heard, large }: { mine: HearingMine; fill: string; heard?: boolean; large?: boolean }) {
+function Ring({ mine, fill, heard, large, pop }: { mine: HearingMine; fill: string; heard?: boolean; large?: boolean; pop?: boolean }) {
   /* Heard (a finished court): grey, still marked as yours, no longer asking anything of you. */
   const tone = heard ? "text-muted-foreground" : mine.pending ? "text-destructive" : "text-success";
   /* `large`: the drawer's 20px ring with a 10px dot or bookmark inside (owner, 2026-11-19: the
@@ -931,7 +933,7 @@ function Ring({ mine, fill, heard, large }: { mine: HearingMine; fill: string; h
   const inner = large ? "size-2.5" : "size-2";
   return (
     <span aria-hidden="true" className={cn("relative flex items-center justify-center", large ? "size-5" : "size-4", tone)}>
-      <svg viewBox={large ? "0 0 20 20" : "0 0 16 16"} className="absolute inset-0 size-full" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <svg viewBox={large ? "0 0 20 20" : "0 0 16 16"} className={cn("absolute inset-0 size-full", pop && "hearing-pop")} fill="none" stroke="currentColor" strokeWidth={1.5}>
         {large ? <circle cx="10" cy="10" r="9.25" /> : <circle cx="8" cy="8" r="7.25" />}
       </svg>
       {mine.bookmarked ? (
