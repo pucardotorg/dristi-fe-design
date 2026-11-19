@@ -100,14 +100,12 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
         </CardAction>
       </CardHeader>
       {/* The card keeps its 3-court height whatever the day holds (owner rule: card sizes never
-          change with data), so a quiet day or an empty one never squishes it. Rows sit 48px apart
-          on phones and 32px from tablets up (owner, 2026-11-19), so 3 rows = 264px / 220px (phones
-          also keep 16px under each court name). */}
-      {/* Phones: 8px more between the stat and the first court (owner, 2026-11-19), counted in
-          the fixed height too (272px). */}
-      <CardContent className="flex min-h-68 flex-col max-sm:pt-2 sm:min-h-59">
+          change with data), so a quiet day or an empty one never squishes it. Courts are split by
+          a hairline (12px each side), so 3 rows = 266px on phones (16px under each name, plus 8px
+          more under the stat) and 246px from tablets up; the minimums round up to 272 / 248. */}
+      <CardContent className="flex min-h-68 flex-col max-sm:pt-2 sm:min-h-62">
         {shown.length ? (
-          <ul className="flex flex-col gap-12 pb-6 sm:gap-8">
+          <ul className="flex flex-col gap-8 pb-6">
             {shown.map((c) => (
               <CourtRow key={c.court} court={c} today={day === "today"} />
             ))}
@@ -331,7 +329,9 @@ function CourtRow({ court: c, today }: { court: CourtHearings; today: boolean })
     /* Phones: 16px between the court name and its line (owner, 2026-11-19); 12px from tablets up. */
     /* Tablets up: 8px on top of the 32px gap, so courts sit 40px apart (owner trial, 2026-11-19;
        40 isn't a ladder step, so it's built from two that are). */
-    <li className="relative flex min-w-0 flex-col gap-4 sm:gap-3 sm:not-first:pt-2">
+    /* A hairline between courts at every width (owner, 2026-11-19), midway between one court's
+       numbers and the next court's name: 12px each side (32px gap + 12px). */
+    <li className="relative flex min-w-0 flex-col gap-4 not-first:border-t not-first:border-hairline not-first:pt-3 sm:gap-3">
       {fine ? null : (
         <button
           type="button"
