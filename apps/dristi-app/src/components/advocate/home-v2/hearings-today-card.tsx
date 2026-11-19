@@ -66,15 +66,32 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
      rings seemed not to pop on a refresh while the week's bars did (owner, 2026-11-19). */
   const [arrive, setArrive] = React.useState(false);
   const [settled, setSettled] = React.useState(false);
-  React.useEffect(() => {
-    const frame = requestAnimationFrame(() => setArrive(true));
-    /* After the last beat (dots turning into bookmarks, done by about 1.7s). */
-    const id = window.setTimeout(() => setSettled(true), 2000);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.clearTimeout(id);
-    };
+  /* Plays the arrival: on coming to Home, and again when the refresh button is pressed (owner,
+     2026-11-19), never on the quiet auto-refresh. Unsettling puts the pops back at their first
+     frame, held; two frames later they run; after the last beat (dots turning into bookmarks,
+     done by about 1.7s) the card settles again. */
+  const arrival = React.useRef<{ frames: number[]; timer?: number }>({ frames: [] });
+  const start = React.useCallback(() => {
+    const a = arrival.current;
+    a.frames.forEach(cancelAnimationFrame);
+    window.clearTimeout(a.timer);
+    a.frames = [requestAnimationFrame(() => (a.frames[1] = requestAnimationFrame(() => setArrive(true))))];
+    a.timer = window.setTimeout(() => setSettled(true), 2000);
   }, []);
+  /* The refresh button: back to the held first frame, then play again. */
+  const play = React.useCallback(() => {
+    setSettled(false);
+    setArrive(false);
+    start();
+  }, [start]);
+  React.useEffect(() => {
+    start();
+    const a = arrival.current;
+    return () => {
+      a.frames.forEach(cancelAnimationFrame);
+      window.clearTimeout(a.timer);
+    };
+  }, [start]);
   /* The title's day menu: today, or the next working day. That is called "Tomorrow" when it is
      tomorrow, and "Next working day" only when a weekend or holiday falls between. */
   const [day, setDay] = React.useState<Day>("today");
@@ -114,6 +131,7 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
           <CardRefresh
             locale={locale}
             onRefresh={() => setRefreshed((n) => n + 1)}
+            onManualRefresh={play}
             auto={day === "today" && ordered.some((c) => courtStatus(c) === "live" || courtStatus(c) === "done")}
           />
         </CardAction>
@@ -238,10 +256,22 @@ function DayMenu({ day, setDay, dates }: { day: Day; setDay: (d: Day) => void; d
  * button so it sits quietly in the card header (owner, 2026-11-19). The caption appears BELOW
  * the button: "Refreshed" in green right after, "Last refreshed …" on hover (mouse only).
  */
-function CardRefresh({ onRefresh, locale, auto }: { onRefresh: () => void; locale: Locale; auto: boolean }) {
+function CardRefresh({
+  onRefresh,
+  onManualRefresh,
+  locale,
+  auto,
+}: {
+  onRefresh: () => void;
+  /** Only the button, not the auto-refresh: replays the card's arrival. */
+  onManualRefresh?: () => void;
+  locale: Locale;
+  auto: boolean;
+}) {
   const [lastAt, setLastAt] = React.useState(() => Date.now());
   const { phase, trigger } = useRefreshPhase(() => {
     onRefresh();
+    onManualRefresh?.();
     setLastAt(Date.now());
   });
   /* Auto-refresh while a court sits: quietly (no spin), skipped while the tab is hidden, and once
