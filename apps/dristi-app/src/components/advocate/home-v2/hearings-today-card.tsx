@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { FOOTER_BAND, FOOTER_GHOST } from "./footer";
 import Link from "next/link";
 import { ArrowRightIcon, BookmarkIcon, CalendarXIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { RefreshIcon, useRefreshPhase } from "@/components/advocate/refresh-button";
@@ -131,9 +130,9 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
           </div>
         )}
       </CardContent>
-      <CardFooter className={cn("justify-between gap-4 py-3", FOOTER_BAND)}>
+      <CardFooter className="justify-between gap-4 py-3">
         {hidden > 0 ? (
-          <Button variant="ghost" size="sm" className={cn("-ml-3", FOOTER_GHOST)} aria-expanded={all} onClick={() => setAll((v) => !v)}>
+          <Button variant="ghost" size="sm" className="-ml-3" aria-expanded={all} onClick={() => setAll((v) => !v)}>
             {all ? "Show fewer" : `Show ${hidden} more ${hidden === 1 ? "court" : "courts"}`}
             <ChevronDownIcon
               data-icon="inline-end"

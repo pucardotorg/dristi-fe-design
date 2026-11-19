@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { FOOTER_BAND } from "./footer";
 import Link from "next/link";
 import { ArrowRightIcon, BookmarkIcon, FolderOpenIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -99,7 +98,7 @@ export function RecentCasesCard({ today }: { today: string }) {
           </div>
         )}
       </CardContent>
-      <CardFooter className={cn("justify-end py-3", FOOTER_BAND)}>
+      <CardFooter className="justify-end py-3">
         <Button asChild variant="outline" size="sm" className="-mr-3">
           <Link href="/cases">
             All cases

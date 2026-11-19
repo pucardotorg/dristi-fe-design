@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { FOOTER_BAND } from "./footer";
 import Link from "next/link";
 import { ArrowRightIcon, BookmarkIcon, CheckCheckIcon, GavelIcon, UserCheckIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -128,7 +127,7 @@ export function TodosCard({ tasks, today, onAct }: { tasks: HomeTask[]; today: s
       </CardContent>
 
       {/* Footer as on Your hearings: what's left on the left, where it all lives on the right. */}
-      <CardFooter className={cn("justify-between gap-4 py-3", FOOTER_BAND)}>
+      <CardFooter className="justify-between gap-4 py-3">
         {more ? <span className="text-caption font-medium text-muted-foreground tabular-nums">+{more} more</span> : <span />}
         <Button asChild variant="outline" size="sm" className="-mr-3">
           <Link href={tab === "waiting" ? `${TASKS_HREF}?view=waiting` : TASKS_HREF}>
