@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import {
   ArrowRightIcon,
-  BookmarkIcon,
   FilePlusIcon,
   FileTextIcon,
   ScrollTextIcon,
@@ -21,16 +20,10 @@ import { notify } from "@/components/feedback";
 import { PANEL_CLASS } from "@/components/shell/panel";
 import {
   Card,
-  CardAction,
   CardContent,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-} from "@/components/ui/segmented-control";
-import {
-} from "@/components/ui/tooltip";
 import {
   comingUp,
   HOME_CALENDAR,
@@ -178,7 +171,7 @@ export function DashboardHomeV2({
         ) : (
           <>
             {/* Left: Your hearings, then Your to-dos (owner, 2026-11-19: it was cramped beside
-                hearings). Right: Updates, then Coming up (still blanked). Must do today and
+                hearings). Right: Updates, then Your week ahead. Must do today and
                 Waiting on you merged into Your to-dos; Insights is out of draft 2 for this release
                 (tag home-v2-before-todos keeps it; draft 1 runs it). */}
             <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
@@ -188,9 +181,7 @@ export function DashboardHomeV2({
               </div>
               <div className="flex min-w-0 flex-col gap-6">
                 <UpdatesCarouselCard updates={updates} now={nowDate} />
-                <Blank>
-                  <ComingUpCard day={day} />
-                </Blank>
+                <ComingUpCard day={day} />
               </div>
             </div>
           </>
@@ -201,88 +192,6 @@ export function DashboardHomeV2({
 }
 
 /* ── Shared pieces ────────────────────────────────────────────────────── */
-
-/**
- * TEMPORARY (owner, 2026-11-18): blank out the cards around card 1 so it can be judged in
- * place. Boxes keep their size and outline; their contents are hidden and inert.
- * Set FOCUS_CARD_1 to false to bring them back.
- */
-const FOCUS_CARD_1 = true;
-
-function Blank({ className, children }: { className?: string; children: React.ReactNode }) {
-  if (!FOCUS_CARD_1) return className ? <div className={className}>{children}</div> : <>{children}</>;
-  return (
-    <div
-      aria-hidden="true"
-      inert
-      className={cn(
-        "pointer-events-none [&_[data-slot=card]>*]:invisible [&_a>*]:invisible",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-
-/** A Home card: numbered question, title, one control on the right, capped body, footer link. */
-function HomeCard({
-  n,
-  title,
-  id,
-  action,
-  footer,
-  className,
-  children,
-}: {
-  n: number;
-  title: string;
-  id: string;
-  action?: React.ReactNode;
-  footer?: React.ReactNode;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card
-      variant="raised"
-      aria-labelledby={id}
-      role="region"
-      className={cn("min-w-0 gap-4", className)}
-    >
-      <CardHeader className="items-center">
-        <CardTitle>
-          <h2
-            id={id}
-            className="flex items-center gap-2 text-body font-semibold"
-          >
-            <span
-              aria-hidden="true"
-              className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-caption font-semibold text-muted-foreground tabular-nums"
-            >
-              {n}
-            </span>
-            {title}
-          </h2>
-        </CardTitle>
-        {action ? (
-          <CardAction className="row-span-1 self-center">{action}</CardAction>
-        ) : null}
-      </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col">
-        {children}
-      </CardContent>
-      {footer ? (
-        <CardFooter className="justify-start py-3">{footer}</CardFooter>
-      ) : null}
-    </Card>
-  );
-}
-
-
-
-/* ── Launcher ─────────────────────────────────────────────────────────── */
 
 /**
  * The four ways to start something (owner, 2026-11-19), two by two, as tall as the date component
@@ -346,107 +255,90 @@ function TodayBox({ now }: { now: Date }) {
   );
 }
 
-/* ── ⑤ Coming up ──────────────────────────────────────────────────────── */
+/* ── ⑤ Your week ahead ──────────────────────────────────────────────────────── */
 
 function ComingUpCard({ day }: { day: ReturnType<typeof homeDay> }) {
   const week = comingUp(HOME_CALENDAR, day);
   const max = Math.max(1, ...week.flatMap((d) => [d.hearings, d.tasks]));
+  const hearings = week.reduce((n, d) => n + d.hearings, 0);
+  const tasks = week.reduce((n, d) => n + d.tasks, 0);
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   return (
-    <HomeCard n={5} id="home-coming-up" title="Coming up" className="xl:h-84">
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <Card variant="raised" role="region" aria-labelledby="home-week" className="min-w-0 gap-3">
+      {/* Title and the week's totals, as Your hearings shows its day's (owner, 2026-11-19: "Coming
+          up" said too little). Working days, so not "next 7 days": holidays are skipped. */}
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+          <h2 id="home-week" className="text-body font-semibold">
+            Your week ahead
+          </h2>
+          <span className="text-caption font-medium text-muted-foreground tabular-nums">
+            {plural(hearings, "hearing", "hearings")} · {plural(tasks, "task", "tasks")} due
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {/* The bookmarked share is the base of each hearings bar, in full court colour, not a
+            mark floating above it (owner, 2026-11-19). */}
         <ul aria-label="Legend" className="flex flex-wrap gap-x-4 gap-y-1">
-          <li className="flex items-center gap-1.5 text-caption font-medium text-muted-foreground">
-            <span
-              aria-hidden="true"
-              className="size-2.5 rounded-xs bg-chart-1"
-            />
-            Hearings
-          </li>
-          <li className="flex items-center gap-1.5 text-caption font-medium text-muted-foreground">
-            <span
-              aria-hidden="true"
-              className="size-2.5 rounded-xs bg-muted-foreground"
-            />
-            Tasks due
-          </li>
-          <li className="flex items-center gap-1.5 text-caption font-medium text-muted-foreground">
-            <BookmarkIcon
-              aria-hidden="true"
-              className="size-3.5 fill-current text-chart-3"
-            />
-            Bookmarked hearings
-          </li>
+          {[
+            ["bg-chart-1/40", "Hearings"],
+            ["bg-chart-1", "On bookmarked cases"],
+            ["bg-muted-foreground/50", "Tasks due"],
+          ].map(([fill, text]) => (
+            <li key={text} className="flex items-center gap-1.5 text-caption font-medium text-muted-foreground">
+              <span aria-hidden="true" className={cn("size-2.5 rounded-xs", fill)} />
+              {text}
+            </li>
+          ))}
         </ul>
-        <ol
-          aria-label="Today and the next six working days"
-          className="grid min-h-40 flex-1 grid-cols-7 gap-1"
-        >
+        <ol aria-label="Today and the next six working days" className="grid h-40 grid-cols-7">
           {week.map((d, i) => {
             const today = i === 0;
-            const label = today ? "Today" : shortDay(d.day);
+            const [weekday, date] = (today ? `Today ${shortDay(d.day).split(" ")[1]}` : shortDay(d.day)).split(" ");
+            const plain = d.hearings - d.bookmarked;
             return (
-              <li
-                key={d.day}
-                className={cn(
-                  "flex min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 pt-1 pb-1.5",
-                  today && "bg-surface-sunken",
-                )}
-              >
+              <li key={d.day} className="flex min-w-0 flex-col items-stretch">
                 <span className="sr-only">
-                  {`${today ? "Today" : longDay(d.day)}: ${d.hearings} ${d.hearings === 1 ? "hearing" : "hearings"}${d.bookmarked ? `, ${d.bookmarked} on bookmarked cases` : ""}, ${d.tasks} ${d.tasks === 1 ? "task" : "tasks"} due`}
+                  {`${today ? "Today" : longDay(d.day)}: ${plural(d.hearings, "hearing", "hearings")}${d.bookmarked ? `, ${d.bookmarked} on bookmarked cases` : ""}, ${plural(d.tasks, "task", "tasks")} due`}
                 </span>
-                <span
-                  aria-hidden="true"
-                  className="flex h-4 items-center gap-0.5 text-caption font-semibold text-chart-3 tabular-nums"
-                >
-                  {d.bookmarked ? (
-                    <>
-                      <BookmarkIcon className="size-3.5 fill-current" />
-                      {d.bookmarked}
-                    </>
-                  ) : null}
-                </span>
-                <span
-                  aria-hidden="true"
-                  className="flex w-full flex-1 items-end justify-center gap-1"
-                >
-                  {[
-                    [d.hearings, "bg-chart-1"],
-                    [d.tasks, "bg-muted-foreground"],
-                  ].map(([n, fill]) => (
+                {/* Bars stand on one hairline across the week. */}
+                <span aria-hidden="true" className="flex flex-1 items-end justify-center gap-1 border-b border-hairline">
+                  {/* Hearings: the bookmarked part at the base, the rest lighter above it. */}
+                  <span className="flex h-full w-3 flex-col items-center justify-end gap-0.5">
+                    <span className="text-caption font-semibold tabular-nums">{d.hearings}</span>
                     <span
-                      key={fill as string}
-                      className="flex h-full w-2.5 flex-col items-center justify-end gap-0.5 sm:w-3"
+                      className="flex w-full flex-col overflow-hidden rounded-t-xs"
+                      style={{ height: `calc((100% - 1.25rem) * ${d.hearings / max})`, minHeight: d.hearings ? 2 : 0 }}
                     >
-                      <span className="text-caption font-medium tabular-nums">
-                        {n as number}
-                      </span>
-                      <span
-                        className={cn("w-full rounded-t-xs", fill as string)}
-                        style={{
-                          height: `calc((100% - 1.25rem) * ${(n as number) / max})`,
-                          minHeight: (n as number) ? 2 : 0,
-                        }}
-                      />
+                      <span className="w-full bg-chart-1/40" style={{ flexGrow: plain }} />
+                      <span className="w-full bg-chart-1" style={{ flexGrow: d.bookmarked }} />
                     </span>
-                  ))}
+                  </span>
+                  <span className="flex h-full w-3 flex-col items-center justify-end gap-0.5">
+                    <span className="text-caption font-medium text-muted-foreground tabular-nums">{d.tasks}</span>
+                    <span
+                      className="w-full rounded-t-xs bg-muted-foreground/50"
+                      style={{ height: `calc((100% - 1.25rem) * ${d.tasks / max})`, minHeight: d.tasks ? 2 : 0 }}
+                    />
+                  </span>
                 </span>
+                {/* The day, with today in the court tint, as on the Hearings home week strip. */}
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "text-caption whitespace-nowrap",
-                    today
-                      ? "font-semibold"
-                      : "font-medium text-muted-foreground",
+                    "mx-0.5 mt-1.5 flex flex-col items-center rounded-md py-0.5 leading-tight",
+                    today ? "bg-brand-muted text-brand-muted-foreground" : "text-muted-foreground",
                   )}
                 >
-                  {label}
+                  <span className="text-caption font-medium">{weekday}</span>
+                  <span className="text-caption font-semibold tabular-nums">{date}</span>
                 </span>
               </li>
             );
           })}
         </ol>
-      </div>
-    </HomeCard>
+      </CardContent>
+    </Card>
   );
 }
