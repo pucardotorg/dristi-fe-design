@@ -265,7 +265,7 @@ function QuickActions({ phone }: { phone?: boolean }) {
         <DrawerTrigger asChild>
           {/* The page's one primary button, sized to its words (owner, 2026-11-19: full width was
               too heavy). The chevron points down, the usual "opens a menu" mark. */}
-          <Button size="sm" className="shrink-0 pointer-coarse:h-10 sm:hidden">
+          <Button className="shrink-0 sm:hidden">
             Quick actions
             <ChevronDownIcon data-icon="inline-end" aria-hidden="true" />
           </Button>
