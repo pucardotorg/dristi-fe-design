@@ -288,27 +288,20 @@ function HomeCard({
  * The four ways to start something (owner, 2026-11-19), two by two, as tall as the date component
  * beside the greeting (120px). No title: the space goes to the actions. Each says it can be
  * pressed: a straight arrow after its name, and a brand-tinted hover.
- * One white panel split by a hairline cross (owner's pick over separate tiles).
+ * Four separate raised tiles, each a button of its own (owner's pick, 2026-11-19).
  */
 function QuickActions() {
   return (
-    <nav aria-label="Quick actions" className={cn("min-w-0 rounded-xl border bg-card p-1", PANEL_CLASS)}>
-      <ul className="grid grid-cols-2">
-        {START.map(({ label, href, icon: Icon }, i) => (
-          <li
-            key={label}
-            className={cn(
-              "flex min-w-0",
-              i % 2 === 0 && "border-r border-hairline",
-              /* 4px from every hover edge to the panel edge or a hairline, all round. */
-              i < 2 ? "border-b border-hairline pb-1" : "pt-1",
-            )}
-          >
+    <nav aria-label="Quick actions" className="min-w-0">
+      {/* Two 56px rows and an 8px gap: 120px, the date component's height. */}
+      <ul className="grid grid-cols-2 gap-2">
+        {START.map(({ label, href, icon: Icon }) => (
+          <li key={label} className="flex min-w-0">
             <Link
               href={href}
               className={cn(
-                "group/qa flex h-12.5 min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 text-body-compact font-semibold outline-none transition-colors hover:bg-brand-muted/50 focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none",
-                i % 2 === 0 ? "mr-1" : "ml-1",
+                "group/qa flex h-14 min-w-0 flex-1 items-center gap-2 rounded-xl border bg-card px-2.5 text-body-compact font-semibold outline-none transition-colors hover:border-brand-muted-hover hover:bg-brand-muted/40 focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none",
+                PANEL_CLASS,
               )}
             >
               <span
