@@ -220,13 +220,21 @@ function Slide({ update: u, now, fine, onOpen }: { update: CaseUpdate; now: Date
     <>
       {/* Top: what kind of update, and when it happened, a stat of its own (owner, 2026-11-19). */}
       <span className="flex w-full items-center justify-between gap-2">
-        <Badge variant="secondary">{u.category}</Badge>
+        {/* A hairline edge so the grey tag holds its shape on the grey slide (owner, 2026-11-19). */}
+        <Badge variant="secondary" className="border-hairline">
+          {u.category}
+        </Badge>
         <span className="text-caption font-medium whitespace-nowrap text-muted-foreground tabular-nums">{whenLabel(u.at, now)}</span>
       </span>
-      {/* Pretty, not balanced: balanced wrapping split short headlines oddly on wide cards (iPad). */}
-      <span className="line-clamp-3 text-title-s font-semibold text-pretty text-foreground">{u.what}</span>
+      {/* The headline: 16px, under the card's 20px title (owner, 2026-11-19), centred between the
+          top and bottom rows. Up to 4 lines (exactly what the fixed slide holds), then "…"; the
+          full text is in the list, the case history, and the slide's hover title. Pretty, not
+          balanced: balanced wrapping split short headlines oddly on wide cards (iPad). */}
+      <span className="flex w-full flex-1 items-center">
+        <span className="line-clamp-4 text-body font-semibold text-pretty text-foreground">{u.what}</span>
+      </span>
       {/* Bottom: the case number (with its bookmark), then the parties. */}
-      <span className="mt-auto flex w-full min-w-0 flex-col gap-0.5">
+      <span className="flex w-full min-w-0 flex-col gap-0.5">
         <span className="flex items-center gap-1.5 text-caption font-semibold text-foreground tabular-nums">
           {u.bookmarked ? (
             <>
@@ -244,7 +252,7 @@ function Slide({ update: u, now, fine, onOpen }: { update: CaseUpdate; now: Date
     /* A fixed 208px on every screen: the card's height never changes with the update shown. */
     "flex h-52 w-full flex-col items-start gap-3 rounded-xl bg-surface-sunken px-6 py-4 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring";
   return fine ? (
-    <Link href={updateHref(u)} className={look}>
+    <Link href={updateHref(u)} className={look} title={u.what}>
       {body}
     </Link>
   ) : (
