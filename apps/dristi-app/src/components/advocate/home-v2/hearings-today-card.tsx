@@ -98,10 +98,11 @@ export function HearingsTodayCard({ courts: today, nextCourts }: { courts: Court
         </CardAction>
       </CardHeader>
       {/* The card keeps its 3-court height whatever the day holds (owner rule: card sizes never
-          change with data), so a quiet day or an empty one never squishes it. 252px = 3 rows. */}
-      <CardContent className="flex min-h-63 flex-col">
+          change with data), so a quiet day or an empty one never squishes it. Rows sit 48px apart
+          on phones and 32px from tablets up (owner, 2026-11-19), so 3 rows = 252px / 220px. */}
+      <CardContent className="flex min-h-63 flex-col sm:min-h-55">
         {shown.length ? (
-          <ul className="flex flex-col gap-12 pb-6">
+          <ul className="flex flex-col gap-12 pb-6 sm:gap-8">
             {shown.map((c) => (
               <CourtRow key={c.court} court={c} today={day === "today"} />
             ))}

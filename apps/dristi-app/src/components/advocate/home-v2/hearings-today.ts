@@ -53,7 +53,7 @@ export const DEMO_COURTS: CourtHearings[] = [
   /* Owner, 2026-11-19: all your items heard while the court sits → "Done" tag. */
   { court: "JFCM Court", now: 35, last: 40, mine: [{ item: 12 }] },
   /* Owner, 2026-11-19: a court that has finished → full line, "Finished" tag, sorted last. */
-  { court: "Additional Sessions Court", now: 28, last: 28, mine: [{ item: 3 }, { item: 9 }, { item: 14 }, { item: 20 }, { item: 25 }], finished: true },
+  { court: "Additional Sessions Court", now: 28, last: 28, mine: [{ item: 3 }, { item: 9, bookmarked: true }, { item: 14 }, { item: 20, bookmarked: true }, { item: 25 }], finished: true },
 ];
 
 /**
