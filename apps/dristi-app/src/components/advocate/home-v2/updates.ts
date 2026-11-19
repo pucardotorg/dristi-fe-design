@@ -6,10 +6,15 @@
 
 import { caseSectionHref } from "@/lib/cases/sections";
 import { CASES } from "@/lib/cases/fixtures";
+import type { OverviewUpdateCategory } from "@/lib/cases/overview";
 
 export type CaseUpdate = {
   id: string;
   caseId: string;
+  /** The registered number, from the case's own record. */
+  caseNumber: string;
+  /** The same categories, and the same grey badge, as each case's own updates (case overview). */
+  category: OverviewUpdateCategory;
   /** "Sunil Varghese v. Anand Traders", from the case's own record. */
   caseTitle: string;
   /**
@@ -69,21 +74,21 @@ export function whenLabel(iso: string, now: Date): string {
 /* ── Demo ─────────────────────────────────────────────────────────────────── */
 
 /** Demo updates since yesterday, on real demo cases (titles and bookmarks from their records). */
-const DEMO: { id: string; caseId: string; what: string; hoursAgo: number }[] = [
-  { id: "u01", caseId: "c-1005", what: "Objection invited on the discharge application, due Mon, 23 Nov", hoursAgo: 1 },
-  { id: "u02", caseId: "c-1001", what: "Summons served on the accused", hoursAgo: 3 },
-  { id: "u03", caseId: "c-1010", what: "Adjournment application rejected", hoursAgo: 20 },
-  { id: "u04", caseId: "c-1002", what: "Next hearing set for Thu, 3 Dec", hoursAgo: 2 },
-  { id: "u05", caseId: "c-1007", what: "Bail bond accepted", hoursAgo: 4 },
-  { id: "u06", caseId: "c-1003", what: "Order uploaded: cognizance taken", hoursAgo: 5 },
-  { id: "u07", caseId: "c-1012", what: "Accused entered appearance", hoursAgo: 6 },
-  { id: "u08", caseId: "c-1004", what: "Vakalatnama accepted for the accused", hoursAgo: 18 },
-  { id: "u09", caseId: "c-1009", what: "Plea recorded", hoursAgo: 22 },
-  { id: "u10", caseId: "c-1006", what: "Process fee paid for summons", hoursAgo: 24 },
-  { id: "u11", caseId: "c-1011", what: "Application for production of documents submitted", hoursAgo: 26 },
-  { id: "u12", caseId: "c-1013", what: "Case registered as CMP/1690/2026", hoursAgo: 28 },
-  { id: "u13", caseId: "c-1008", what: "Witness summons issued to PW-2", hoursAgo: 30 },
-  { id: "u14", caseId: "c-1014", what: "Hearing held; evidence of complainant part-heard", hoursAgo: 32 },
+const DEMO: { id: string; caseId: string; category: OverviewUpdateCategory; what: string; hoursAgo: number }[] = [
+  { id: "u01", caseId: "c-1005", category: "Orders", what: "Objection invited on the discharge application, due Mon, 23 Nov", hoursAgo: 1 },
+  { id: "u02", caseId: "c-1001", category: "Process", what: "Summons served on the accused", hoursAgo: 3 },
+  { id: "u03", caseId: "c-1010", category: "Orders", what: "Adjournment application rejected", hoursAgo: 20 },
+  { id: "u04", caseId: "c-1002", category: "Hearing", what: "Next hearing set for Thu, 3 Dec", hoursAgo: 2 },
+  { id: "u05", caseId: "c-1007", category: "Orders", what: "Bail bond accepted", hoursAgo: 4 },
+  { id: "u06", caseId: "c-1003", category: "Orders", what: "Order uploaded: cognizance taken", hoursAgo: 5 },
+  { id: "u07", caseId: "c-1012", category: "Hearing", what: "Accused entered appearance", hoursAgo: 6 },
+  { id: "u08", caseId: "c-1004", category: "Parties", what: "Vakalatnama accepted for the accused", hoursAgo: 18 },
+  { id: "u09", caseId: "c-1009", category: "Hearing", what: "Plea recorded", hoursAgo: 22 },
+  { id: "u10", caseId: "c-1006", category: "Process", what: "Process fee paid for summons", hoursAgo: 24 },
+  { id: "u11", caseId: "c-1011", category: "Submissions", what: "Application for production of documents submitted", hoursAgo: 26 },
+  { id: "u12", caseId: "c-1013", category: "Filing", what: "Case registered as CMP/1690/2026", hoursAgo: 28 },
+  { id: "u13", caseId: "c-1008", category: "Process", what: "Witness summons issued to PW-2", hoursAgo: 30 },
+  { id: "u14", caseId: "c-1014", category: "Hearing", what: "Hearing held; evidence of complainant part-heard", hoursAgo: 32 },
 ];
 
 export function demoUpdates(now: Date): CaseUpdate[] {
@@ -92,6 +97,8 @@ export function demoUpdates(now: Date): CaseUpdate[] {
     return {
       id: d.id,
       caseId: d.caseId,
+      caseNumber: c?.caseNumber ?? d.caseId,
+      category: d.category,
       caseTitle: c ? `${c.parties.complainant} v. ${c.parties.accused}` : d.caseId,
       what: d.what,
       at: new Date(now.getTime() - d.hoursAgo * 3_600_000).toISOString(),

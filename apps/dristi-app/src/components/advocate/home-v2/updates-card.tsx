@@ -5,8 +5,9 @@ import "@/components/advocate/cause-list.css";
 import * as React from "react";
 import Link from "next/link";
 import { BookmarkIcon, ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { type CarouselApi, Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -17,7 +18,8 @@ import { type CaseUpdate, SLIDE_MS, listFrom, slidesOf, updateHref, whenLabel } 
 /**
  * Card 4, draft 2: "Updates on your cases" (owner, 2026-11-19). One update at a time, like a
  * phone's widget stack: up to 10 slides (bookmarked first, then newest), moving on every 4.5s,
- * with arrows, a pause button and dots (bookmark-shaped for bookmarked cases).
+ * with round arrows on the slide's edges, dots (bookmark-shaped for bookmarked cases) and a pause
+ * button at the dots' end. The count beside the title opens every update.
  *
  * It holds still while the pointer is over it, focus is inside it, it's off screen, the tab is
  * hidden, the device asks for reduced motion, the list is open, or the pause button is on.
@@ -83,16 +85,26 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
 
   return (
     <Card variant="raised" role="region" aria-labelledby="home-updates" className="min-w-0 gap-3 xl:h-104">
-      <CardHeader>
-        <CardTitle>
+      {/* No column gap: the count's own padding spaces it, and the title needs every pixel to stay
+          on one line in the narrow right column at 1280. */}
+      <CardHeader className="items-center gap-x-0">
+        <CardTitle className="min-w-0">
           <h2 id="home-updates" className="text-title-s font-semibold">
             Updates on your cases
           </h2>
+          {/* Phones: the count sits under the title; the header row has no room for it. */}
+          {total ? <CountButton total={total} onClick={() => openList()} className="mt-1 -ml-2 sm:hidden" /> : null}
         </CardTitle>
+        {total ? (
+          <CardAction className="row-span-1 self-center max-sm:hidden">
+            {/* Pulled 16px into the card's padding so the title keeps one line in the narrow column. */}
+            <CountButton total={total} onClick={() => openList()} className="-mr-4 px-2" />
+          </CardAction>
+        ) : null}
       </CardHeader>
       <CardContent
         ref={root}
-        className="flex min-h-0 flex-1 flex-col gap-3"
+        className="flex min-h-0 flex-1 flex-col gap-2"
         onPointerEnter={(e) => e.pointerType === "mouse" && setHover(true)}
         onPointerLeave={() => setHover(false)}
         onFocus={() => setFocusIn(true)}
@@ -102,39 +114,6 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
       >
         {total ? (
           <>
-            {/* The count (opens every update) and the controls, top right of the body. */}
-            <div className="flex items-center justify-between gap-2">
-              <Button
-                variant="link"
-                size="sm"
-                className="-ml-0.5 h-auto p-0 text-caption font-medium text-muted-foreground tabular-nums"
-                onClick={() => openList()}
-              >
-                {total} {total === 1 ? "update" : "updates"}
-              </Button>
-              {slides.length > 1 ? (
-                <div className="-mr-2 flex items-center">
-                  <Button variant="ghost" size="icon-xs" aria-label="Previous update" onClick={() => api?.scrollPrev()}>
-                    <ChevronLeftIcon className="size-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon-xs" aria-label="Next update" onClick={() => api?.scrollNext()}>
-                    <ChevronRightIcon className="size-4" />
-                  </Button>
-                  {reduced ? null : (
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={paused ? "Play updates" : "Pause updates"}
-                      aria-pressed={paused}
-                      onClick={() => setPaused((p) => !p)}
-                    >
-                      {paused ? <PlayIcon className="size-3.5" /> : <PauseIcon className="size-3.5" />}
-                    </Button>
-                  )}
-                </div>
-              ) : null}
-            </div>
-
             <Carousel
               setApi={setApi}
               opts={{ loop: slides.length > 1, align: "start" }}
@@ -149,9 +128,32 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
                   </CarouselItem>
                 ))}
               </CarouselContent>
+              {/* Round arrows floating on the slide's two edges (owner, 2026-11-19); smaller on touch. */}
+              {slides.length > 1 ? (
+                <>
+                  <SideArrow side="left" fine={fine} onClick={() => api?.scrollPrev()} />
+                  <SideArrow side="right" fine={fine} onClick={() => api?.scrollNext()} />
+                </>
+              ) : null}
             </Carousel>
 
-            {slides.length > 1 ? <Dots slides={slides} at={at} onPick={(i) => api?.scrollTo(i)} /> : null}
+            {slides.length > 1 ? (
+              <div className="relative flex items-center justify-center">
+                <Dots slides={slides} at={at} onPick={(i) => api?.scrollTo(i)} />
+                {reduced ? null : (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={paused ? "Play updates" : "Pause updates"}
+                    aria-pressed={paused}
+                    onClick={() => setPaused((p) => !p)}
+                    className="absolute right-0 -mr-2 text-muted-foreground"
+                  >
+                    {paused ? <PlayIcon className="size-3.5" /> : <PauseIcon className="size-3.5" />}
+                  </Button>
+                )}
+              </div>
+            ) : null}
           </>
         ) : (
           <p className="py-6 text-body-compact text-muted-foreground">No updates on your cases since yesterday.</p>
@@ -171,29 +173,68 @@ export function UpdatesCard({ updates, now }: { updates: CaseUpdate[]; now: Date
   );
 }
 
+/** "14 updates ›": opens every update. A button that looks like one (owner, 2026-11-19). */
+function CountButton({ total, onClick, className }: { total: number; onClick: () => void; className?: string }) {
+  return (
+    <Button variant="ghost" size="xs" onClick={onClick} className={cn("text-muted-foreground tabular-nums", className)}>
+      {total} {total === 1 ? "update" : "updates"}
+      <ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
+    </Button>
+  );
+}
+
+/** A round arrow floating on one edge of the slide, half over it. */
+function SideArrow({ side, fine, onClick }: { side: "left" | "right"; fine: boolean; onClick: () => void }) {
+  const Icon = side === "left" ? ChevronLeftIcon : ChevronRightIcon;
+  return (
+    <Button
+      variant="outline"
+      size="icon-xs"
+      aria-label={side === "left" ? "Previous update" : "Next update"}
+      onClick={onClick}
+      className={cn(
+        "absolute top-1/2 z-10 -translate-y-1/2 rounded-full bg-card shadow-sm",
+        side === "left" ? "left-0 -translate-x-1/2" : "right-0 translate-x-1/2",
+        fine ? "size-8" : "size-7",
+      )}
+    >
+      <Icon className="size-4" />
+    </Button>
+  );
+}
+
 /**
- * One update, filling the slide: the case (with its bookmark) and when on top, what happened large
- * below. The whole slide is the target: a link to the case's history with a mouse, a button that
- * opens the full list on touch.
+ * One update, filling the slide (owner, 2026-11-19: no empty middle). Top: its category, the same
+ * grey badge as the case's own updates, and a bookmark for a bookmarked case. Middle: what
+ * happened, as the headline. Bottom: the case number, the parties and when. The whole slide is the
+ * target: a link to the case's history with a mouse, a button opening the full list on touch.
  */
 function Slide({ update: u, now, fine, onOpen }: { update: CaseUpdate; now: Date; fine: boolean; onOpen: () => void }) {
   const body = (
     <>
-      <span className="flex min-w-0 items-center gap-1.5 text-caption font-medium text-muted-foreground">
+      <span className="flex w-full items-center justify-between gap-2">
+        <Badge variant="secondary">{u.category}</Badge>
         {u.bookmarked ? (
-          <>
-            <BookmarkIcon aria-hidden="true" className="size-3.5 shrink-0 fill-current" />
-            <span className="sr-only">Bookmarked case. </span>
-          </>
+          <span className="flex items-center text-muted-foreground">
+            <BookmarkIcon aria-hidden="true" className="size-4 fill-current" />
+            <span className="sr-only">Bookmarked case</span>
+          </span>
         ) : null}
-        <span className="truncate">{u.caseTitle}</span>
       </span>
-      <span className="line-clamp-3 text-body font-semibold text-balance text-foreground">{u.what}</span>
-      <span className="mt-auto text-caption text-muted-foreground tabular-nums">{whenLabel(u.at, now)}</span>
+      {/* Pretty, not balanced: balanced wrapping split short headlines oddly on wide cards (iPad). */}
+      <span className="line-clamp-3 text-title-s font-semibold text-pretty text-foreground">{u.what}</span>
+      <span className="mt-auto flex w-full min-w-0 flex-col gap-0.5">
+        <span className="text-caption font-semibold text-foreground tabular-nums">{u.caseNumber}</span>
+        <span className="flex min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
+          <span className="truncate">{u.caseTitle}</span>
+          <span aria-hidden="true">·</span>
+          <span className="shrink-0 whitespace-nowrap tabular-nums">{whenLabel(u.at, now)}</span>
+        </span>
+      </span>
     </>
   );
   const look =
-    "flex h-full min-h-32 w-full flex-col items-start gap-2 rounded-xl bg-surface-sunken p-4 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring";
+    "flex h-full min-h-44 w-full flex-col items-start gap-3 rounded-xl bg-surface-sunken px-6 py-4 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring";
   return fine ? (
     <Link href={updateHref(u)} className={look}>
       {body}
@@ -283,6 +324,8 @@ function UpdatesList({
                   <span className="sr-only">Bookmarked case. </span>
                 </>
               ) : null}
+              <span className="shrink-0 font-medium text-foreground tabular-nums">{u.caseNumber}</span>
+              <span aria-hidden="true">·</span>
               <span className="truncate">{u.caseTitle}</span>
               <span aria-hidden="true">·</span>
               <span className="shrink-0 whitespace-nowrap tabular-nums">{whenLabel(u.at, now)}</span>

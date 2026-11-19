@@ -6,6 +6,8 @@ import { type CaseUpdate, SLIDE_CAP, demoUpdates, listFrom, orderUpdates, slides
 const u = (id: string, hoursAgo: number, bookmarked = false): CaseUpdate => ({
   id,
   caseId: "c-1001",
+  caseNumber: "CMP/1842/2026",
+  category: "Orders",
   caseTitle: "A v. B",
   what: id,
   at: new Date(Date.UTC(2026, 10, 19, 12) - hoursAgo * 3_600_000).toISOString(),
@@ -67,6 +69,7 @@ describe("demo", () => {
     const d = demoUpdates(new Date(2026, 10, 19, 12));
     assert.equal(d.length, 14);
     assert.ok(d.every((x) => x.caseTitle.includes(" v. ")));
+    assert.ok(d.every((x) => x.caseNumber && !x.caseNumber.startsWith("c-")), "case numbers from the records");
     assert.ok(d.some((x) => x.bookmarked));
   });
 });
