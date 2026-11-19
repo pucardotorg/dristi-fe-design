@@ -222,11 +222,11 @@ function Slide({ update: u, now, fine, onOpen }: { update: CaseUpdate; now: Date
         <span className="text-caption font-medium whitespace-nowrap text-muted-foreground tabular-nums">{whenLabel(u.at, now)}</span>
       </span>
       {/* The headline: 16px, under the card's 20px title (owner, 2026-11-19), centred between the
-          top and bottom rows. Up to 4 lines (exactly what the fixed slide holds), then "…"; the
+          top and bottom rows. Up to 3 lines (exactly what the fixed slide holds), then "…"; the
           full text is in the list, the case history, and the slide's hover title. Pretty, not
           balanced: balanced wrapping split short headlines oddly on wide cards (iPad). */}
       <span className="flex w-full flex-1 items-center">
-        <span className="line-clamp-4 text-body font-semibold text-pretty text-foreground">{u.what}</span>
+        <span className="line-clamp-3 text-body font-semibold text-pretty text-foreground">{u.what}</span>
       </span>
       {/* Bottom: the case number (with its bookmark), then the parties. */}
       <span className="flex w-full min-w-0 flex-col gap-0.5">
@@ -244,8 +244,9 @@ function Slide({ update: u, now, fine, onOpen }: { update: CaseUpdate; now: Date
     </>
   );
   const look =
-    /* A fixed 208px on every screen: the card's height never changes with the update shown. */
-    "flex h-52 w-full flex-col items-start gap-3 rounded-xl bg-surface-sunken px-6 py-4 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring";
+    /* A fixed 192px on every screen (owner, 2026-11-19: 208 was more than needed): the card's
+       height never changes with the update shown. */
+    "flex h-48 w-full flex-col items-start gap-3 rounded-xl bg-surface-sunken px-6 py-4 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring";
   return fine ? (
     <Link href={updateHref(u)} className={look} title={u.what}>
       {body}
