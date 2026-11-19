@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
-  ChevronUpIcon,
+  ChevronDownIcon,
   PlusIcon,
   BookmarkIcon,
   FilePlusIcon,
@@ -256,12 +256,15 @@ function QuickActions() {
           phone, in court, the day's hearings matter more than starting something new). */}
       <Drawer>
         <DrawerTrigger asChild>
-          <Button variant="outline" className="h-10 w-full justify-between bg-card sm:hidden">
+          {/* The page's one primary button, so it stands apart from the white cards (owner,
+              2026-11-19: an outline button blended into them). The chevron points down, the
+              usual "opens a menu" mark. */}
+          <Button className="h-10 w-full justify-between sm:hidden">
             <span className="flex items-center gap-2">
               <PlusIcon data-icon="inline-start" aria-hidden="true" />
               Quick actions
             </span>
-            <ChevronUpIcon aria-hidden="true" className="text-muted-foreground" />
+            <ChevronDownIcon aria-hidden="true" />
           </Button>
         </DrawerTrigger>
         <DrawerContent style={{ paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
