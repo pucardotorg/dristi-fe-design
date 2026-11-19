@@ -87,7 +87,10 @@ export function TodosCard({
           value={tab}
           onValueChange={(v) => v && setTab(v as Tab)}
           aria-label="Which to-dos"
-          className="w-full sm:w-1/2 [&>*]:flex-1"
+          /* Compact (32px well) so it's slimmer than a form control, with each pill filling its
+             half end to end; the DS compact pill hugs its label by default (owner, 2026-11-19). */
+          size="compact"
+          className="w-full sm:w-1/2 [&>*]:flex-1 [&>*>span]:w-full"
         >
           <SegmentedControlItem value="urgent">
             Urgent <Count n={urgentCount} />
