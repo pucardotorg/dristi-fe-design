@@ -285,33 +285,42 @@ function HomeCard({
 
 /**
  * The four ways to start something (owner, 2026-11-19: plain outline buttons didn't draw the
- * eye). One white panel titled "Quick actions", two by two (owner, 2026-11-19): each action its
- * icon in a brand-tinted chip and its name. Above Updates on a wide desktop, at its width; under
+ * eye). One white panel titled "Quick actions", two by two with a hairline cross (owner,
+ * 2026-11-19): each action its icon in a brand-tinted chip and its name. Above Updates on a wide desktop, at its width; under
  * the greeting everywhere else.
  */
 function QuickActions() {
   return (
     <nav
       aria-labelledby="home-quick-actions"
-      className={cn("flex min-w-0 flex-col gap-1 rounded-xl border bg-card px-2 pt-3 pb-2", PANEL_CLASS)}
+      className={cn("flex min-w-0 flex-col gap-0.5 rounded-xl border bg-card px-3 pt-2 pb-1", PANEL_CLASS)}
     >
-      <h2 id="home-quick-actions" className="px-2 text-caption font-semibold text-muted-foreground">
+      <h2 id="home-quick-actions" className="text-caption font-semibold text-muted-foreground">
         Quick actions
       </h2>
-      <ul className="grid grid-cols-2 gap-1">
-        {START.map(({ label, href, icon: Icon }) => (
-          <li key={label} className="flex min-w-0">
+      {/* Two by two with a hairline cross between the four (owner, 2026-11-19). Sized so the
+          panel stands as tall as the date component beside the greeting (120px). */}
+      <ul className="grid grid-cols-2">
+        {START.map(({ label, href, icon: Icon }, i) => (
+          <li
+            key={label}
+            className={cn(
+              "flex min-w-0 py-1",
+              i % 2 === 0 ? "border-r border-hairline pr-1" : "pl-1",
+              i < 2 && "border-b border-hairline",
+            )}
+          >
             <Link
               href={href}
-              className="group/qa flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-2 text-body-compact font-semibold outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none"
+              className="group/qa flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-caption font-semibold outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none pointer-coarse:min-h-10"
             >
               <span
                 aria-hidden="true"
-                className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-muted text-brand-muted-foreground transition-colors group-hover/qa:bg-brand-muted-hover"
+                className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground transition-colors group-hover/qa:bg-brand-muted-hover"
               >
-                <Icon className="size-4" />
+                <Icon className="size-3.5" />
               </span>
-              <span className="line-clamp-2 min-w-0">{label}</span>
+              <span className="min-w-0 truncate">{label}</span>
             </Link>
           </li>
         ))}
