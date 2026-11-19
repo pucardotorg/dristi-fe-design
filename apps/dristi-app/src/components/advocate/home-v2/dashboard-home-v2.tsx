@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
   BookmarkIcon,
@@ -19,6 +20,8 @@ import { TodosCard } from "@/components/advocate/home-v2/todos-card";
 import { demoUpdates } from "@/components/advocate/home-v2/updates";
 import { notify } from "@/components/feedback";
 import { PANEL_CLASS } from "@/components/shell/panel";
+import { useProfile } from "@/components/shell/profile";
+import { createVak } from "@/lib/vakalatnama/store";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Card,
@@ -58,7 +61,8 @@ const START: { label: string; hint: string; href: string; icon: LucideIcon }[] =
     {
       label: "File a case",
       hint: "New complaint",
-      href: "/filings",
+      /* Straight into a new filing, not the filings list (owner, 2026-11-19). */
+      href: "/filings/new",
       icon: FilePlusIcon,
     },
     {
@@ -202,6 +206,16 @@ export function DashboardHomeV2({
  * Four separate raised tiles, each a button of its own (owner's pick, 2026-11-19).
  */
 function QuickActions() {
+  const router = useRouter();
+  const { profileRole } = useProfile();
+  /* Vakalatnama starts a new one, as the Vakalatnama page's own "New vakalatnama" does: create a
+     blank instrument for whoever is signed in, then open it (owner, 2026-11-19). The link still
+     points at the list, so opening it in a new tab lands somewhere sensible. */
+  const newVak = (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    router.push(`/vakalatnama/${createVak(profileRole === "litigant" ? "litigant" : "advocate")}`);
+  };
   return (
     <nav aria-label="Quick actions" className="min-w-0">
       {/* Two 56px rows and an 8px gap: 120px, the date component's height. */}
@@ -210,6 +224,7 @@ function QuickActions() {
           <li key={label} className="flex min-w-0">
             <Link
               href={href}
+              onClick={href === "/vakalatnama" ? newVak : undefined}
               className={cn(
                 "group/qa flex h-14 min-w-0 flex-1 items-center gap-2 rounded-xl border bg-card px-2.5 text-body-compact font-semibold outline-none transition-colors hover:border-brand-muted-hover hover:bg-brand-muted/40 focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none",
                 PANEL_CLASS,
