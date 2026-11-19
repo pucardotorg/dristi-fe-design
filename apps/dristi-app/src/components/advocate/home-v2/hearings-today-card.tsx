@@ -307,8 +307,10 @@ function CardRefresh({
         className={cn(
           /* 11px, reviewed: a passing status note under a 32px icon; caption (12px, the DS's
              smallest role) read too heavy there (owner, 2026-11-19). ds-typography-allow */
+          // 4px below the button, clear of the stat beside it (owner, 2026-11-19); absolute, so
+          // nothing else moves.
           // ds-typography-allow (11px status note, see above)
-          "pointer-events-none absolute top-full right-0 -mt-1 text-[11px] leading-4 whitespace-nowrap transition-all duration-200 ease-out",
+          "pointer-events-none absolute top-full right-0 mt-1 text-[11px] leading-4 whitespace-nowrap transition-all duration-200 ease-out",
           phase === "done"
             ? "translate-y-0 font-medium text-success-ink opacity-100"
             : "-translate-y-1 text-muted-foreground opacity-0 [@media(hover:hover)]:group-hover/refresh:translate-y-0 [@media(hover:hover)]:group-hover/refresh:opacity-100",
