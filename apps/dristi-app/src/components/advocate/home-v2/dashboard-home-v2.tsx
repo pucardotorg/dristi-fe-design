@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
   ChevronDownIcon,
-  PlusIcon,
   BookmarkIcon,
   FilePlusIcon,
   FileTextIcon,
@@ -92,10 +91,12 @@ const START: { label: string; hint: string; href: string; icon: LucideIcon }[] =
 
 
 
+/* "Morning, Anjali": shorter than "Good morning" so a phone fits the greeting beside its Quick
+   actions button (owner, 2026-11-19). */
 function greetingFor(hour: number): string {
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
+  if (hour < 12) return "Morning";
+  if (hour < 17) return "Afternoon";
+  return "Evening";
 }
 
 /** Draft 2: each card is redesigned on its own (?card=launcher|1|2|3|4|5|6), then brought together. */
@@ -158,11 +159,16 @@ export function DashboardHomeV2({
           <div className="flex min-w-0 items-center gap-6">
             <TodayBox now={nowDate} />
             <span aria-hidden="true" className="hidden h-18 w-px shrink-0 bg-hairline lg:block" />
-            <div className="flex min-w-0 flex-col gap-1">
-              <h1 className="text-title font-semibold tracking-tight text-balance">
-                {greetingFor(hour)}, {firstName}
-              </h1>
-              <p className="text-body-compact text-muted-foreground lg:sr-only">{longDay(base.today)}</p>
+            {/* On a phone the Quick actions button sits at the greeting's right, level with its first
+                line; a long first name wraps under itself instead of pushing the button off. */}
+            <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <h1 className="text-title font-semibold tracking-tight text-balance break-words">
+                  {greetingFor(hour)}, {firstName}
+                </h1>
+                <p className="text-body-compact text-muted-foreground lg:sr-only">{longDay(base.today)}</p>
+              </div>
+              <QuickActions phone />
             </div>
           </div>
           <QuickActions />
@@ -212,7 +218,7 @@ export function DashboardHomeV2({
  * pressed: a straight arrow after its name, and a brand-tinted hover.
  * Four separate raised tiles, each a button of its own (owner's pick, 2026-11-19).
  */
-function QuickActions() {
+function QuickActions({ phone }: { phone?: boolean }) {
   const router = useRouter();
   const { profileRole } = useProfile();
   /* Vakalatnama starts a new one, as the Vakalatnama page's own "New vakalatnama" does: create a
@@ -249,22 +255,18 @@ function QuickActions() {
         </Link>
       </li>
     ));
-  return (
-    <>
-      {/* Phones: one slim button under the greeting; the four actions open in a bottom drawer, as
-          the court timeline and the updates list do (owner and lead designer, 2026-11-19: on a
-          phone, in court, the day's hearings matter more than starting something new). */}
+  /* Phones: one compact button beside the greeting; the four actions open in a bottom drawer, as
+     the court timeline and the updates list do (owner and lead designer, 2026-11-19: on a phone,
+     in court, the day's hearings matter more than starting something new). */
+  if (phone)
+    return (
       <Drawer>
         <DrawerTrigger asChild>
-          {/* The page's one primary button, so it stands apart from the white cards (owner,
-              2026-11-19: an outline button blended into them). The chevron points down, the
-              usual "opens a menu" mark. */}
-          <Button className="h-10 w-full justify-between sm:hidden">
-            <span className="flex items-center gap-2">
-              <PlusIcon data-icon="inline-start" aria-hidden="true" />
-              Quick actions
-            </span>
-            <ChevronDownIcon aria-hidden="true" />
+          {/* The page's one primary button, sized to its words (owner, 2026-11-19: full width was
+              too heavy). The chevron points down, the usual "opens a menu" mark. */}
+          <Button size="sm" className="shrink-0 pointer-coarse:h-10 sm:hidden">
+            Quick actions
+            <ChevronDownIcon data-icon="inline-end" aria-hidden="true" />
           </Button>
         </DrawerTrigger>
         <DrawerContent style={{ paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
@@ -275,7 +277,9 @@ function QuickActions() {
           <ul className="flex flex-col gap-2 px-4">{tiles()}</ul>
         </DrawerContent>
       </Drawer>
-
+    );
+  return (
+    <>
       {/* iPad and desktop: the four tiles, two by two. Two 56px rows and an 8px gap: 120px, the
           date component's height. */}
       <nav aria-label="Quick actions" className="min-w-0 max-sm:hidden">
