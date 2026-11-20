@@ -37,8 +37,13 @@ const CASE_FILE_PDF = {
   orders: "/case-file/09-orders.pdf",
 } as const;
 
+/**
+ * A section or sub-section. A document with documents linked under it
+ * (case-file.md CFL-03) has children too, but it is still a document: it has
+ * its own PDF.
+ */
 export function isCaseFileFolder(node: CaseFileNode): boolean {
-  return node.children !== undefined;
+  return node.children !== undefined && node.href === undefined;
 }
 
 export function fileNumberLabel(number: string): string {
@@ -48,11 +53,8 @@ export function fileNumberLabel(number: string): string {
 export function flattenLeaves(nodes: CaseFileNode[]): CaseFileNode[] {
   const leaves: CaseFileNode[] = [];
   for (const node of nodes) {
-    if (isCaseFileFolder(node)) {
-      leaves.push(...flattenLeaves(node.children ?? []));
-    } else {
-      leaves.push(node);
-    }
+    if (!isCaseFileFolder(node)) leaves.push(node);
+    if (node.children) leaves.push(...flattenLeaves(node.children));
   }
   return leaves;
 }
