@@ -24,7 +24,13 @@ import { UpdatesCard as UpdatesCarouselCard } from "@/components/advocate/home-v
 import { TodosCard } from "@/components/advocate/home-v2/todos-card";
 import { RecentCasesCard } from "@/components/advocate/home-v2/recent-card";
 import { demoUpdates } from "@/components/advocate/home-v2/updates";
-import { CardBoard, type SlotId } from "@/components/advocate/home-v2/card-board";
+import {
+  CardBoard,
+  SLOT_NAMES,
+  type BoardId,
+  type HandleSpot,
+  type SlotId,
+} from "@/components/advocate/home-v2/card-board";
 import { useMinWidth } from "@/hooks/use-min-width";
 import { notify } from "@/components/feedback";
 import { PANEL_CLASS } from "@/components/shell/panel";
@@ -154,6 +160,29 @@ function saveOrder(order: SlotId[]) {
   }
 }
 
+const PAIR: ReadonlySet<SlotId> = new Set(["updates", "week"]);
+
+/** Updates and Your week ahead, in the order the advocate put them. */
+function pairOf(order: SlotId[]): [SlotId, SlotId] {
+  const [a, b] = order.filter((id) => PAIR.has(id));
+  return [a, b];
+}
+
+/** The iPad's items: the pair sits where the first of its two cards is. */
+function toUnits(order: SlotId[]): BoardId[] {
+  const units: BoardId[] = [];
+  for (const id of order) {
+    if (!PAIR.has(id)) units.push(id);
+    else if (!units.includes("pair")) units.push("pair");
+  }
+  return units;
+}
+
+/** Back from items to cards: the pair opens into its two, in their own order. */
+function fromUnits(units: BoardId[], order: SlotId[]): SlotId[] {
+  return units.flatMap((id) => (id === "pair" ? pairOf(order) : [id]));
+}
+
 /** Puts `part`'s new order back into the places its cards hold in `all`. */
 function mergeInto(all: SlotId[], part: SlotId[]): SlotId[] {
   const inPart = new Set(part);
@@ -242,6 +271,10 @@ export function DashboardHomeV2({
     saveOrder(next);
   };
   const wide = useMinWidth(1280);
+  /* 1024 to 1279px (iPad Pro upright, any iPad sideways): Updates and Your week ahead are one
+     block, always side by side (owner, 2026-11-20). Narrower, every card is its own; wider, they
+     are separate cards in the right column. */
+  const pairWidth = useMinWidth(1024) && !wide;
   const ready = React.useSyncExternalStore(
     noopSubscribe,
     () => true,
@@ -260,6 +293,30 @@ export function DashboardHomeV2({
       case "recent":
         return <RecentCasesCard today={day.today} />;
     }
+  };
+  /* The pair, in its own order; each card marked so a swap slides them past each other. */
+  const renderItem = (id: BoardId): React.ReactNode =>
+    id === "pair" ? (
+      <div className="grid h-full grid-cols-2 gap-6">
+        {pairOf(order).map((c) => (
+          <div key={c} data-board-flip={c} className="min-w-0 *:h-full">
+            {renderCard(c)}
+          </div>
+        ))}
+      </div>
+    ) : (
+      renderCard(id)
+    );
+  const pairSpots = (): HandleSpot[] => {
+    const [a, b] = pairOf(order);
+    return [
+      { left: "calc(25% - 6px)", label: `${SLOT_NAMES[a]}, with ${SLOT_NAMES[b]}` },
+      { left: "calc(75% + 6px)", label: `${SLOT_NAMES[b]}, with ${SLOT_NAMES[a]}` },
+    ];
+  };
+  const swapPair = () => {
+    const [a, b] = pairOf(order);
+    setOrder(order.map((id) => (id === a ? b : id === b ? a : id)));
   };
 
   const hour = Number(
@@ -345,17 +402,23 @@ export function DashboardHomeV2({
             <StickyColumn className="min-w-0">
               <CardBoard
                 label="Cards beside your day"
-                layout="column"
                 ids={order.filter((id) => SIDE.has(id))}
-                onReorder={(side) => setOrder(mergeInto(order, side))}
-                render={renderCard}
+                onReorder={(side) => setOrder(mergeInto(order, side as SlotId[]))}
+                render={renderItem}
               />
             </StickyColumn>
           </div>
         ) : (
           /* Phones and iPads: one stack, so every card moves. From 1024px Updates and Your week
-             ahead sit side by side whenever they are next to each other. */
-          <CardBoard label="Home cards" layout="pairs" ids={order} onReorder={setOrder} render={renderCard} />
+             ahead move as one side-by-side block. */
+          <CardBoard
+            label="Home cards"
+            ids={pairWidth ? toUnits(order) : order}
+            onReorder={(units) => setOrder(fromUnits(units, order))}
+            render={renderItem}
+            spotsFor={(id) => (id === "pair" ? pairSpots() : undefined)}
+            onSwap={(id) => (id === "pair" ? swapPair : undefined)}
+          />
         )}
       </div>
       {card ? null : <FloatingQuickActions show={away} top={barH + 12} />}

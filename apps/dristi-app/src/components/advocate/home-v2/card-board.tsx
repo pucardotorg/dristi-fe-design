@@ -19,7 +19,7 @@ import {
   type PointerSensorOptions,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowDownIcon, ArrowUpIcon, GripHorizontalIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowLeftRightIcon, ArrowUpIcon, GripHorizontalIcon } from "lucide-react";
 
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { Button } from "@/components/ui/button";
@@ -58,16 +58,21 @@ import { cn } from "@/lib/utils";
 
 export type SlotId = "hearings" | "todos" | "updates" | "week" | "recent";
 
-export const SLOT_NAMES: Record<SlotId, string> = {
+/** What the board moves: a card, or on iPads (1024 to 1279px) Updates and Your week ahead as one
+    side-by-side block (owner, 2026-11-20). */
+export type BoardId = SlotId | "pair";
+
+export const SLOT_NAMES: Record<BoardId, string> = {
   hearings: "Your hearings today",
   todos: "Your to-dos",
   updates: "Updates on your cases",
   week: "Your week ahead",
   recent: "Recent cases",
+  pair: "Updates and your week ahead",
 };
 
-/** Cards that sit two across on an iPad (1024 to 1279px) when they are next to each other. */
-const HALF: ReadonlySet<SlotId> = new Set(["updates", "week"]);
+/** A handle: where it sits across the item (its centre), and what it says. */
+export type HandleSpot = { left: string; label: string };
 
 /** A card taller than this share of the screen is carried clipped, fading out at the bottom, so
     the place it will land stays in view (a phone's to-dos list is longer than the screen). */
@@ -99,17 +104,7 @@ function buzz(ms: number) {
   }
 }
 
-/** Layout spans in the iPad grid: two half cards side by side when adjacent, else full width. */
-function fullWidth(ids: SlotId[]): Set<SlotId> {
-  const full = new Set<SlotId>();
-  for (let i = 0; i < ids.length; i++) {
-    if (HALF.has(ids[i]) && HALF.has(ids[i + 1])) i++;
-    else full.add(ids[i]);
-  }
-  return full;
-}
-
-function moveTo(ids: SlotId[], from: number, to: number): SlotId[] {
+function moveTo(ids: BoardId[], from: number, to: number): BoardId[] {
   const next = ids.slice();
   const [item] = next.splice(from, 1);
   next.splice(to, 0, item);
@@ -121,7 +116,7 @@ function moveTo(ids: SlotId[], from: number, to: number): SlotId[] {
  * the point only once the point is past that card's middle in the direction of travel; after the
  * swap the point sits before the other card's middle, so it never flips back and forth.
  */
-function targetIndex(ids: SlotId[], active: SlotId, x: number, y: number, rects: Map<SlotId, DOMRect>): number | null {
+function targetIndex(ids: BoardId[], active: BoardId, x: number, y: number, rects: Map<BoardId, DOMRect>): number | null {
   const from = ids.indexOf(active);
   const self = rects.get(active);
   if (!self) return null;
@@ -147,37 +142,40 @@ export function CardBoard({
   ids,
   onReorder,
   render,
-  layout,
+  spotsFor,
+  onSwap,
   label,
   className,
 }: {
-  ids: SlotId[];
-  onReorder: (ids: SlotId[]) => void;
-  render: (id: SlotId) => React.ReactNode;
-  /** "column": one card under another. "pairs": the iPad grid, two half cards across. */
-  layout: "column" | "pairs";
+  ids: BoardId[];
+  onReorder: (ids: BoardId[]) => void;
+  render: (id: BoardId) => React.ReactNode;
+  /** Where an item's handles sit; one centred handle when not given. */
+  spotsFor?: (id: BoardId) => HandleSpot[] | undefined;
+  /** For an item made of two cards: swap them. Adds "Swap sides" to its handle menu. */
+  onSwap?: (id: BoardId) => (() => void) | undefined;
   label: string;
   className?: string;
 }) {
   const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const [active, setActive] = React.useState<SlotId | null>(null);
+  const [active, setActive] = React.useState<BoardId | null>(null);
   /* A picture of the card being carried: a copy of its drawn DOM, so the card itself never
      remounts (its carousel slide, its played animations stay as they are). */
   const [lift, setLift] = React.useState<{ node: HTMLElement; height: number; capped: boolean } | null>(null);
-  const [grabbed, setGrabbed] = React.useState<SlotId | null>(null);
+  const [grabbed, setGrabbed] = React.useState<BoardId | null>(null);
   const [message, setMessage] = React.useState("");
-  const nodes = React.useRef(new Map<SlotId, HTMLElement>());
-  const handles = React.useRef(new Map<SlotId, HTMLButtonElement>());
+  const nodes = React.useRef(new Map<BoardId, HTMLElement>());
+  const handles = React.useRef(new Map<BoardId, HTMLButtonElement>());
   const carried = React.useRef<HTMLDivElement>(null);
   const idsRef = React.useRef(ids);
   React.useLayoutEffect(() => {
     idsRef.current = ids;
   }, [ids]);
-  const start = React.useRef<SlotId[]>(ids);
+  const start = React.useRef<BoardId[]>(ids);
   const touchDrag = React.useRef(false);
   /* Where each card was drawn just before a move, for the slide (FLIP). */
-  const before = React.useRef<Map<SlotId, { left: number; top: number }> | null>(null);
-  const refocus = React.useRef<SlotId | null>(null);
+  const before = React.useRef<Map<string, { left: number; top: number }> | null>(null);
+  const refocus = React.useRef<BoardId | null>(null);
   /* The carried card's drawn height; its middle decides where it goes, so two cards trade places
      once they overlap by half. */
   const liftH = React.useRef(Infinity);
@@ -189,20 +187,35 @@ export function CardBoard({
   );
 
   const announce = (text: string) => setMessage((m) => (m === text ? `${text} ` : text));
-  const place = (list: SlotId[], id: SlotId) => `${list.indexOf(id) + 1} of ${list.length}`;
+  const place = (list: BoardId[], id: BoardId) => `${list.indexOf(id) + 1} of ${list.length}`;
+
+  /* Everything that may slide: the items, and cards inside an item marked `data-board-flip`
+     (a pair's two cards when they swap sides). */
+  const movers = React.useCallback(() => {
+    const all = new Map<string, HTMLElement>();
+    nodes.current.forEach((el, id) => {
+      all.set(id, el);
+      el.querySelectorAll<HTMLElement>("[data-board-flip]").forEach((c) => all.set(`flip:${c.dataset.boardFlip}`, c));
+    });
+    return all;
+  }, []);
+  const snapshot = React.useCallback(() => {
+    const snap = new Map<string, { left: number; top: number }>();
+    movers().forEach((el, key) => {
+      const r = el.getBoundingClientRect();
+      snap.set(key, { left: r.left + window.scrollX, top: r.top + window.scrollY });
+    });
+    before.current = snap;
+  }, [movers]);
+  const [flipTick, setFlipTick] = React.useState(0);
 
   const commit = React.useCallback(
-    (next: SlotId[]) => {
-      const snap = new Map<SlotId, { left: number; top: number }>();
-      nodes.current.forEach((el, id) => {
-        const r = el.getBoundingClientRect();
-        snap.set(id, { left: r.left + window.scrollX, top: r.top + window.scrollY });
-      });
-      before.current = snap;
+    (next: BoardId[]) => {
+      snapshot();
       idsRef.current = next;
       onReorder(next);
     },
-    [onReorder],
+    [onReorder, snapshot],
   );
 
   /* The slide: each card starts where it was drawn and eases to its new place. Measured in page
@@ -211,7 +224,8 @@ export function CardBoard({
     const snap = before.current;
     before.current = null;
     if (!snap) return;
-    nodes.current.forEach((el) => el.getAnimations().forEach((a) => a.cancel()));
+    const all = movers();
+    all.forEach((el) => el.getAnimations().forEach((a) => a.cancel()));
     const id = refocus.current;
     refocus.current = null;
     if (id) {
@@ -221,7 +235,7 @@ export function CardBoard({
       if (h && document.activeElement !== h) h.focus({ preventScroll: true });
       h?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
     }
-    nodes.current.forEach((el, key) => {
+    all.forEach((el, key) => {
       const was = snap.get(key);
       if (!was) return;
       const now = el.getBoundingClientRect();
@@ -233,7 +247,7 @@ export function CardBoard({
         easing: EASE,
       });
     });
-  }, [ids, reduced]);
+  }, [ids, reduced, flipTick, movers]);
 
   /* While a card is up: each frame, and on every scroll, find where the carried card's middle
      says it goes. Not only on pointer moves, so the slot keeps up while the page auto-scrolls under a
@@ -250,7 +264,7 @@ export function CardBoard({
       if (before.current) return;
       const t = at ?? carried.current?.getBoundingClientRect();
       if (!t) return;
-      const rects = new Map<SlotId, DOMRect>();
+      const rects = new Map<BoardId, DOMRect>();
       /* Layout boxes, ignoring the slide's transforms, so a card mid-slide is judged where it
          will be. */
       nodes.current.forEach((el, id) => {
@@ -279,7 +293,7 @@ export function CardBoard({
   }, [active, commit]);
 
   const onDragStart = (e: DragStartEvent) => {
-    const id = e.active.id as SlotId;
+    const id = e.active.id as BoardId;
     const card = nodes.current.get(id)?.querySelector<HTMLElement>(".board-card");
     if (card) {
       const node = card.cloneNode(true) as HTMLElement;
@@ -320,7 +334,7 @@ export function CardBoard({
   };
 
   /* Move up / Move down, from the menu or the arrow keys. */
-  const step = (id: SlotId, by: -1 | 1, focus = true) => {
+  const step = (id: BoardId, by: -1 | 1, focus = true) => {
     const list = idsRef.current;
     const from = list.indexOf(id);
     const to = from + by;
@@ -331,8 +345,19 @@ export function CardBoard({
     announce(`${SLOT_NAMES[id]} moved to ${place(next, id)}.`);
   };
 
+  /* Swap sides: the pair's two cards trade places, sliding past each other. */
+  const swap = (id: BoardId) => {
+    const run = onSwap?.(id);
+    if (!run) return;
+    snapshot();
+    refocus.current = id;
+    run();
+    setFlipTick((t) => t + 1);
+    announce(`${SLOT_NAMES[id]}: sides swapped.`);
+  };
+
   /* Keyboard pick-up: Space lifts, arrows move, Space or Enter drops, Escape restores. */
-  const onHandleKey = (id: SlotId, e: React.KeyboardEvent) => {
+  const onHandleKey = (id: BoardId, e: React.KeyboardEvent) => {
     if (e.key === " ") {
       e.preventDefault();
       if (grabbed === id) {
@@ -379,8 +404,6 @@ export function CardBoard({
         ],
       };
 
-  const full = layout === "pairs" ? fullWidth(ids) : null;
-
   return (
     <DndContext
       sensors={sensors}
@@ -396,7 +419,7 @@ export function CardBoard({
     >
       <ul
         aria-label={label}
-        className={cn("relative grid min-w-0 gap-6", layout === "pairs" && "lg:grid-cols-2", className)}
+        className={cn("relative grid min-w-0 gap-6", className)}
       >
         {ids.map((id, i) => (
           <BoardItem
@@ -404,7 +427,8 @@ export function CardBoard({
             id={id}
             first={i === 0}
             last={i === ids.length - 1}
-            full={full?.has(id) ?? true}
+            spots={spotsFor?.(id) ?? [{ left: "50%", label: SLOT_NAMES[id] }]}
+            onSwap={onSwap?.(id) ? () => swap(id) : undefined}
             lifted={active === id}
             grabbed={grabbed === id}
             dragging={active !== null}
@@ -425,7 +449,15 @@ export function CardBoard({
       {/* Inside the page, not a portal: the card's copy keeps the page's container queries, so it
           is drawn exactly as the card is. The floating Quick actions step aside while dragging. */}
       <DragOverlay dropAnimation={dropAnimation} style={lift ? { height: lift.height } : undefined} zIndex={100}>
-        {active && lift ? <Lifted ref={carried} node={lift.node} capped={lift.capped} still={reduced} /> : null}
+        {active && lift ? (
+          <Lifted
+            ref={carried}
+            node={lift.node}
+            capped={lift.capped}
+            still={reduced}
+            spots={spotsFor?.(active) ?? [{ left: "50%", label: "" }]}
+          />
+        ) : null}
       </DragOverlay>
       <p aria-live="polite" className="sr-only">
         {message}
@@ -443,17 +475,19 @@ const NO_ANNOUNCEMENTS = {
 };
 
 /** The carried card: its copy, lifted a little, with its handle where it was, held. */
-const Lifted = React.forwardRef<HTMLDivElement, { node: HTMLElement; capped: boolean; still: boolean }>(function Lifted(
-  { node, capped, still },
-  ref,
-) {
+const Lifted = React.forwardRef<
+  HTMLDivElement,
+  { node: HTMLElement; capped: boolean; still: boolean; spots: HandleSpot[] }
+>(function Lifted({ node, capped, still, spots }, ref) {
   const holder = React.useCallback((el: HTMLDivElement | null) => el?.replaceChildren(node), [node]);
   return (
     <div ref={ref} aria-hidden="true" data-still={still || undefined} className="board-lift relative h-full cursor-grabbing">
       <div ref={holder} data-capped={capped || undefined} className="board-lift-card h-full overflow-hidden rounded-xl" />
-      <span className="board-handle board-handle-ghost">
-        <GripHorizontalIcon aria-hidden="true" className="size-4" />
-      </span>
+      {spots.map((spot) => (
+        <span key={spot.left} className="board-handle board-handle-ghost" style={{ left: spot.left }}>
+          <GripHorizontalIcon aria-hidden="true" className="size-4" />
+        </span>
+      ))}
     </div>
   );
 });
@@ -462,34 +496,35 @@ function BoardItem({
   id,
   first,
   last,
-  full,
+  spots,
   lifted,
   grabbed,
   dragging,
   nodeRef,
   handleRef,
   onStep,
+  onSwap,
   onHandleKey,
   onHandleBlur,
   children,
 }: {
-  id: SlotId;
+  id: BoardId;
   first: boolean;
   last: boolean;
-  full: boolean;
+  spots: HandleSpot[];
   lifted: boolean;
   grabbed: boolean;
   dragging: boolean;
   nodeRef: (el: HTMLElement | null) => void;
   handleRef: (el: HTMLButtonElement | null) => void;
   onStep: (by: -1 | 1) => void;
+  onSwap?: () => void;
   onHandleKey: (e: React.KeyboardEvent) => void;
   onHandleBlur: () => void;
   children: React.ReactNode;
 }) {
   const { setNodeRef, setActivatorNodeRef, listeners } = useDraggable({ id });
   const touch = useMediaQuery("(pointer: coarse)");
-  const [menu, setMenu] = React.useState(false);
   const [holding, setHolding] = React.useState(false);
   /* A click that ends a drag is not a request for the menu. */
   const dragged = React.useRef(false);
@@ -501,32 +536,6 @@ function BoardItem({
       return () => window.clearTimeout(t);
     }
   }, [lifted]);
-
-  const name = SLOT_NAMES[id];
-  const handleProps = {
-    ref: (el: HTMLButtonElement | null) => {
-      setActivatorNodeRef(el);
-      handleRef(el);
-    },
-    type: "button" as const,
-    "aria-label": `Move ${name}`,
-    className: "board-handle",
-    "data-open": menu || undefined,
-    onPointerDown: (e: React.PointerEvent) => {
-      listeners?.onPointerDown?.(e);
-      /* Radix opens its menu on pointer down; here a press may become a drag, so the menu waits
-         for the click instead. */
-      e.preventDefault();
-    },
-    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
-    onClick: () => {
-      if (dragged.current || dragging) return;
-      setMenu((m) => !m);
-    },
-    onKeyDown: onHandleKey,
-    onBlur: onHandleBlur,
-  };
-  const grip = <GripHorizontalIcon aria-hidden="true" className="size-4" />;
 
   /* Touch: a hold anywhere on the card lifts it (owner, 2026-11-20), the handle included (its
      touch bubbles here). A finger that moves more than 8px first is scrolling or swiping the
@@ -565,7 +574,7 @@ function BoardItem({
       data-lifted={lifted || undefined}
       data-grabbed={grabbed || undefined}
       data-holding={(holding && !lifted) || undefined}
-      className={cn("board-item group/slot relative min-w-0 list-none", full && "lg:col-span-2")}
+      className="board-item group/slot relative min-w-0 list-none"
       {...cardTouch}
       /* A card held and let go where it was is not a tap on whatever was under the finger. */
       onClickCapture={(e) => {
@@ -576,63 +585,138 @@ function BoardItem({
       }}
     >
       <div className="board-card min-w-0 *:h-full">{children}</div>
-      {touch ? (
-        <>
-          <button {...handleProps}>{grip}</button>
-          <Drawer open={menu} onOpenChange={setMenu}>
-            <DrawerContent style={{ paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
-              <DrawerHeader className="text-left">
-                <DrawerTitle className="text-left">{name}</DrawerTitle>
-                <DrawerDescription className="text-left">Or press and hold the card, then drag.</DrawerDescription>
-              </DrawerHeader>
-              <div className="flex flex-col gap-2 px-4">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="justify-start"
-                  disabled={first}
-                  onClick={() => {
-                    setMenu(false);
-                    onStep(-1);
-                  }}
-                >
-                  <ArrowUpIcon data-icon="inline-start" aria-hidden="true" />
-                  Move up
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="justify-start"
-                  disabled={last}
-                  onClick={() => {
-                    setMenu(false);
-                    onStep(1);
-                  }}
-                >
-                  <ArrowDownIcon data-icon="inline-start" aria-hidden="true" />
-                  Move down
-                </Button>
-              </div>
-            </DrawerContent>
-          </Drawer>
-        </>
-      ) : (
-        <DropdownMenu open={menu} onOpenChange={setMenu} modal={false}>
-          <DropdownMenuTrigger asChild>
-            <button {...handleProps}>{grip}</button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="center" className="w-auto min-w-40">
-            <DropdownMenuItem disabled={first} onSelect={() => onStep(-1)}>
-              <ArrowUpIcon aria-hidden="true" />
-              Move up
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={last} onSelect={() => onStep(1)}>
-              <ArrowDownIcon aria-hidden="true" />
-              Move down
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+      {/* Each handle moves the whole item: a pair has one over each of its cards, so neither card
+          looks fixed. The first is the one focus returns to after a move. */}
+      {spots.map((spot, i) => (
+        <Handle
+          key={spot.left}
+          spot={spot}
+          touch={touch}
+          first={first}
+          last={last}
+          dragging={dragging}
+          dragged={dragged}
+          activatorRef={i === 0 ? setActivatorNodeRef : undefined}
+          handleRef={i === 0 ? handleRef : undefined}
+          onPointerDown={listeners?.onPointerDown as ((e: React.PointerEvent) => void) | undefined}
+          onStep={onStep}
+          onSwap={onSwap}
+          onHandleKey={onHandleKey}
+          onHandleBlur={onHandleBlur}
+        />
+      ))}
     </li>
+  );
+}
+
+/** One grip and its menu: Move up, Move down, and Swap sides for a pair. A menu with a mouse, a
+    bottom drawer on touch. */
+function Handle({
+  spot,
+  touch,
+  first,
+  last,
+  dragging,
+  dragged,
+  activatorRef,
+  handleRef,
+  onPointerDown,
+  onStep,
+  onSwap,
+  onHandleKey,
+  onHandleBlur,
+}: {
+  spot: HandleSpot;
+  touch: boolean;
+  first: boolean;
+  last: boolean;
+  dragging: boolean;
+  dragged: React.RefObject<boolean>;
+  activatorRef?: (el: HTMLElement | null) => void;
+  handleRef?: (el: HTMLButtonElement | null) => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
+  onStep: (by: -1 | 1) => void;
+  onSwap?: () => void;
+  onHandleKey: (e: React.KeyboardEvent) => void;
+  onHandleBlur: () => void;
+}) {
+  const [menu, setMenu] = React.useState(false);
+  const handleProps = {
+    ref: (el: HTMLButtonElement | null) => {
+      activatorRef?.(el);
+      handleRef?.(el);
+    },
+    type: "button" as const,
+    "aria-label": `Move ${spot.label}`,
+    className: "board-handle",
+    style: { left: spot.left },
+    "data-open": menu || undefined,
+    onPointerDown: (e: React.PointerEvent) => {
+      onPointerDown?.(e);
+      /* Radix opens its menu on pointer down; here a press may become a drag, so the menu waits
+         for the click instead. */
+      e.preventDefault();
+    },
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+    onClick: () => {
+      if (dragged.current || dragging) return;
+      setMenu((m) => !m);
+    },
+    onKeyDown: onHandleKey,
+    onBlur: onHandleBlur,
+  };
+  const grip = <GripHorizontalIcon aria-hidden="true" className="size-4" />;
+  const actions: { label: string; icon: React.ReactNode; disabled?: boolean; run: () => void }[] = [
+    { label: "Move up", icon: <ArrowUpIcon data-icon="inline-start" aria-hidden="true" />, disabled: first, run: () => onStep(-1) },
+    { label: "Move down", icon: <ArrowDownIcon data-icon="inline-start" aria-hidden="true" />, disabled: last, run: () => onStep(1) },
+    ...(onSwap ? [{ label: "Swap sides", icon: <ArrowLeftRightIcon data-icon="inline-start" aria-hidden="true" />, run: onSwap }] : []),
+  ];
+
+  if (touch)
+    return (
+      <>
+        <button {...handleProps}>{grip}</button>
+        <Drawer open={menu} onOpenChange={setMenu}>
+          <DrawerContent style={{ paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
+            <DrawerHeader className="text-left">
+              <DrawerTitle className="text-left">{spot.label}</DrawerTitle>
+              <DrawerDescription className="text-left">Or press and hold the card, then drag.</DrawerDescription>
+            </DrawerHeader>
+            <div className="flex flex-col gap-2 px-4">
+              {actions.map((a) => (
+                <Button
+                  key={a.label}
+                  variant="outline"
+                  size="lg"
+                  className="justify-start"
+                  disabled={a.disabled}
+                  onClick={() => {
+                    setMenu(false);
+                    a.run();
+                  }}
+                >
+                  {a.icon}
+                  {a.label}
+                </Button>
+              ))}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      </>
+    );
+  return (
+    <DropdownMenu open={menu} onOpenChange={setMenu} modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button {...handleProps}>{grip}</button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="center" className="w-auto min-w-40">
+        {actions.map((a) => (
+          <DropdownMenuItem key={a.label} disabled={a.disabled} onSelect={a.run}>
+            {a.icon}
+            {a.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

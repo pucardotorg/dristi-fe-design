@@ -168,6 +168,18 @@
 .board-lift-card > .board-card > * {
   box-shadow: none;
 }
+/* A pair is carried as two cards, each with its own lift shadow, not one box around the gap. */
+.board-lift-card:has([data-board-flip]) {
+  overflow: visible;
+  box-shadow: none;
+}
+.board-lift-card [data-board-flip] [data-slot="card"] {
+  box-shadow: var(--shadow-modal);
+  transition: box-shadow 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.board-lift[data-dropping] [data-board-flip] [data-slot="card"] {
+  box-shadow: var(--shadow-raised);
+}
 /* Its handle, held: where the finger is. */
 .board-handle-ghost {
   opacity: 1 !important;
