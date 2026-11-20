@@ -26,7 +26,10 @@ import {
   type Instance,
   type ListName,
 } from "@/lib/bulk/excel-spec";
+import { readBack } from "@/lib/bulk/read-back";
 import { cn } from "@/lib/utils";
+import { SidePanelRegion } from "@/components/ui/side-panel";
+import { CasePreview } from "./case-preview";
 import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +64,11 @@ type Props = {
   onLater: (next: Set<string>) => void;
   /** The file being matched, named at the head of the index. */
   fileName?: string;
+  /** A row's number in the file ("Row 2"), for the case preview. */
+  rowLabel?: (index: number) => string;
+  /** The case preview, opened from the page header. */
+  previewOpen?: boolean;
+  onPreviewOpen?: (open: boolean) => void;
 };
 
 /** The page's one line under "Match columns": what the screen asks, in the filer's words. */
@@ -292,6 +300,35 @@ function stateOf(slot: Slot, props: Props): { src: ColumnSource; state: RowState
 const ROW =
   "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,12.5rem)_minmax(0,17.5rem)_minmax(0,1fr)] sm:items-center sm:gap-x-6";
 
+/**
+ * What the chosen column holds, read as the court will file it: "₹1,40,500, ₹67,500".
+ * A value its field cannot take shows in the warning colour with why ("Not a date").
+ */
+function ReadBackLine({ column, values }: { column: Column; values: string[] }) {
+  const read = values.map((v) => readBack(column, v)).filter((r) => r.kind !== "empty");
+  const bad = read.find((r) => r.kind === "bad");
+  // A warning is never cut: it wraps, and stays while the case preview is open.
+  if (bad && bad.kind === "bad")
+    return (
+      // With the case preview open the third column is narrow: the warning drops under the picker.
+      <p className="min-w-0 text-body-compact text-warning-ink in-data-[panel-open]:sm:col-span-2 in-data-[panel-open]:sm:col-start-2">
+        {bad.note}
+        <span className="text-muted-foreground"> · {bad.text}</span>
+      </p>
+    );
+  const all = read.map((r) => ("text" in r ? r.text : ""));
+  return (
+    <p
+      title={all.join(", ")}
+      // Two values, whole; while the case preview is open it reads them in full and this steps aside.
+      className="line-clamp-2 min-w-0 text-body-compact break-words text-muted-foreground tabular-nums max-sm:empty:hidden in-data-[panel-open]:hidden"
+    >
+      {all.length ? <span className="sr-only">Reads as: </span> : null}
+      {all.slice(0, 2).join(", ")}
+    </p>
+  );
+}
+
 /** One field of one instance: its name, the column it is read from, and what that column holds. */
 function FieldRow({
   slot,
@@ -309,7 +346,7 @@ function FieldRow({
 }) {
   const { c: column, i: instance, key: selfKey, name } = slot;
   const { src, state, fit } = stateOf(slot, props);
-  const id = `map-${column.key}-${instanceKey(instance) || "0"}`;
+  const id = pickerDomId(column.key, instance);
   const used = React.useContext(UsedContext);
   const [pending, setPending] = React.useState<{ value: string; others: Use[] } | null>(null);
   const commit = (v: string, clear: Use[]) => {
@@ -327,6 +364,7 @@ function FieldRow({
   const held = typeof src === "number" ? samples[src] : [];
   return (
     <li
+      data-field={selfKey}
       data-to-match={state === "todo" || undefined}
       className={cn(ROW, "min-h-14 py-2", fresh && "animate-in duration-200 fade-in-0")}
     >
@@ -348,16 +386,12 @@ function FieldRow({
           else commit(v, []);
         }}
       />
-      {state === "warn" && fit && !fit.ok ? (
-        <p className="min-w-0 text-body-compact text-warning-ink">{fit.note}</p>
-      ) : (
-        <p
-          title={held.join(", ")}
-          className="min-w-0 truncate text-body-compact text-muted-foreground tabular-nums max-sm:empty:hidden"
-        >
-          {held.length ? <span className="sr-only">Holds: </span> : null}
-          {held.join(", ")}
+      {state === "warn" && fit && !fit.ok && !held.some((v) => readBack(column, v).kind === "bad") ? (
+        <p className="min-w-0 text-body-compact text-warning-ink in-data-[panel-open]:sm:col-span-2 in-data-[panel-open]:sm:col-start-2">
+          {fit.note}
         </p>
+      ) : (
+        <ReadBackLine column={column} values={held} />
       )}
       <ConfirmDialog
         open={pending !== null}
@@ -396,6 +430,26 @@ function sectionsOf(slots: Slot[]): Section[] {
 }
 
 const sectionDomId = (id: string) => `map-section-${id.replace(/[^a-z0-9]/gi, "-")}`;
+
+/** A field's picker, by its column and instance. */
+const pickerDomId = (key: string, i: Instance) => `map-${key}-${instanceKey(i) || "0"}`;
+
+/** The event the case preview sends to bring a field into view. */
+const REVEAL = "bulk-map-reveal";
+
+/** Bring one field into view, unfolding its panel, and put focus on its picker. */
+function revealField(key: string) {
+  window.dispatchEvent(new CustomEvent(REVEAL, { detail: key }));
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const row = document.querySelector<HTMLElement>(`[data-field="${CSS.escape(key)}"]`);
+      if (!row) return;
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      row.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+      row.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
+    }),
+  );
+}
 
 /** Take the filer to a field still to match, in `within` (a section) or on the page; its picker takes focus. */
 export function focusNextToMatch(within?: string) {
@@ -444,6 +498,15 @@ function SectionPanel({
   const missing = needs.filter((x) => !kept.has(x.key));
   if (missing.length) setKept(new Set([...kept, ...missing.map((x) => x.key)]));
   const [showAll, setShowAll] = React.useState(false);
+  // The case preview asks for a field: open the panel's folded rows so it can be reached.
+  React.useEffect(() => {
+    const onReveal = (e: Event) => {
+      const key = (e as CustomEvent<string>).detail;
+      if (section.slots.some((x) => x.key === key)) setShowAll(true);
+    };
+    window.addEventListener(REVEAL, onReveal);
+    return () => window.removeEventListener(REVEAL, onReveal);
+  }, [section.slots]);
 
   const onlyOptional = required.length === 0;
   const folded = required.filter((x) => !kept.has(x.key));
@@ -463,13 +526,25 @@ function SectionPanel({
   return (
     <section id={sectionDomId(section.id)} aria-labelledby={titleId} className="scroll-mt-(--map-top)">
       <Card variant="raised" className="gap-0 px-6 py-0">
-        <div className={cn("flex min-h-14 items-center justify-between gap-4 pt-1", shown.length && "border-b border-hairline")}>
+        <div className={cn("flex min-h-14 items-center justify-between gap-4", shown.length && "border-b border-hairline pt-1")}>
           <h2 id={titleId} className="text-body font-semibold">
             {section.title}
           </h2>
           <div className="flex items-center gap-2">
             {todo ? (
               <span className="text-body-compact text-muted-foreground tabular-nums">{todo} to match</span>
+            ) : null}
+            {!shown.length && !onlyOptional ? (
+              // Folded whole: the summary sits on the title's line, so the panel is one row.
+              <Button
+                variant="ghost"
+                className="-mr-3 h-10 px-3 text-body-compact font-normal text-muted-foreground"
+                aria-expanded={false}
+                onClick={() => setShowAll(true)}
+              >
+                {foldLabel}
+                <ChevronDownIcon aria-hidden />
+              </Button>
             ) : null}
             {onRemove ? (
               <Button variant="ghost" className="-mr-3 h-10 px-3 text-body-compact font-normal" onClick={onRemove}>
@@ -492,11 +567,11 @@ function SectionPanel({
             ))}
           </ul>
         ) : null}
-        {!onlyOptional && (folded.length || optional.length) ? (
-          <div className={cn("flex flex-wrap items-center gap-x-2 pb-2", shown.length ? "border-t border-hairline pt-2" : "-mt-2")}>
+        {shown.length && !onlyOptional && (folded.length || optional.length) ? (
+          <div className="flex flex-wrap items-center gap-x-2 border-t border-hairline pt-2 pb-2">
             <Button
               variant="ghost"
-              className="-ml-3 h-10 px-3 text-body-compact font-normal text-muted-foreground"
+              className="-ml-3 h-10 px-3 text-body-compact font-normal text-muted-foreground aria-expanded:bg-transparent hover:aria-expanded:bg-accent"
               aria-expanded={showAll}
               onClick={() => setShowAll((v) => !v)}
             >
@@ -504,9 +579,9 @@ function SectionPanel({
               <ChevronDownIcon aria-hidden className={cn("transition-transform duration-200", showAll && "rotate-180")} />
             </Button>
           </div>
-        ) : (
+        ) : shown.length ? (
           <div className="pb-2" />
-        )}
+        ) : null}
       </Card>
     </section>
   );
@@ -550,11 +625,13 @@ function useActiveSection(ids: string[]) {
     const els = list.map((id) => document.getElementById(sectionDomId(id))).filter((e): e is HTMLElement => !!e);
     if (!els.length) return;
     const pick = () => {
-      const line = pinnedBottom() + 120;
+      const line = pinnedBottom() + (window.innerHeight - pinnedBottom()) * 0.4;
       let at = list[0];
-      els.forEach((el, k) => {
-        if (el.getBoundingClientRect().top <= line) at = list[k];
-      });
+      // At the very top the first section is the one being read, however short the panels.
+      if (window.scrollY > 4)
+        els.forEach((el, k) => {
+          if (el.getBoundingClientRect().top <= line) at = list[k];
+        });
       setActive(at);
     };
     window.addEventListener("scroll", pick, { passive: true, capture: true });
@@ -613,7 +690,10 @@ function MapIndex({
                 >
                   <span className="min-w-0">{s.title}</span>
                   {todo ? (
-                    <span className="shrink-0 font-normal text-muted-foreground tabular-nums">{todo} to match</span>
+                    <span className="shrink-0 font-normal text-muted-foreground tabular-nums">
+                      {todo}
+                      <span className="sr-only"> to match</span>
+                    </span>
                   ) : (
                     <CheckIcon aria-label="Done" className="size-4 shrink-0 text-muted-foreground" />
                   )}
@@ -687,6 +767,8 @@ export function ColumnMapping(props: Props) {
   const sections = React.useMemo(() => sectionsOf(slots), [slots]);
   const active = useActiveSection(sections.map((s) => s.id));
   const pinned = usePinned();
+  const preview = props.previewOpen ?? false;
+  const setPreview = (open: boolean) => props.onPreviewOpen?.(open);
   // The last of each repeating section, where a case can do with one fewer.
   const removable = new Map<string, () => void>();
   for (const g of REPEATING) {
@@ -699,28 +781,49 @@ export function ColumnMapping(props: Props) {
 
   return (
     <UsedContext.Provider value={used}>
-      <div style={pinned} className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <MapIndex
-          fileName={props.fileName}
-          rows={props.rows.length}
-          sections={sections}
-          active={active}
-          props={props}
-        />
-        <div className="flex min-w-0 flex-col gap-4">
-          {sections.map((s) => (
-            <SectionPanel
-              key={s.id}
-              section={s}
+      <SidePanelRegion open={preview} push="content">
+        <div
+          style={pinned}
+          className={cn(
+            "grid grid-cols-1 items-start gap-8",
+            // With the preview open the index steps out, so the panels keep their width.
+            !preview && "lg:grid-cols-[16rem_minmax(0,1fr)]",
+          )}
+        >
+          {preview ? null : (
+            <MapIndex
+              fileName={props.fileName}
+              rows={props.rows.length}
+              sections={sections}
+              active={active}
               props={props}
-              samples={samples}
-              firsts={firsts}
-              onRemove={removable.get(s.id)}
             />
-          ))}
-          <AddSections instances={instances} props={props} />
+          )}
+          <div className="flex min-w-0 flex-col gap-4">
+            {sections.map((s) => (
+              <SectionPanel
+                key={s.id}
+                section={s}
+                props={props}
+                samples={samples}
+                firsts={firsts}
+                onRemove={removable.get(s.id)}
+              />
+            ))}
+            <AddSections instances={instances} props={props} />
+          </div>
         </div>
-      </div>
+      </SidePanelRegion>
+      <CasePreview
+        open={preview}
+        onOpenChange={setPreview}
+        sections={sections}
+        headers={props.headers}
+        rows={props.rows}
+        map={props.map}
+        rowLabel={props.rowLabel ?? ((i) => `Row ${i + 2}`)}
+        onReveal={(x) => revealField(x.key)}
+      />
     </UsedContext.Provider>
   );
 }

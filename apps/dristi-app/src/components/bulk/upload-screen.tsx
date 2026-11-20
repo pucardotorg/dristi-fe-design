@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   CircleXIcon,
   DownloadIcon,
+  EyeIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
   FlaskConicalIcon,
@@ -350,6 +351,8 @@ export function UploadScreen() {
   const [counts, setCounts] = React.useState<InstanceCounts>({});
   // Fields the filer chose to fill in each case later, on Match columns.
   const [later, setLater] = React.useState<Set<string>>(() => new Set());
+  // Match columns' case preview, opened from its page header.
+  const [previewOpen, setPreviewOpen] = React.useState(false);
   const [values, setValues] = React.useState<ValueMap>({});
   const [template, setTemplate] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -893,6 +896,12 @@ export function UploadScreen() {
           <FilingPageHeader
             title="Match columns"
             description={MAP_INTRO}
+            actions={
+              <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
+                <EyeIcon aria-hidden />
+                Preview a case
+              </Button>
+            }
           />
           {errorNotice}
           <ColumnMapping
@@ -905,6 +914,9 @@ export function UploadScreen() {
             later={later}
             onLater={setLater}
             fileName={fileName}
+            rowLabel={(i) => `Row ${rowNumberOf(book.cases, i)}`}
+            previewOpen={previewOpen}
+            onPreviewOpen={setPreviewOpen}
           />
         </FilingMain>
         {/* Every required field is answered before going on: a column, or "Fill in each
