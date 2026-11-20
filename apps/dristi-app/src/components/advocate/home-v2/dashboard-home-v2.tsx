@@ -127,6 +127,32 @@ const DEFAULT_ORDER: SlotId[] = ["hearings", "todos", "updates", "week", "recent
 /** The desktop right column's cards: the only ones that move there. */
 const SIDE: ReadonlySet<SlotId> = new Set(["updates", "week", "recent"]);
 const noopSubscribe = () => () => {};
+const ORDER_KEY = "dristi.advocate-home.card-order.v1";
+
+/** The saved order if it is a whole, valid one; else the default. Storage may be blocked. */
+function readOrder(): SlotId[] {
+  if (typeof window === "undefined") return DEFAULT_ORDER;
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(ORDER_KEY) ?? "null");
+    if (
+      Array.isArray(saved) &&
+      saved.length === DEFAULT_ORDER.length &&
+      DEFAULT_ORDER.every((id) => saved.includes(id))
+    )
+      return saved as SlotId[];
+  } catch {
+    /* unreadable: the default */
+  }
+  return DEFAULT_ORDER;
+}
+
+function saveOrder(order: SlotId[]) {
+  try {
+    window.localStorage.setItem(ORDER_KEY, JSON.stringify(order));
+  } catch {
+    /* blocked (private window): it still holds for this visit */
+  }
+}
 
 /** Puts `part`'s new order back into the places its cards hold in `all`. */
 function mergeInto(all: SlotId[], part: SlotId[]): SlotId[] {
@@ -207,9 +233,14 @@ export function DashboardHomeV2({
     notify.success(`${task.title}: done`);
   };
 
-  /* The cards' order: set by dragging, for this visit only (a refresh restores it, as with every
-     other demo action here). */
-  const [order, setOrder] = React.useState<SlotId[]>(DEFAULT_ORDER);
+  /* The cards' order, set by dragging. Kept on this device across visits (owner, 2026-11-20:
+     the one exception to "a refresh restores the demo", since redoing your layout on every visit
+     would annoy people). Read on the client's first render; the server's pass doesn't use it. */
+  const [order, setOrderState] = React.useState<SlotId[]>(readOrder);
+  const setOrder = (next: SlotId[]) => {
+    setOrderState(next);
+    saveOrder(next);
+  };
   const wide = useMinWidth(1280);
   const ready = React.useSyncExternalStore(
     noopSubscribe,
@@ -316,7 +347,7 @@ export function DashboardHomeV2({
                 label="Cards beside your day"
                 layout="column"
                 ids={order.filter((id) => SIDE.has(id))}
-                onReorder={(side) => setOrder((all) => mergeInto(all, side))}
+                onReorder={(side) => setOrder(mergeInto(order, side))}
                 render={renderCard}
               />
             </StickyColumn>
@@ -445,9 +476,16 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
   const [wide, setWide] = React.useState(true);
   const [shown, setShown] = React.useState(show);
   const [state, setState] = React.useState<"idle" | "in" | "out">(show ? "in" : "idle");
+  const [hover, setHover] = React.useState(false);
+  const [tapped, setTapped] = React.useState(false);
   if (shown !== show) {
     setShown(show);
     setState(show ? "in" : "out");
+    /* Leaving forgets it was open. The bar goes inert as it leaves, and an inert element never
+       hears the pointer leave it, so a bar left open under a resting pointer came back still open
+       and stayed open until it left again (owner, 2026-11-20). */
+    setHover(false);
+    setTapped(false);
   }
   React.useEffect(() => {
     if (!show) return;
@@ -474,16 +512,9 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
   }, [show]);
   const barOpen = intro || hover || tapped;
   return (
-  const [hover, setHover] = React.useState(false);
-  const [tapped, setTapped] = React.useState(false);
     <>
       <div
         data-state={state}
-    /* Leaving forgets it was open. The bar goes inert as it leaves, and an inert element never
-       hears the pointer leave it, so a bar left open under a resting pointer came back still open
-       and stayed open until it left again (owner, 2026-11-20). */
-    setHover(false);
-    setTapped(false);
         className={cn("qa-fab fixed right-4 z-40 xl:hidden", !show && "pointer-events-none")}
         /* 24px up from the bottom (owner, 2026-11-19: 16px sat too low), plus the home bar. */
         style={{ bottom: "calc(var(--spacing) * 6 + env(safe-area-inset-bottom))" }}
