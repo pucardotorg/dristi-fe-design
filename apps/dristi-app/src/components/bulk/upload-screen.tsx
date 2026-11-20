@@ -39,7 +39,7 @@ import {
   type ValueMap,
   type Workbookish,
 } from "@/lib/bulk/excel";
-import { LISTS, type ListName } from "@/lib/bulk/excel-spec";
+import { LISTS, matchTemplateHeader, type ListName } from "@/lib/bulk/excel-spec";
 import { useSetupKeeper } from "./setup-keeper";
 import { uploadAgainFor } from "@/lib/bulk/setup-repository";
 import { money } from "@/lib/filing/format";
@@ -83,7 +83,7 @@ import {
 import { CheckCard, FactsCard, FactsLine, FactsQuestion, checkCounts, useCheckCases, withoutOwn } from "./check-step";
 import { NO_PICKS, pickBatch } from "./facts-cases";
 import { FileDrop } from "./file-drop";
-import { FormatChoice, type UploadFormat } from "./format-choice";
+import { FormatChoice, FORMAT_STEPS, type UploadFormat } from "./format-choice";
 import { bulkFetch } from "./api";
 import { BatchFacts, withMore } from "./batch-screen";
 import { setupHref, uploadHref, useReportUploadState, type UploadStep } from "./setup-flow";
@@ -123,9 +123,9 @@ function StepNumber({ n }: { n: number }) {
 
 /** The demo spreadsheets the upload offers, from `public/samples/` (`scripts/bulk-demo-files.mts`). */
 const SAMPLES = [
-  { key: "tata-capital-bulk-filing-template.xlsx", label: "Sample 1: the filled template", format: "template" },
-  { key: "tata-capital-recovery-mis.xlsx", label: "Sample 2: a lender's own export", format: "own" },
-  { key: "tata-capital-template-with-stories.xlsx", label: "Sample 3: the template, some rows with their own facts", format: "template" },
+  { key: "tata-capital-bulk-filing-template.xlsx", label: "Sample 1: the filled template" },
+  { key: "tata-capital-recovery-mis.xlsx", label: "Sample 2: a lender's own export" },
+  { key: "tata-capital-template-with-stories.xlsx", label: "Sample 3: the template, some rows with their own facts" },
 ] as const;
 
 /**
@@ -133,10 +133,26 @@ const SAMPLES = [
  * to see how every step holds up at the size a recovery team files.
  */
 const SCALE_SAMPLES = [
-  { key: "scale-300-clean-template.xlsx", label: "300 cases, a well-kept book", detail: "The template · nearly all go through", format: "template" },
-  { key: "scale-300-lender-export-with-gaps.xlsx", label: "300 cases with gaps", detail: "A lender's export · matching, rows left out", format: "own" },
-  { key: "scale-300-every-edge.xlsx", label: "300 cases, every edge", detail: "The template · two accused or cheques, own facts", format: "template" },
+  { key: "scale-300-clean-template.xlsx", label: "300 cases, a well-kept book", detail: "The template · nearly all go through" },
+  { key: "scale-300-lender-export-with-gaps.xlsx", label: "300 cases with gaps", detail: "A lender's export · matching, rows left out" },
+  { key: "scale-300-every-edge.xlsx", label: "300 cases, every edge", detail: "The template · two accused or cheques, own facts" },
 ] as const;
+
+/**
+ * A spreadsheet read as soon as it is chosen, so the Excel file step can say whether it is
+ * the template before Continue, rather than the file deciding the path unseen (owner,
+ * 2026-11-20). Kept for the file it was read from.
+ */
+type Checked = {
+  file: File;
+  book: Workbookish;
+  follows: boolean;
+  /** Named columns, and how many of them are not template columns. */
+  named: number;
+  foreign: number;
+  /** Required template columns it has none of, when every column it has is a template one. */
+  absent: number;
+};
 
 type ReadingRow = {
   name: string;
@@ -355,6 +371,49 @@ export function UploadScreen() {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // The chosen spreadsheet, read on the spot; documents (AI) are read on Continue instead.
+  const [checked, setChecked] = React.useState<Checked | null>(null);
+  const check = checked && checked.file === file ? checked : null;
+  const checking = React.useRef<File | null>(null);
+  const pick = (picked: File[]) => {
+    setFiles(picked);
+    setError(null);
+    setChecked(null);
+    setBusy(false);
+    const f = picked[0];
+    checking.current = f ?? null;
+    if (!f || picked.every((x) => DOC.test(x.name))) return;
+    if (picked.length > 1) {
+      setError("Upload one Excel file, or only Word files and PDFs.");
+      return;
+    }
+    setBusy(true);
+    readWorkbook(f)
+      .catch(() => {
+        throw new Error(`${f.name} couldn't be read. Save a copy as .xlsx without a password and upload that.`);
+      })
+      .then((b) => {
+        if (checking.current !== f) return;
+        if (!b.cases.rows.length) throw new Error("No case rows were found in this file.");
+        const named = b.cases.headers.filter((h) => h.trim());
+        const foreign = named.filter((h) => !matchTemplateHeader(h)).length;
+        setChecked({
+          file: f,
+          book: b,
+          follows: followsTemplate(b.cases.headers),
+          named: named.length,
+          foreign,
+          absent: foreign ? 0 : unmatchedRequired(b.cases.headers, autoMap(b.cases.headers)).length,
+        });
+      })
+      .catch((e: Error) => {
+        if (checking.current === f) setError(e.message || "This file could not be read.");
+      })
+      .finally(() => {
+        if (checking.current === f) setBusy(false);
+      });
+  };
+
   // The file again for a created batch (BLK-40): Create replaces its drafts.
   const [againFor] = React.useState(() => uploadAgainFor(setupId));
 
@@ -406,7 +465,7 @@ export function UploadScreen() {
       const res = await fetch(`/samples/${key}`);
       if (!res.ok) throw new Error("The sample file could not be loaded.");
       const blob = await res.blob();
-      setFiles([new File([blob], key, { type: blob.type })]);
+      pick([new File([blob], key, { type: blob.type })]);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -449,44 +508,66 @@ export function UploadScreen() {
 
   // Required fields Match columns still waits on (a column, or "fill in each case later").
   const mapLeft = book && !(template || docs) ? mappingLeft(book.cases.headers, map, counts, later) : 0;
-  // The sections rail lists matching only where this file needs it.
+  // The path this upload takes. On the Excel file step, what the chosen file turned out to
+  // be: the template on the own-layout path skips matching, while a stray file on the
+  // template path waits for the filer (below). Otherwise what was read, else what was chosen.
+  const ownPath =
+    !docs && (step === "file" && check ? format === "own" && !check.follows : book ? !template : format === "own");
+  // Chose the template, chose another file: it waits for the filer, never switched unseen.
+  const stray = step === "file" && !!check && format === "template" && !check.follows;
+  // Chose their own layout, chose the template: good news, and the shorter path.
+  const fits = step === "file" && !!check && format === "own" && check.follows;
+  // The note on the file lands under the drop zone, below the fold on a laptop: bring it in.
+  const notice = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const el = notice.current;
+    if ((!stray && !fits) || !el) return;
+    // Clear of the sticky footer, which is two rows tall on a phone.
+    const footer = document.querySelector("footer")?.getBoundingClientRect().height ?? 0;
+    el.style.scrollMarginBottom = `${footer + 16}px`;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+  }, [stray, fits, check]);
+  // The stage rail lists the matching steps only where this path has them (FORMAT_STEPS).
   const report = useReportUploadState();
-  const matchColumns = !!book && !(template || docs);
-  const matchValues = unknownLists.length > 0;
+  const matchColumns = FORMAT_STEPS[ownPath ? "own" : "template"].includes("Match columns");
+  // Values the committed file brings outside the lists add Match values to any path; a file
+  // still on the Excel file step has not been matched yet, so it shows its path's own steps.
+  const matchValues =
+    FORMAT_STEPS[ownPath ? "own" : "template"].includes("Match values") ||
+    (!(step === "file" && check) && unknownLists.length > 0);
   React.useEffect(() => {
     report({ read: !!book, matchColumns, matchValues, documents: docs, format });
   }, [report, book, matchColumns, matchValues, docs, format]);
 
+  /** The read file becomes the upload's, on the template's path or matched column by column. */
+  const commit = (b: Workbookish, asTemplate: boolean) => {
+    // A corrected file in the same layout keeps the columns already matched.
+    const same =
+      !!book && book.cases.headers.join("\u0001") === b.cases.headers.join("\u0001");
+    setBook(b);
+    const m = same ? map : autoMap(b.cases.headers);
+    if (!same) {
+      setMap(m);
+      setCounts({});
+    }
+    setTemplate(asTemplate);
+    // The path the file took is the format from here, as the rail already shows it.
+    if (!docs) setFormat(asTemplate ? "template" : "own");
+    const u = unknownValues(b.cases, m);
+    setStep(asTemplate ? (Object.keys(u).length ? "values" : "facts") : "map");
+  };
+
+  /** Case documents (AI), read on Continue: each into the template's columns, nothing to match. */
   const read = async () => {
     if (!file) return;
     setBusy(true);
     setError(null);
     try {
-      if (files.length > 1 && !docs)
-        throw new Error("Upload one Excel file, or only Word files and PDFs.");
-      const b = docs
-        ? await readDocuments()
-        : await readWorkbook(file).catch(() => {
-            throw new Error(
-              `${file.name} couldn't be read. Save a copy as .xlsx without a password and upload that.`,
-            );
-          });
+      const b = await readDocuments();
       if (!b.cases.rows.length)
         throw new Error("No case rows were found in this file.");
-      // A corrected file in the same layout keeps the columns already matched.
-      const same =
-        !!book && book.cases.headers.join("\u0001") === b.cases.headers.join("\u0001");
-      setBook(b);
-      const m = same ? map : autoMap(b.cases.headers);
-      if (!same) {
-        setMap(m);
-        setCounts({});
-      }
-      // Documents are read straight into the template's columns: nothing to match.
-      const follows = docs || followsTemplate(b.cases.headers);
-      setTemplate(follows);
-      const u = unknownValues(b.cases, m);
-      setStep(follows ? (Object.keys(u).length ? "values" : "facts") : "map");
+      commit(b, true);
     } catch (e) {
       setError((e as Error).message || "This file could not be read.");
     } finally {
@@ -626,7 +707,7 @@ export function UploadScreen() {
           />
           <FormatChoice
             onChoose={(f) => {
-              if (f !== format) setFiles([]);
+              if (f !== format) pick([]);
               setFormat(f);
               setStep("file");
             }}
@@ -648,7 +729,9 @@ export function UploadScreen() {
             description={
               template
                 ? "Every row is checked as soon as the file is read."
-                : "Upload it as it is. You'll match its columns next."
+                : fits
+                  ? "Upload it as it is."
+                  : "Upload it as it is. You'll match its columns next."
             }
           />
           {errorNotice}
@@ -713,11 +796,8 @@ export function UploadScreen() {
                         {SAMPLES.map((x) => (
                           <DropdownMenuItem
                             key={x.key}
-                            onSelect={() => {
-                              // A sample in the other format switches the step to it first.
-                              if (x.format !== format) setFormat(x.format);
-                              void chooseSample(x.key);
-                            }}
+                            // Chosen as if dropped: the same check as any file, never a silent switch.
+                            onSelect={() => void chooseSample(x.key)}
                           >
                             <FileSpreadsheetIcon aria-hidden />
                             {x.label}
@@ -729,10 +809,7 @@ export function UploadScreen() {
                           <DropdownMenuItem
                             key={x.key}
                             className="items-start"
-                            onSelect={() => {
-                              if (x.format !== format) setFormat(x.format);
-                              void chooseSample(x.key);
-                            }}
+                            onSelect={() => void chooseSample(x.key)}
                           >
                             <FileSpreadsheetIcon aria-hidden className="mt-0.5" />
                             <span className="flex min-w-0 flex-col">
@@ -759,34 +836,63 @@ export function UploadScreen() {
                     accept={ai === "on" && !template ? ".xlsx,.csv,.docx,.pdf,.txt" : ".xlsx,.csv"}
                     multiple={ai === "on" && !template}
                     files={files}
-                    onFiles={setFiles}
+                    onFiles={pick}
                     prompt={template ? "Drag the filled template here" : ai === "on" ? "Drag your Excel file or case documents here" : "Drag your Excel file here"}
                     hint={ai === "on" && !template ? ".xlsx or .csv, or Word and PDF files" : ".xlsx or .csv"}
                   />
                 </Field>
+                <div ref={notice} className="empty:hidden">
+                  {stray && check ? (
+                    <StatusLine tone="warning" title="This file doesn't follow the template">
+                      <div className="flex flex-col gap-3">
+                        <span className="tabular-nums">
+                          {check.foreign === check.named
+                            ? `None of its ${check.named} columns are template columns`
+                            : check.foreign
+                              ? `${check.foreign} of its ${check.named} columns aren't template columns`
+                              : `${check.absent} required column${check.absent === 1 ? " is" : "s are"} missing`}
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="outline" onClick={() => commit(check.book, false)}>
+                            Match its columns
+                          </Button>
+                          <Button variant="ghost" onClick={() => document.getElementById("sheet")?.click()}>
+                            Choose another file
+                          </Button>
+                        </div>
+                      </div>
+                    </StatusLine>
+                  ) : fits ? (
+                    <StatusLine tone="success">This is the template — nothing to match</StatusLine>
+                  ) : null}
+                </div>
               </CardContent>
             </Card>
           )}
-          <p className="flex flex-wrap items-center gap-x-1 text-body-compact text-muted-foreground">
-            {template ? "Have a file from your own system instead?" : "The template is quicker and needs no matching."}
-            <Button
-              variant="link"
-              className="px-0 underline"
-              onClick={() => {
-                setFiles([]);
-                setFormat(template ? "own" : "template");
-              }}
-            >
-              {template ? "Use your own Excel" : "Use the template instead"}
-            </Button>
-          </p>
+          {stray || fits ? null : (
+            <p className="flex flex-wrap items-center gap-x-1 text-body-compact text-muted-foreground">
+              {template ? "Have a file from your own system instead?" : "The template is quicker and needs no matching."}
+              <Button
+                variant="link"
+                className="px-0 underline"
+                onClick={() => {
+                  pick([]);
+                  setFormat(template ? "own" : "template");
+                }}
+              >
+                {template ? "Use your own Excel" : "Use the template instead"}
+              </Button>
+            </p>
+          )}
         </FilingMain>
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep("format")}
-          onContinue={() => void read()}
-          continueDisabled={!file || busy}
-          continueLabel={busy ? "Reading…" : template ? "Continue" : "Match columns"}
+          onContinue={stray ? undefined : () => (docs ? void read() : check && commit(check.book, check.follows))}
+          continueDisabled={busy || !(docs ? file : check)}
+          continueBlocked={stray}
+          continueHint={stray ? "Match its columns, or choose another file" : undefined}
+          continueLabel={busy ? "Reading…" : ownPath ? "Match columns" : "Continue"}
         />
       </>
     );
