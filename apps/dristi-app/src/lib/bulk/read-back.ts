@@ -16,6 +16,15 @@ export type ReadBack =
   | { kind: "bad"; text: string; note: string }
   | { kind: "empty" };
 
+/**
+ * Whether a field's values can be checked at all: dates, amounts, numbers, mobiles,
+ * pincodes, IFSCs, emails, cheque numbers and list answers. A name or an address can hold
+ * anything, so a column matched to one is never shown as confirmed.
+ */
+export function isCheckable(column: Column): boolean {
+  return column.kind !== "text" || /(Pin|Ifsc|Email)$/.test(column.key) || column.key === "chequeNumber";
+}
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const rupees = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
 

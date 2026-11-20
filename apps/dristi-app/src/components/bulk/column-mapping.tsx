@@ -26,7 +26,7 @@ import {
   type Instance,
   type ListName,
 } from "@/lib/bulk/excel-spec";
-import { readBack } from "@/lib/bulk/read-back";
+import { isCheckable, readBack } from "@/lib/bulk/read-back";
 import { cn } from "@/lib/utils";
 import { SidePanelRegion } from "@/components/ui/side-panel";
 import { CasePreview } from "./case-preview";
@@ -307,37 +307,33 @@ const ROW =
 function ReadBackLine({ column, values }: { column: Column; values: string[] }) {
   const read = values.map((v) => readBack(column, v)).filter((r) => r.kind !== "empty");
   const bad = read.find((r) => r.kind === "bad");
-  if (bad && bad.kind === "bad") return <Mismatch note={bad.note} example={bad.text} />;
+  if (bad && bad.kind === "bad") return <Mismatch note={bad.note} />;
   const all = read.map((r) => ("text" in r ? r.text : ""));
   if (!all.length) return <p className="max-sm:hidden" />;
   return (
     <p
       title={all.join(", ")}
-      // A few of the column's values, as examples; while the case preview is open it reads
-      // them in full and this steps aside.
-      className="truncate text-body-compact text-muted-foreground tabular-nums in-data-[panel-open]:hidden"
+      // The column reads as its field should: a tick and an example or two, as the court will
+      // file them. While the case preview is open it reads them in full and this steps aside.
+      className="flex min-w-0 items-center gap-1.5 text-body-compact in-data-[panel-open]:hidden"
     >
-      e.g. <span className="text-foreground">{all.slice(0, 2).join(", ")}</span>
+      {/* The tick only where the values could be checked; a name column cannot confirm a name. */}
+      {isCheckable(column) ? <CheckIcon aria-hidden className="size-4 shrink-0 text-success-ink" /> : null}
+      <span className="truncate text-muted-foreground tabular-nums">
+        {isCheckable(column) ? <span className="sr-only">Fits. </span> : null}e.g.{" "}
+        <span className="text-foreground">{all.slice(0, 2).join(", ")}</span>
+      </span>
     </p>
   );
 }
 
-/**
- * A column whose values its field cannot take, on one line however long the value: the
- * mark, what is wrong, and an example of what the column holds ("Not a date · e.g. Harsh
- * V. Bhavsar"), so the filer sees the wrong data, not only that something is wrong.
- */
-function Mismatch({ note, example }: { note: string; example?: string }) {
+/** A column whose values its field cannot take: the mark and what is wrong, on one line. */
+function Mismatch({ note }: { note: string }) {
   return (
-    // Two fixed lines at most: what is wrong, then the example. Each truncates, so the row
-    // keeps its height and nothing runs past the panel.
-    <div title={example ? `${note}: ${example}` : note} className="flex min-w-0 flex-col text-body-compact">
-      <p className="flex min-w-0 items-center gap-1.5 text-warning-ink">
-        <TriangleAlertIcon aria-hidden className="size-4 shrink-0" />
-        <span className="truncate">{note}</span>
-      </p>
-      {example ? <p className="truncate pl-5.5 text-muted-foreground">e.g. {example}</p> : null}
-    </div>
+    <p className="flex min-w-0 items-center gap-1.5 text-body-compact text-warning-ink">
+      <TriangleAlertIcon aria-hidden className="size-4 shrink-0" />
+      <span className="truncate">{note}</span>
+    </p>
   );
 }
 
@@ -399,7 +395,7 @@ function FieldRow({
         }}
       />
       {state === "warn" && fit && !fit.ok && !held.some((v) => readBack(column, v).kind === "bad") ? (
-        <Mismatch note={fit.note} example={held[0]} />
+        <Mismatch note={fit.note} />
       ) : (
         <ReadBackLine column={column} values={held} />
       )}

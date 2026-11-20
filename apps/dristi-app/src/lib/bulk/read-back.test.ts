@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { COLUMNS, LISTS } from "./excel-spec";
-import { readBack } from "./read-back";
+import { isCheckable, readBack } from "./read-back";
 
 const col = (key: string) => COLUMNS.find((c) => c.key === key)!;
 
@@ -38,4 +38,13 @@ test("list words: the court's option, a word Match values takes, or the filer's 
 
 test("an empty cell is empty", () => {
   assert.deepEqual(readBack(col("chequeAmount"), "  "), { kind: "empty" });
+});
+
+test("only fields whose values can be checked are confirmed", () => {
+  assert.equal(isCheckable(col("chequeAmount")), true);
+  assert.equal(isCheckable(col("chequeNumber")), true);
+  assert.equal(isCheckable(col("accusedPin")), true);
+  assert.equal(isCheckable(col("returnReason")), true);
+  assert.equal(isCheckable(col("accusedName")), false);
+  assert.equal(isCheckable(col("accusedAddress")), false);
 });
