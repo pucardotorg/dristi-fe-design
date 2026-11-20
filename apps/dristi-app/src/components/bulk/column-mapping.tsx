@@ -327,7 +327,7 @@ function VerdictLine({ verdict }: { verdict: Verdict }) {
           this field, and its values fit. A column chosen by hand shows its examples alone. */}
       {sure ? <CheckIcon aria-hidden className="size-4 shrink-0 text-success-ink" /> : null}
       <span className="truncate text-muted-foreground tabular-nums">
-        {sure ? <span className="sr-only">Recognised. </span> : null}e.g.{" "}
+        {sure ? <span className="sr-only">Recognised. </span> : null}Reads as{" "}
         <span className="text-foreground">{verdict.examples.join(", ")}</span>
       </span>
     </p>
