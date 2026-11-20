@@ -39,8 +39,10 @@ import { cn } from "@/lib/utils";
  *
  * - Handle: a grip centred in the card's top padding, where no card keeps anything. With a mouse
  *   it shows on hover; on touch it is always there (there is no hover).
- * - Mouse: press the handle and move 4px. Touch: hold the handle (260ms; the card sinks a little
- *   while you hold so you know it is working), then drag. Android buzzes on pick-up, at each new
+ * - Mouse: press the handle and move 4px. Touch: hold anywhere on the card (350ms; the card sinks
+ *   a little while you hold so you know it is working), then drag. Moving first scrolls as usual.
+ *   On touch the cards' text can't be selected and long-press callouts are off, since a hold now
+ *   means "pick up". Android buzzes on pick-up, at each new
  *   place and on drop; iPhones and iPads do not let web pages vibrate, so the lift does that job.
  * - While dragging, the whole card rides under your finger, lifted a little, its handle staying
  *   where you hold it (owner, 2026-11-20: a title strip read as something else). A card taller
@@ -71,7 +73,9 @@ const HALF: ReadonlySet<SlotId> = new Set(["updates", "week"]);
     the place it will land stays in view (a phone's to-dos list is longer than the screen). */
 const LIFT_CAP = 0.6;
 const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)";
-const HOLD_MS = 260;
+/* Long enough that resting a thumb while reading doesn't lift a card, short enough not to feel
+   slow; the card starts sinking 80ms in, so a scroll that starts at once never shows it. */
+const HOLD_MS = 350;
 
 /** Mouse and pen only: touch goes through the hold-to-lift sensor. */
 class MouseSensor extends PointerSensor {
@@ -288,6 +292,9 @@ export function CardBoard({
     }
     start.current = idsRef.current;
     touchDrag.current = typeof TouchEvent !== "undefined" && e.activatorEvent instanceof TouchEvent;
+    /* A hold can start a text selection on some browsers; a live selection turns the next drag
+       into "extend the selection" instead of a scroll. */
+    window.getSelection()?.removeAllRanges();
     if (touchDrag.current) buzz(12);
     setGrabbed(null);
     setActive(id);
@@ -511,13 +518,6 @@ function BoardItem({
          for the click instead. */
       e.preventDefault();
     },
-    onTouchStart: (e: React.TouchEvent) => {
-      listeners?.onTouchStart?.(e);
-      setHolding(true);
-    },
-    onTouchEnd: () => setHolding(false),
-    onTouchCancel: () => setHolding(false),
-    onTouchMove: () => setHolding(false),
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
     onClick: () => {
       if (dragged.current || dragging) return;
@@ -527,6 +527,33 @@ function BoardItem({
     onBlur: onHandleBlur,
   };
   const grip = <GripHorizontalIcon aria-hidden="true" className="size-4" />;
+
+  /* Touch: a hold anywhere on the card lifts it (owner, 2026-11-20), the handle included (its
+     touch bubbles here). A finger that moves more than 8px first is scrolling or swiping the
+     carousel, so the hold is dropped and the page scrolls as usual. */
+  const pressAt = React.useRef<{ x: number; y: number } | null>(null);
+  const release = () => {
+    pressAt.current = null;
+    setHolding(false);
+  };
+  const cardTouch = touch
+    ? {
+        onTouchStart: (e: React.TouchEvent) => {
+          if (e.touches.length !== 1) return release();
+          listeners?.onTouchStart?.(e);
+          pressAt.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          setHolding(true);
+        },
+        onTouchMove: (e: React.TouchEvent) => {
+          const p = pressAt.current;
+          const t = e.touches[0];
+          if (p && t && Math.hypot(t.clientX - p.x, t.clientY - p.y) > 8) release();
+        },
+        onTouchEnd: release,
+        onTouchCancel: release,
+        onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+      }
+    : {};
 
   return (
     <li
@@ -539,6 +566,14 @@ function BoardItem({
       data-grabbed={grabbed || undefined}
       data-holding={(holding && !lifted) || undefined}
       className={cn("board-item group/slot relative min-w-0 list-none", full && "lg:col-span-2")}
+      {...cardTouch}
+      /* A card held and let go where it was is not a tap on whatever was under the finger. */
+      onClickCapture={(e) => {
+        if (dragged.current) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
     >
       <div className="board-card min-w-0 *:h-full">{children}</div>
       {touch ? (
@@ -548,7 +583,7 @@ function BoardItem({
             <DrawerContent style={{ paddingBottom: "calc(var(--spacing) * 4 + env(safe-area-inset-bottom))" }}>
               <DrawerHeader className="text-left">
                 <DrawerTitle className="text-left">{name}</DrawerTitle>
-                <DrawerDescription className="text-left">Or press and hold the handle, then drag.</DrawerDescription>
+                <DrawerDescription className="text-left">Or press and hold the card, then drag.</DrawerDescription>
               </DrawerHeader>
               <div className="flex flex-col gap-2 px-4">
                 <Button

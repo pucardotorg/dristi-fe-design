@@ -87,11 +87,21 @@
   }
 }
 
-/* Holding on touch: the card sinks a little over the hold, so the wait reads as "working". */
+/* Holding on touch: the card sinks a little over the hold, so the wait reads as "working". It
+   waits 80ms first, so a scroll that starts at once never shows it. */
 .board-item[data-holding] .board-card {
-  transform: scale(0.985);
-  transition-duration: 260ms;
-  transition-timing-function: ease-out;
+  transform: scale(0.98);
+  transition: transform 270ms ease-out 80ms;
+}
+
+/* On touch a hold anywhere means "pick up": no text selection, no long-press callout or link
+   preview inside the cards. */
+@media (pointer: coarse) {
+  .board-item {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 /* Lifted: the card's place becomes the slot it will land in. */
