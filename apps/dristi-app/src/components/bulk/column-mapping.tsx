@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeftRightIcon, CheckIcon, ChevronDownIcon, FileSpreadsheetIcon, PlusIcon } from "lucide-react";
+import { ArrowLeftRightIcon, CheckIcon, ChevronDownIcon, FileSpreadsheetIcon, PlusIcon, TriangleAlertIcon } from "lucide-react";
 
 import {
   columnFit,
@@ -307,24 +307,30 @@ const ROW =
 function ReadBackLine({ column, values }: { column: Column; values: string[] }) {
   const read = values.map((v) => readBack(column, v)).filter((r) => r.kind !== "empty");
   const bad = read.find((r) => r.kind === "bad");
-  // A warning is never cut: it wraps, and stays while the case preview is open.
-  if (bad && bad.kind === "bad")
-    return (
-      // With the case preview open the third column is narrow: the warning drops under the picker.
-      <p className="min-w-0 text-body-compact text-warning-ink in-data-[panel-open]:sm:col-span-2 in-data-[panel-open]:sm:col-start-2">
-        {bad.note}
-        <span className="text-muted-foreground"> · {bad.text}</span>
-      </p>
-    );
+  if (bad && bad.kind === "bad") return <Mismatch note={bad.note} detail={`${bad.note}: ${bad.text}`} />;
   const all = read.map((r) => ("text" in r ? r.text : ""));
   return (
     <p
       title={all.join(", ")}
       // Two values, whole; while the case preview is open it reads them in full and this steps aside.
-      className="line-clamp-2 min-w-0 text-body-compact break-words text-muted-foreground tabular-nums max-sm:empty:hidden in-data-[panel-open]:hidden"
+      className="truncate text-body-compact text-muted-foreground tabular-nums max-sm:empty:hidden in-data-[panel-open]:hidden"
     >
       {all.length ? <span className="sr-only">Reads as: </span> : null}
       {all.slice(0, 2).join(", ")}
+    </p>
+  );
+}
+
+/**
+ * A column whose values its field cannot take, as one short line however long the value:
+ * the mark and what is wrong ("Not a date"). The value itself is in the tooltip and in the
+ * case preview, so a row keeps its height and nothing runs past the panel.
+ */
+function Mismatch({ note, detail }: { note: string; detail: string }) {
+  return (
+    <p title={detail} className="flex min-w-0 items-center gap-1.5 text-body-compact text-warning-ink">
+      <TriangleAlertIcon aria-hidden className="size-4 shrink-0" />
+      <span className="truncate">{note}</span>
     </p>
   );
 }
@@ -387,9 +393,7 @@ function FieldRow({
         }}
       />
       {state === "warn" && fit && !fit.ok && !held.some((v) => readBack(column, v).kind === "bad") ? (
-        <p className="min-w-0 text-body-compact text-warning-ink in-data-[panel-open]:sm:col-span-2 in-data-[panel-open]:sm:col-start-2">
-          {fit.note}
-        </p>
+        <Mismatch note={fit.note} detail={fit.note} />
       ) : (
         <ReadBackLine column={column} values={held} />
       )}
@@ -642,35 +646,47 @@ export function useActiveSection(ids: string[]) {
 }
 
 /**
- * The head of a matching step's index: the file being matched, set on a spreadsheet tile so
- * the index reads as anchored to that file rather than floating on the canvas.
+ * A matching step's index, as one card beside the panels: the file being matched on a
+ * spreadsheet tile, then (when there is more than one) the sections to move between. A
+ * card, not loose text on the canvas, so it reads as part of the page and holds its edges.
  */
-export function IndexHead({ fileName, rows }: { fileName?: string; rows: number }) {
+export function IndexCard({
+  fileName,
+  rows,
+  children,
+}: {
+  fileName?: string;
+  rows: number;
+  children?: React.ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-3">
-      <span
-        aria-hidden
-        className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-hairline bg-card text-muted-foreground shadow-xs"
-      >
-        <FileSpreadsheetIcon className="size-5" />
-      </span>
-      <div className="flex min-w-0 flex-col">
-        {fileName ? (
-          <p className="truncate text-body-compact font-semibold" title={fileName}>
-            {fileName}
+    <Card variant="raised" className="gap-0 py-0">
+      <div className={cn("flex items-center gap-3 p-4", children && "border-b border-hairline")}>
+        <span
+          aria-hidden
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-muted-foreground"
+        >
+          <FileSpreadsheetIcon className="size-5" />
+        </span>
+        <div className="flex min-w-0 flex-col">
+          {fileName ? (
+            <p className="truncate text-body-compact font-semibold" title={fileName}>
+              {fileName}
+            </p>
+          ) : null}
+          <p className="text-body-compact text-muted-foreground tabular-nums">
+            {rows} {rows === 1 ? "case" : "cases"}
           </p>
-        ) : null}
-        <p className="text-body-compact text-muted-foreground tabular-nums">
-          {rows} {rows === 1 ? "case" : "cases"}
-        </p>
+        </div>
       </div>
-    </div>
+      {children}
+    </Card>
   );
 }
 
 /**
  * The index's list: each section with what it still needs as a plain number, or a muted
- * tick. The section in view is semibold with a bar on the rail.
+ * tick. The section in view is a filled row.
  */
 export function IndexList({
   items,
@@ -678,33 +694,36 @@ export function IndexList({
   label,
   onPick,
 }: {
-  items: { id: string; title: string; left: number }[];
+  /** `warn`: a field in it is matched to a column its values do not fit. */
+  items: { id: string; title: string; left: number; warn?: boolean }[];
   active: string | null;
   /** What a number counts, for assistive tech: "to match". */
   label: string;
   onPick: (id: string) => void;
 }) {
   return (
-    <nav aria-label="Sections">
-      {/* The rail runs on from the tile's centre line, so the file branches into its sections;
-          each section's name starts where the file's name does. */}
-      <ul className="ml-5 flex flex-col border-l border-hairline pt-2">
+    <nav aria-label="Sections" className="p-2">
+      <ul className="flex flex-col gap-0.5">
         {items.map((s) => {
           const here = active === s.id;
           return (
-            <li key={s.id} className="relative">
-              {here ? <span aria-hidden className="absolute inset-y-1.5 -left-px w-0.5 rounded-full bg-foreground" /> : null}
+            <li key={s.id}>
               <button
                 type="button"
                 aria-current={here ? "location" : undefined}
                 onClick={() => onPick(s.id)}
                 className={cn(
-                  "flex min-h-10 w-full items-center justify-between gap-3 rounded-r-md py-2 pr-2 pl-8 text-left text-body-compact transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
-                  here ? "font-semibold text-foreground" : "text-muted-foreground",
+                  "flex min-h-10 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-body-compact transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50",
+                  here && "bg-accent font-medium",
                 )}
               >
                 <span className="min-w-0">{s.title}</span>
-                {s.left ? (
+                {s.warn ? (
+                  <span className="flex shrink-0 items-center gap-2">
+                    <TriangleAlertIcon aria-label="A column to check" className="size-4 text-warning-ink" />
+                    {s.left ? <span className="font-normal text-muted-foreground tabular-nums">{s.left}</span> : null}
+                  </span>
+                ) : s.left ? (
                   <span className="shrink-0 font-normal text-muted-foreground tabular-nums">
                     {s.left}
                     <span className="sr-only"> {label}</span>
@@ -736,8 +755,8 @@ function MapIndex({
   props: Props;
 }) {
   return (
-    <aside aria-label="Sections" className="hidden lg:sticky lg:top-(--map-top) lg:flex lg:flex-col">
-      <IndexHead fileName={fileName} rows={rows} />
+    <aside aria-label="Sections" className="hidden lg:sticky lg:top-(--map-top) lg:block">
+      <IndexCard fileName={fileName} rows={rows}>
       <IndexList
         label="to match"
         active={active}
@@ -746,8 +765,14 @@ function MapIndex({
           id: s.id,
           title: s.title,
           left: s.slots.filter((x) => x.required && stateOf(x, props).state === "todo").length,
+          warn: s.slots.some((x) => {
+            const src = sourceFor(x.c, x.i, props.map, props.headers);
+            if (typeof src !== "number") return false;
+            return stateOf(x, props).state === "warn" || props.rows.slice(0, 20).some((r) => readBack(x.c, r[src] ?? "").kind === "bad");
+          }),
         }))}
       />
+      </IndexCard>
     </aside>
   );
 }

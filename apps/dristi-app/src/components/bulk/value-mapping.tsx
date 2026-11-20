@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SidePanelRegion } from "@/components/ui/side-panel";
 import { CasePreview } from "./case-preview";
-import { IndexHead, IndexList, previewSections, sectionDomId, useActiveSection, usePinned } from "./column-mapping";
+import { IndexCard, IndexList, previewSections, sectionDomId, useActiveSection, usePinned } from "./column-mapping";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /** The page's title and one line, for the page header above the list. */
@@ -107,6 +107,28 @@ function listUse(l: ListName, props: Props) {
   return { fields, cases, columns: columns.map((k) => headers[k] || `Column ${k + 1}`) };
 }
 
+/** A list's name where it answers several fields: "Yes or no" for five yes/no questions. */
+const LIST_NAME: Partial<Record<ListName, string>> = {
+  yesNo: "Yes or no",
+  accusedType: "Accused type",
+  accusedEntity: "Institution type",
+  returnReason: "Return reason",
+  natureOfDebt: "Nature of debt",
+  modeOfService: "Mode of service",
+  nonDelivery: "Reason for non-delivery",
+  payment: "Payment after notice",
+};
+
+/**
+ * A panel's title that holds at any scale: the field's name when the list answers one
+ * field, else the list's own name; the fields themselves go in the line after it.
+ */
+const listTitle = (l: ListName, fields: string[]) =>
+  fields.length === 1 ? fields[0] : (LIST_NAME[l] ?? (join(fields) || l));
+
+/** The file's columns behind a field, two at most and a count for the rest. */
+const capped = (cols: string[]) => (cols.length > 2 ? `${cols.slice(0, 2).join(", ")} +${cols.length - 2}` : cols.join(", "));
+
 const join = (xs: string[]) =>
   xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
 
@@ -143,7 +165,7 @@ export function ValueMapping(props: Props) {
     () => previewSections(props.book.cases.headers, props.counts),
     [props.book.cases.headers, props.counts],
   );
-  const titleOf = (l: ListName) => join(listUse(l, props).fields) || l;
+  const titleOf = (l: ListName) => listTitle(l, listUse(l, props).fields);
 
   return (
     <>
@@ -153,8 +175,8 @@ export function ValueMapping(props: Props) {
           className={cn("grid grid-cols-1 items-start gap-8", !preview && "lg:grid-cols-[16rem_minmax(0,1fr)]")}
         >
           {preview ? null : (
-            <aside aria-label="Fields" className="hidden lg:sticky lg:top-(--map-top) lg:flex lg:flex-col">
-              <IndexHead fileName={props.fileName} rows={props.book.cases.rows.length} />
+            <aside aria-label="Fields" className="hidden lg:sticky lg:top-(--map-top) lg:block">
+              <IndexCard fileName={props.fileName} rows={props.book.cases.rows.length}>
               {/* The file always heads the column, so the panels stand where they stood on Match
                   columns; the list only when there is more than one field to move between. */}
               {lists.length > 1 ? (
@@ -169,6 +191,7 @@ export function ValueMapping(props: Props) {
                 }))}
               />
               ) : null}
+              </IndexCard>
             </aside>
           )}
           <div className="flex min-w-0 flex-col gap-4">
@@ -234,10 +257,14 @@ function ListGroup({
     <Card variant="raised" className="gap-0 px-6 py-0">
       <div className="flex min-h-14 items-center justify-between gap-4 border-b border-hairline pt-1">
         <h2 id={titleId} className="min-w-0 text-body font-semibold">
-          {join(use.fields) || list}
-          {use.columns.length ? (
-            <span className="text-body-compact font-normal text-muted-foreground"> · {use.columns.join(", ")}</span>
-          ) : null}
+          {listTitle(list, use.fields)}
+          <span
+            className="text-body-compact font-normal text-muted-foreground"
+            title={use.fields.length > 1 ? join(use.fields) : use.columns.join(", ")}
+          >
+            {" · "}
+            {use.fields.length > 1 ? `${use.fields.length} fields` : capped(use.columns)}
+          </span>
         </h2>
         {words.filter((w) => !chosen[w]).length ? (
           <span className="shrink-0 text-body-compact text-muted-foreground tabular-nums">
