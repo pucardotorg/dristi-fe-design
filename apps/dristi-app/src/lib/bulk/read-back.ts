@@ -149,6 +149,7 @@ export function judgeColumn(column: Column, header: string, values: string[], pi
     const n = filled.slice(0, 6).map((v) => Number(v.replace(/[₹,\s]|rs\.?/gi, "")));
     if (n.length >= 3 && n.every((x, k) => k === 0 || x === n[k - 1] + 1)) return { kind: "bad", note: "Looks like a serial number" };
   }
-  const examples = [...new Set(read.flatMap((r) => ("text" in r ? [r.text] : [])))].slice(0, 2);
+  // The cells as the filer typed them: the screen shows the filer's own data, not a reading.
+  const examples = [...new Set(filled)].slice(0, 2);
   return { kind: namedFor(column, header) ? "confirmed" : "plain", examples };
 }

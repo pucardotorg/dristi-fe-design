@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import {
-  ArrowRightIcon,
+  ArrowLeftRightIcon,
   CheckIcon,
   ChevronDownIcon,
   FileSpreadsheetIcon,
@@ -39,6 +39,7 @@ import { judgeColumn, type Verdict } from "@/lib/bulk/read-back";
 import { cn } from "@/lib/utils";
 import { SidePanelRegion } from "@/components/ui/side-panel";
 import { CasePreview } from "./case-preview";
+import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -338,22 +339,18 @@ export function flash(ids: string[]) {
 function VerdictLine({ verdict }: { verdict: Verdict }) {
   if (verdict.kind === "bad") return <Mismatch note={verdict.note} />;
   if (!verdict.examples.length) return <p className="max-sm:hidden" />;
-  const sure = verdict.kind === "confirmed";
   return (
     <p
       title={verdict.examples.join(", ")}
-      // While the case preview is open it reads these in full and this steps aside.
+      // The filer's own cells, as typed, under a sheet mark that says where they come from.
+      // No tick and no arrow: the choice of column is the filer's, and the screen does not
+      // vouch for it; it speaks only when the values plainly do not fit (Mismatch).
+      // While the case preview is open it reads them in full and this steps aside.
       className="flex min-w-0 items-center gap-1.5 text-body-compact in-data-[panel-open]:hidden"
     >
-      {/* The tick only when two signals agree: the column's name is one the court knows for
-          this field, and its values fit. A column chosen by hand shows its examples alone. */}
-      {sure ? (
-        <CheckIcon aria-hidden className="size-4 shrink-0 text-success-ink" />
-      ) : (
-        <ArrowRightIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-      )}
-      <span className="truncate tabular-nums">
-        <span className="sr-only">{sure ? "Recognised, reads as " : "Reads as "}</span>
+      <FileSpreadsheetIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+      <span className="truncate">
+        <span className="sr-only">In your file: </span>
         {verdict.examples.join(", ")}
       </span>
     </p>
@@ -387,15 +384,7 @@ function FieldRow({
   const { src, state, fit } = stateOf(slot, props);
   const id = pickerDomId(column.key, instance);
   const used = React.useContext(UsedContext);
-  /**
-   * A column another field already reads moves here at once. The field it left now has no
-   * column: it reappears among the open fields and flashes, so the filer sees what needs a
-   * new column. Nothing else is highlighted.
-   */
-  const move = (v: string, others: Use[]) => {
-    commit(v, others);
-    flash(others.map((o) => o.key));
-  };
+  const [pending, setPending] = React.useState<{ value: string; others: Use[] } | null>(null);
   const commit = (v: string, clear: Use[]) => {
     const next: ColumnSource = v === NONE ? null : v.startsWith("every:") ? { every: v.slice(6) } : Number(v);
     props.onChange({
@@ -432,7 +421,7 @@ function FieldRow({
         onPick={(v) => {
           // A column already matched elsewhere moves here only once the filer agrees.
           const others = /^\d+$/.test(v) ? (used[Number(v)] ?? []).filter((u) => u.key !== selfKey) : [];
-          if (others.length) move(v, others);
+          if (others.length) setPending({ value: v, others });
           else commit(v, []);
         }}
       />
@@ -443,6 +432,29 @@ function FieldRow({
       ) : (
         <p className="max-sm:hidden" />
       )}
+      <ConfirmDialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open) setPending(null);
+        }}
+        destructive={false}
+        icon={ArrowLeftRightIcon}
+        title={`Move "${pending ? props.headers[Number(pending.value)] : ""}" to ${slot.label}?`}
+        description={
+          pending
+            ? `It is matched to ${pending.others.map((o) => o.label).join(", ")}. Matching it here removes it from there, and that field will need another column.`
+            : undefined
+        }
+        confirmLabel="Move it here"
+        onConfirm={() => {
+          if (pending) {
+            commit(pending.value, pending.others);
+            // Only the field the column was taken from flashes: it now needs a new column.
+            flash(pending.others.map((o) => o.key));
+          }
+          setPending(null);
+        }}
+      />
     </li>
   );
 }
