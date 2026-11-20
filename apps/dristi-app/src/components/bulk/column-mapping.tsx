@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeftRightIcon, CheckIcon, ChevronDownIcon } from "lucide-react";
+import { ArrowLeftRightIcon, CheckIcon, ChevronDownIcon, PlusIcon } from "lucide-react";
 
 import {
   columnFit,
@@ -30,7 +30,6 @@ import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Combobox,
   ComboboxCollection,
@@ -101,78 +100,10 @@ const SAID_BY_SECTION: Partial<Record<GroupId, string>> = {
 
 const REPEATING = GROUPS.filter((g) => g.repeats && !g.parent);
 
-/**
- * How many of each repeating section a case holds (BLK-38c), as one line that edits in
- * place: "1 accused · 2 cheques · 1 demand notice". Each number is a quiet select. It heads
- * the page because it decides which sections exist below.
- */
-function PerCase({ props, instances }: { props: Props; instances: Record<GroupId, Instance[]> }) {
-  return (
-    <Card variant="raised" className="flex-row flex-wrap items-center gap-x-6 gap-y-1 px-6 py-2">
-      <h2 className="text-body-compact font-medium text-muted-foreground">Per case</h2>
-      <ul className="-ml-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-        {REPEATING.map((g) => {
-          const n = instances[g.id].length;
-          const floor = g.always ? 1 : 0;
-          const noun = NOUN[g.id] ?? [g.label, g.label];
-          const choices = Array.from({ length: Math.max(n + 3, 5) - floor + 1 }, (_, j) => floor + j);
-          return (
-            <li key={g.id}>
-              <Select value={String(n)} onValueChange={(v) => props.onCounts({ ...props.counts, [g.id]: Number(v) })}>
-                <SelectTrigger
-                  aria-label={`How many ${noun[1]}`}
-                  className="gap-1.5 border-transparent bg-transparent px-2 text-body-compact shadow-none hover:bg-accent dark:bg-transparent [&_svg]:opacity-60"
-                >
-                  <SelectValue>
-                    <span className="font-semibold tabular-nums">{n}</span> {noun[n === 1 ? 0 : 1]}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent position="popper" className="min-w-24">
-                  {choices.map((c) => (
-                    <SelectItem key={c} value={String(c)} className="text-body-compact tabular-nums">
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
-  );
-}
-
 /** The choice that leaves a field to each case. */
 const NONE = "none";
 export const SKIP = "Fill in each case later";
 const SKIP_OPTION = "Not in my file — fill in each case later";
-
-/** A sheet column as an option: its name, then its first value, muted as in the row's preview; "In use" if another field reads it. */
-function ColumnOption({
-  name,
-  sample,
-  usedFor = [],
-}: {
-  name: string;
-  sample: string;
-  usedFor?: string[];
-}) {
-  return (
-    <span className="flex w-full min-w-0 items-center gap-3">
-      <span className="max-w-[55%] shrink-0 truncate font-medium">{name}</span>
-      <span className="min-w-0 flex-1 truncate text-body-compact text-muted-foreground tabular-nums">
-        {sample || "empty"}
-      </span>
-      {/* A column can feed two fields, so it stays pickable; picking it asks first. */}
-      {usedFor.length ? (
-        <span className="shrink-0 text-body-compact text-muted-foreground" title={`Used for ${usedFor.join(", ")}`}>
-          In use<span className="sr-only">, for {usedFor.join(", ")}</span>
-        </span>
-      ) : null}
-    </span>
-  );
-}
 
 /** Which fields each sheet column already feeds, by column number. */
 type Use = { label: string; key: string };
@@ -218,7 +149,6 @@ function ColumnPicker({
   tone?: "open" | "set" | "later";
   onPick: (value: string) => void;
 }) {
-  const used = React.useContext(UsedContext);
   const anchor = useComboboxAnchor();
   const groups = React.useMemo<PickGroup[]>(
     () =>
@@ -226,7 +156,7 @@ function ColumnPicker({
         { value: "later", label: "", items: [{ value: NONE, name: SKIP_OPTION, kind: "none" } as PickOption] },
         {
           value: "columns",
-          label: "Columns in your file",
+          label: "",
           items: headers.map((h, k): PickOption => ({
             value: String(k),
             name: h || `Column ${k + 1}`,
@@ -298,7 +228,7 @@ function ColumnPicker({
       <ComboboxContent
         anchor={anchor}
         sideOffset={4}
-        className="w-90! max-w-(--available-width) overflow-x-hidden"
+        className="min-w-(--anchor-width) overflow-x-hidden"
       >
         <ComboboxEmpty>No column matches</ComboboxEmpty>
         <ComboboxList className="overflow-x-hidden overscroll-x-none">
@@ -320,17 +250,7 @@ function ColumnPicker({
                     // Room for the tick only on the chosen option; the rest use the full width.
                     className="pr-2.5 text-body-compact aria-selected:pr-8"
                   >
-                    {o.kind === "column" ? (
-                      <ColumnOption
-                        name={o.name}
-                        sample={o.sample ?? ""}
-                        usedFor={o.value === value ? [] : (used[Number(o.value)] ?? []).map((u) => u.label)}
-                      />
-                    ) : o.kind === "every" ? (
-                      <span>{o.name}</span>
-                    ) : (
-                      <span>{o.name}</span>
-                    )}
+                    <span className="min-w-0 truncate">{o.name}</span>
                   </ComboboxItem>
                 )}
               </ComboboxCollection>
@@ -491,71 +411,97 @@ export function focusNextToMatch(within?: string) {
 }
 
 /**
- * A section's panel: its name over the column labels, then its fields. A field's name drops
- * what the section's name says ("Date" under "Cheque 2").
+ * A section's panel. At rest it lists only the fields that need the filer: not matched yet,
+ * or matched to a column whose values do not fit. Fields matched by name fold into one line
+ * ("5 matched") that opens them to check or change. A field answered here stays in place,
+ * quiet, so rows never jump away under the filer's hand.
  */
 function SectionPanel({
   section,
   props,
   samples,
   firsts,
+  onRemove,
 }: {
   section: Section;
   props: Props;
   samples: string[][];
   firsts: string[];
+  /** A section the filer can take away (the last cheque, a witness): its Remove. */
+  onRemove?: () => void;
 }) {
-  const [open, setOpen] = React.useState(false);
   const titleId = React.useId();
-  const required = section.slots.filter((x) => x.required).length;
-  const optional = section.slots.length - required;
-  // A section the file brought only optional fields for shows them; the rest keep them behind one button.
-  const shown = required ? section.slots.filter((x) => x.required || open) : section.slots;
-  const holds = shown.some((x) => {
-    const src = sourceFor(x.c, x.i, props.map, props.headers);
-    return typeof src === "number" && samples[src]?.length;
+  const required = section.slots.filter((x) => x.required);
+  const optional = section.slots.filter((x) => !x.required);
+  const stateOfKey = new Map(section.slots.map((x) => [x.key, stateOf(x, props).state]));
+  const needs = required.filter((x) => {
+    const st = stateOfKey.get(x.key);
+    return st === "todo" || st === "warn";
   });
+  const todo = required.filter((x) => stateOfKey.get(x.key) === "todo").length;
+  // Rows that needed the filer at any point stay shown once answered.
+  const [kept, setKept] = React.useState<Set<string>>(() => new Set(needs.map((x) => x.key)));
+  const missing = needs.filter((x) => !kept.has(x.key));
+  if (missing.length) setKept(new Set([...kept, ...missing.map((x) => x.key)]));
+  const [showAll, setShowAll] = React.useState(false);
+
+  const onlyOptional = required.length === 0;
+  const folded = required.filter((x) => !kept.has(x.key));
+  const shown = onlyOptional
+    ? section.slots
+    : [...required.filter((x) => showAll || kept.has(x.key)), ...(showAll ? optional : [])];
+  const later = folded.filter((x) => stateOfKey.get(x.key) === "later").length;
+  const matched = folded.length - later;
+  const foldLabel = [
+    matched ? `${matched} matched` : "",
+    later ? `${later} to fill per case` : "",
+    optional.length ? `${optional.length} optional` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <section id={sectionDomId(section.id)} aria-labelledby={titleId} className="scroll-mt-(--map-top)">
       <Card variant="raised" className="gap-0 px-6 py-0">
-        <div className={cn(ROW, "border-b border-hairline pt-5 pb-3 max-sm:pb-2")}>
+        <div className={cn("flex min-h-14 items-center justify-between gap-4 pt-1", shown.length && "border-b border-hairline")}>
           <h2 id={titleId} className="text-body font-semibold">
             {section.title}
           </h2>
-          <span aria-hidden className="hidden pl-3 text-body-compact font-medium text-muted-foreground sm:block">
-            Your column
-          </span>
-          {holds ? (
-            <span aria-hidden className="hidden text-body-compact font-medium text-muted-foreground sm:block">
-              Holds
-            </span>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {todo ? (
+              <span className="text-body-compact text-muted-foreground tabular-nums">{todo} to match</span>
+            ) : null}
+            {onRemove ? (
+              <Button variant="ghost" className="-mr-3 h-10 px-3 text-body-compact font-normal" onClick={onRemove}>
+                Remove
+              </Button>
+            ) : null}
+          </div>
         </div>
-        <ul className="flex flex-col divide-y divide-hairline">
-          {shown.map((x) => (
-            <FieldRow
-              key={x.key}
-              slot={x}
-              props={props}
-              samples={samples}
-              firsts={firsts}
-              fresh={open && !x.required}
-            />
-          ))}
-        </ul>
-        {required && optional ? (
-          <div className="border-t border-hairline py-2">
+        {shown.length ? (
+          <ul className="flex flex-col divide-y divide-hairline">
+            {shown.map((x) => (
+              <FieldRow
+                key={x.key}
+                slot={x}
+                props={props}
+                samples={samples}
+                firsts={firsts}
+                fresh={showAll && !kept.has(x.key)}
+              />
+            ))}
+          </ul>
+        ) : null}
+        {!onlyOptional && (folded.length || optional.length) ? (
+          <div className={cn("flex flex-wrap items-center gap-x-2 pb-2", shown.length ? "border-t border-hairline pt-2" : "-mt-2")}>
             <Button
               variant="ghost"
-              className="-ml-3 h-10 px-3 text-body-compact font-normal"
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
+              className="-ml-3 h-10 px-3 text-body-compact font-normal text-muted-foreground"
+              aria-expanded={showAll}
+              onClick={() => setShowAll((v) => !v)}
             >
-              {open ? "Hide optional fields" : `${optional} optional ${optional === 1 ? "field" : "fields"}`}
-              <ChevronDownIcon
-                aria-hidden
-                className={cn("text-muted-foreground transition-transform duration-200", open && "rotate-180")}
-              />
+              {showAll ? "Hide" : foldLabel}
+              <ChevronDownIcon aria-hidden className={cn("transition-transform duration-200", showAll && "rotate-180")} />
             </Button>
           </div>
         ) : (
@@ -619,55 +565,59 @@ function useActiveSection(ids: string[]) {
 }
 
 /**
- * The index beside the panels: the file being matched, then each section with what it still
- * waits on, a plain number, or a muted tick once nothing does. Clicking a section takes the
- * filer to its first open field, or to the section.
+ * The index beside the panels: the file being matched, then each section, with "3 to match"
+ * where the filer still has work, or a muted tick. The section in view is set in semibold
+ * with a bar beside it. Clicking a section takes the filer to its first open field.
  */
 function MapIndex({
   fileName,
   rows,
-  columns,
   sections,
   active,
   props,
 }: {
   fileName?: string;
   rows: number;
-  columns: number;
   sections: Section[];
   active: string | null;
   props: Props;
 }) {
   return (
-    <aside aria-label="Sections" className="hidden lg:sticky lg:top-(--map-top) lg:flex lg:flex-col lg:gap-4">
-      <div className="flex flex-col gap-0.5 px-3 pt-1">
-        {fileName ? <p className="truncate text-body-compact font-semibold" title={fileName}>{fileName}</p> : null}
+    <aside aria-label="Sections" className="hidden lg:sticky lg:top-(--map-top) lg:flex lg:flex-col lg:gap-5">
+      <div className="flex flex-col gap-0.5 pl-4">
+        {fileName ? (
+          <p className="truncate text-body-compact font-semibold" title={fileName}>
+            {fileName}
+          </p>
+        ) : null}
         <p className="text-body-compact text-muted-foreground tabular-nums">
-          {rows} {rows === 1 ? "case" : "cases"} · {columns} columns
+          {rows} {rows === 1 ? "case" : "cases"}
         </p>
       </div>
       <nav>
-        <ul className="flex flex-col gap-0.5">
+        <ul className="flex flex-col border-l border-hairline">
           {sections.map((s) => {
             const todo = s.slots.filter((x) => x.required && stateOf(x, props).state === "todo").length;
+            const here = active === s.id;
             return (
-              <li key={s.id}>
-                <Button
-                  variant="ghost"
-                  aria-current={active === s.id ? "location" : undefined}
+              <li key={s.id} className="relative">
+                {here ? <span aria-hidden className="absolute inset-y-1.5 -left-px w-0.5 rounded-full bg-foreground" /> : null}
+                <button
+                  type="button"
+                  aria-current={here ? "location" : undefined}
                   onClick={() => focusNextToMatch(s.id)}
-                  className="h-auto min-h-10 w-full justify-between gap-3 border border-transparent px-3 py-2 text-left text-body-compact font-normal whitespace-normal hover:bg-card/60 aria-[current=location]:border-hairline aria-[current=location]:bg-card aria-[current=location]:font-medium"
+                  className={cn(
+                    "flex min-h-10 w-full items-center justify-between gap-3 rounded-r-md py-2 pr-2 pl-4 text-left text-body-compact transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+                    here ? "font-semibold text-foreground" : "text-muted-foreground",
+                  )}
                 >
                   <span className="min-w-0">{s.title}</span>
                   {todo ? (
-                    <span className="shrink-0 text-muted-foreground tabular-nums">
-                      {todo}
-                      <span className="sr-only"> to match</span>
-                    </span>
+                    <span className="shrink-0 font-normal text-muted-foreground tabular-nums">{todo} to match</span>
                   ) : (
                     <CheckIcon aria-label="Done" className="size-4 shrink-0 text-muted-foreground" />
                   )}
-                </Button>
+                </button>
               </li>
             );
           })}
@@ -677,17 +627,40 @@ function MapIndex({
   );
 }
 
+/** "Add a section": one more of a repeating section, for a file that holds more than its columns say (BLK-38c). */
+function AddSections({ instances, props }: { instances: Record<GroupId, Instance[]>; props: Props }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-1 gap-y-2 px-2">
+      <span className="pr-2 text-body-compact text-muted-foreground">Add</span>
+      {REPEATING.map((g) => {
+        const n = instances[g.id].length;
+        const noun = NOUN[g.id]?.[0] ?? g.label;
+        return (
+          <Button
+            key={g.id}
+            variant="ghost"
+            className="h-10 px-3 text-body-compact font-normal"
+            onClick={() => props.onCounts({ ...props.counts, [g.id]: n + 1 })}
+          >
+            <PlusIcon aria-hidden className="text-muted-foreground" />
+            {noun.charAt(0).toUpperCase() + noun.slice(1)}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
- * Match columns (BLK-38): an index of the case's sections beside one panel per section,
- * each court field with the column of the filer's file that holds it and a few of that
- * column's values. A column whose name is the field's (or a known alias) arrives chosen
- * and reads as a quiet statement; a field still open is the one bordered control on its
- * row. What is left shows in the index and the footer.
+ * Match columns (BLK-38): an index of the case's sections beside one panel per section.
+ * Each panel shows only the fields that need the filer; fields matched by their column's
+ * name fold into one line to check. The file's numbered columns decide how many cheques or
+ * accused a case has; a section can be removed, or another added, where that is wrong.
  */
 export function ColumnMapping(props: Props) {
   const instances = React.useMemo(() => instancesIn(props.headers, props.counts), [props.headers, props.counts]);
   const slots = React.useMemo(() => mappingSlots(props.headers, props.counts, true), [props.headers, props.counts]);
-  // What each sheet column already feeds, so the dropdown can say so.
+  // What each sheet column already feeds, so moving one can ask first.
   const used = React.useMemo(() => {
     const out: Record<number, Use[]> = {};
     for (const x of slots) {
@@ -714,23 +687,38 @@ export function ColumnMapping(props: Props) {
   const sections = React.useMemo(() => sectionsOf(slots), [slots]);
   const active = useActiveSection(sections.map((s) => s.id));
   const pinned = usePinned();
+  // The last of each repeating section, where a case can do with one fewer.
+  const removable = new Map<string, () => void>();
+  for (const g of REPEATING) {
+    const list = instances[g.id];
+    const floor = g.always ? 1 : 0;
+    if (list.length <= floor) continue;
+    const id = `${g.id}:${instanceKey(list[list.length - 1]) || "0"}`;
+    removable.set(id, () => props.onCounts({ ...props.counts, [g.id]: list.length - 1 }));
+  }
 
   return (
     <UsedContext.Provider value={used}>
-      <div style={pinned} className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
+      <div style={pinned} className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
         <MapIndex
           fileName={props.fileName}
           rows={props.rows.length}
-          columns={props.headers.length}
           sections={sections}
           active={active}
           props={props}
         />
-        <div className="flex min-w-0 flex-col gap-6">
-          <PerCase props={props} instances={instances} />
+        <div className="flex min-w-0 flex-col gap-4">
           {sections.map((s) => (
-            <SectionPanel key={s.id} section={s} props={props} samples={samples} firsts={firsts} />
+            <SectionPanel
+              key={s.id}
+              section={s}
+              props={props}
+              samples={samples}
+              firsts={firsts}
+              onRemove={removable.get(s.id)}
+            />
           ))}
+          <AddSections instances={instances} props={props} />
         </div>
       </div>
     </UsedContext.Provider>
