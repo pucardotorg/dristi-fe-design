@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeftRightIcon, CheckIcon, ChevronDownIcon, PlusIcon } from "lucide-react";
+import { ArrowLeftRightIcon, CheckIcon, ChevronDownIcon, FileSpreadsheetIcon, PlusIcon } from "lucide-react";
 
 import {
   columnFit,
@@ -429,7 +429,7 @@ function sectionsOf(slots: Slot[]): Section[] {
   return out;
 }
 
-const sectionDomId = (id: string) => `map-section-${id.replace(/[^a-z0-9]/gi, "-")}`;
+export const sectionDomId = (id: string) => `map-section-${id.replace(/[^a-z0-9]/gi, "-")}`;
 
 /** A field's picker, by its column and instance. */
 const pickerDomId = (key: string, i: Instance) => `map-${key}-${instanceKey(i) || "0"}`;
@@ -599,7 +599,7 @@ function pinnedBottom(): number {
   return (parseFloat(getComputedStyle(steps).top) || bar) + steps.offsetHeight;
 }
 
-function usePinned() {
+export function usePinned() {
   const [top, setTop] = React.useState(0);
   React.useEffect(() => {
     const measure = () => setTop(Math.round(pinnedBottom()));
@@ -617,7 +617,7 @@ function usePinned() {
 }
 
 /** The section the filer is reading: the last whose top has passed a third of the way down the window. */
-function useActiveSection(ids: string[]) {
+export function useActiveSection(ids: string[]) {
   const [active, setActive] = React.useState<string | null>(ids[0] ?? null);
   const key = ids.join("|");
   React.useEffect(() => {
@@ -642,10 +642,86 @@ function useActiveSection(ids: string[]) {
 }
 
 /**
- * The index beside the panels: the file being matched, then each section, with "3 to match"
- * where the filer still has work, or a muted tick. The section in view is set in semibold
- * with a bar beside it. Clicking a section takes the filer to its first open field.
+ * The head of a matching step's index: the file being matched, set on a spreadsheet tile so
+ * the index reads as anchored to that file rather than floating on the canvas.
  */
+export function IndexHead({ fileName, rows }: { fileName?: string; rows: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span
+        aria-hidden
+        className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-hairline bg-card text-muted-foreground shadow-xs"
+      >
+        <FileSpreadsheetIcon className="size-5" />
+      </span>
+      <div className="flex min-w-0 flex-col">
+        {fileName ? (
+          <p className="truncate text-body-compact font-semibold" title={fileName}>
+            {fileName}
+          </p>
+        ) : null}
+        <p className="text-body-compact text-muted-foreground tabular-nums">
+          {rows} {rows === 1 ? "case" : "cases"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The index's list: each section with what it still needs as a plain number, or a muted
+ * tick. The section in view is semibold with a bar on the rail.
+ */
+export function IndexList({
+  items,
+  active,
+  label,
+  onPick,
+}: {
+  items: { id: string; title: string; left: number }[];
+  active: string | null;
+  /** What a number counts, for assistive tech: "to match". */
+  label: string;
+  onPick: (id: string) => void;
+}) {
+  return (
+    <nav aria-label="Sections">
+      {/* The rail runs on from the tile's centre line, so the file branches into its sections;
+          each section's name starts where the file's name does. */}
+      <ul className="ml-5 flex flex-col border-l border-hairline pt-2">
+        {items.map((s) => {
+          const here = active === s.id;
+          return (
+            <li key={s.id} className="relative">
+              {here ? <span aria-hidden className="absolute inset-y-1.5 -left-px w-0.5 rounded-full bg-foreground" /> : null}
+              <button
+                type="button"
+                aria-current={here ? "location" : undefined}
+                onClick={() => onPick(s.id)}
+                className={cn(
+                  "flex min-h-10 w-full items-center justify-between gap-3 rounded-r-md py-2 pr-2 pl-8 text-left text-body-compact transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+                  here ? "font-semibold text-foreground" : "text-muted-foreground",
+                )}
+              >
+                <span className="min-w-0">{s.title}</span>
+                {s.left ? (
+                  <span className="shrink-0 font-normal text-muted-foreground tabular-nums">
+                    {s.left}
+                    <span className="sr-only"> {label}</span>
+                  </span>
+                ) : (
+                  <CheckIcon aria-label="Done" className="size-4 shrink-0 text-muted-foreground" />
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/** Match columns' index: the file, then each section with the fields it still needs. */
 function MapIndex({
   fileName,
   rows,
@@ -660,49 +736,18 @@ function MapIndex({
   props: Props;
 }) {
   return (
-    <aside aria-label="Sections" className="hidden lg:sticky lg:top-(--map-top) lg:flex lg:flex-col lg:gap-5">
-      <div className="flex flex-col gap-0.5 pl-4">
-        {fileName ? (
-          <p className="truncate text-body-compact font-semibold" title={fileName}>
-            {fileName}
-          </p>
-        ) : null}
-        <p className="text-body-compact text-muted-foreground tabular-nums">
-          {rows} {rows === 1 ? "case" : "cases"}
-        </p>
-      </div>
-      <nav>
-        <ul className="flex flex-col border-l border-hairline">
-          {sections.map((s) => {
-            const todo = s.slots.filter((x) => x.required && stateOf(x, props).state === "todo").length;
-            const here = active === s.id;
-            return (
-              <li key={s.id} className="relative">
-                {here ? <span aria-hidden className="absolute inset-y-1.5 -left-px w-0.5 rounded-full bg-foreground" /> : null}
-                <button
-                  type="button"
-                  aria-current={here ? "location" : undefined}
-                  onClick={() => focusNextToMatch(s.id)}
-                  className={cn(
-                    "flex min-h-10 w-full items-center justify-between gap-3 rounded-r-md py-2 pr-2 pl-4 text-left text-body-compact transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
-                    here ? "font-semibold text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <span className="min-w-0">{s.title}</span>
-                  {todo ? (
-                    <span className="shrink-0 font-normal text-muted-foreground tabular-nums">
-                      {todo}
-                      <span className="sr-only"> to match</span>
-                    </span>
-                  ) : (
-                    <CheckIcon aria-label="Done" className="size-4 shrink-0 text-muted-foreground" />
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+    <aside aria-label="Sections" className="hidden lg:sticky lg:top-(--map-top) lg:flex lg:flex-col">
+      <IndexHead fileName={fileName} rows={rows} />
+      <IndexList
+        label="to match"
+        active={active}
+        onPick={(id) => focusNextToMatch(id)}
+        items={sections.map((s) => ({
+          id: s.id,
+          title: s.title,
+          left: s.slots.filter((x) => x.required && stateOf(x, props).state === "todo").length,
+        }))}
+      />
     </aside>
   );
 }
@@ -842,6 +887,11 @@ type Slot = {
   section: string;
   sectionTitle: string;
 };
+
+/** The case's sections and fields as the case preview reads them (optional fields included). */
+export function previewSections(headers: string[], counts: InstanceCounts) {
+  return sectionsOf(mappingSlots(headers, counts, true));
+}
 
 /** Every field the file can fill, section by section, in the single filing's order. */
 function mappingSlots(headers: string[], counts: InstanceCounts, optional: boolean): Slot[] {
