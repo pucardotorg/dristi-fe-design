@@ -81,56 +81,48 @@ export function ValuesProgress({
   );
 }
 
-/** For one list: the court fields that use it, and how many cases use each word. */
-function listUse(l: ListName, props: Props) {
+/**
+ * One court field whose answers come from a fixed list, with the words of the filer's file
+ * it holds that the list does not know, and how many cases use each. One panel each:
+ * "Notice delivered" holds DLVD and RTO, "Accused replied" holds Y and N. A word two fields
+ * share (Y) is one choice for its list, so choosing it in one panel settles it in both.
+ */
+type FieldWords = { key: string; title: string; list: ListName; words: string[]; cases: Map<string, number>; columns: string[] };
+
+function fieldGroups(props: Props): FieldWords[] {
   const { headers, rows } = props.book.cases;
   const instances = instancesIn(headers, props.counts);
-  const fields: string[] = [];
-  const columns: number[] = [];
-  for (const c of COLUMNS.filter((x) => x.list === l)) {
+  const out: FieldWords[] = [];
+  for (const c of COLUMNS) {
+    if (!c.list || !props.unknown[c.list]?.length) continue;
+    const unknown = new Set(props.unknown[c.list]);
+    const cols: number[] = [];
     for (const i of instances[c.group]) {
       const src = sourceFor(c, i, props.map, headers);
-      if (typeof src !== "number") continue;
-      if (!fields.includes(c.header)) fields.push(c.header);
-      if (!columns.includes(src)) columns.push(src);
+      if (typeof src === "number" && !cols.includes(src)) cols.push(src);
     }
-  }
-  const cases = new Map<string, number>();
-  for (const row of rows) {
-    const here = new Set<string>();
-    for (const k of columns) {
-      const w = row[k]?.trim();
-      if (w) here.add(w);
+    if (!cols.length) continue;
+    const cases = new Map<string, number>();
+    for (const row of rows) {
+      const here = new Set(cols.map((k) => row[k]?.trim() ?? "").filter((w) => w && unknown.has(w)));
+      for (const w of here) cases.set(w, (cases.get(w) ?? 0) + 1);
     }
-    for (const w of here) cases.set(w, (cases.get(w) ?? 0) + 1);
+    if (!cases.size) continue;
+    out.push({
+      key: c.key,
+      title: c.header,
+      list: c.list,
+      // The most used first: they settle the most cases.
+      words: [...cases.keys()].sort((x, y) => cases.get(y)! - cases.get(x)!),
+      cases,
+      columns: cols.map((k) => headers[k] || `Column ${k + 1}`),
+    });
   }
-  return { fields, cases, columns: columns.map((k) => headers[k] || `Column ${k + 1}`) };
+  return out;
 }
-
-/** A list's name where it answers several fields: "Yes or no" for five yes/no questions. */
-const LIST_NAME: Partial<Record<ListName, string>> = {
-  yesNo: "Yes or no",
-  accusedType: "Accused type",
-  accusedEntity: "Institution type",
-  returnReason: "Return reason",
-  natureOfDebt: "Nature of debt",
-  modeOfService: "Mode of service",
-  nonDelivery: "Reason for non-delivery",
-  payment: "Payment after notice",
-};
-
-/**
- * A panel's title that holds at any scale: the field's name when the list answers one
- * field, else the list's own name; the fields themselves go in the line after it.
- */
-const listTitle = (l: ListName, fields: string[]) =>
-  fields.length === 1 ? fields[0] : (LIST_NAME[l] ?? (join(fields) || l));
 
 /** The file's columns behind a field, two at most and a count for the rest. */
 const capped = (cols: string[]) => (cols.length > 2 ? `${cols.slice(0, 2).join(", ")} +${cols.length - 2}` : cols.join(", "));
-
-const join = (xs: string[]) =>
-  xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
 
 /**
  * Match values (BLK-39): every word of the filer's file that a court list does not know,
@@ -139,8 +131,6 @@ const join = (xs: string[]) =>
  * arrives matched by its name on Match columns; every choice stays in plain view to change.
  */
 export function ValueMapping(props: Props) {
-  const lists = (Object.keys(props.unknown) as ListName[]).filter((l) => props.unknown[l]?.length);
-
   // Fill each open word with the option it plainly reads as, once per word: a word the
   // filer has answered is never touched.
   const { unknown, values, onChange } = props;
@@ -158,14 +148,14 @@ export function ValueMapping(props: Props) {
     if (next) onChange(next);
   }, [unknown, values, onChange]);
 
-  const active = useActiveSection(lists);
+  const groups = fieldGroups(props);
+  const active = useActiveSection(groups.map((g) => g.key));
   const pinned = usePinned();
   const preview = props.previewOpen ?? false;
   const sections = React.useMemo(
     () => previewSections(props.book.cases.headers, props.counts),
     [props.book.cases.headers, props.counts],
   );
-  const titleOf = (l: ListName) => listTitle(l, listUse(l, props).fields);
 
   return (
     <>
@@ -179,15 +169,15 @@ export function ValueMapping(props: Props) {
               <IndexCard fileName={props.fileName} rows={props.book.cases.rows.length}>
               {/* The file always heads the column, so the panels stand where they stood on Match
                   columns; the list only when there is more than one field to move between. */}
-              {lists.length > 1 ? (
+              {groups.length > 1 ? (
               <IndexList
                 label="to choose"
                 active={active}
                 onPick={(id) => focusNextToChoose(id)}
-                items={lists.map((l) => ({
-                  id: l,
-                  title: titleOf(l),
-                  left: props.unknown[l]!.filter((w) => !values[l]?.[w]).length,
+                items={groups.map((g) => ({
+                  id: g.key,
+                  title: g.title,
+                  left: g.words.filter((w) => !values[g.list]?.[w]).length,
                 }))}
               />
               ) : null}
@@ -195,14 +185,12 @@ export function ValueMapping(props: Props) {
             </aside>
           )}
           <div className="flex min-w-0 flex-col gap-4">
-            {lists.map((l) => (
-              <ListGroup
-                key={l}
-                list={l}
-                words={props.unknown[l]!}
-                use={listUse(l, props)}
-                chosen={props.values[l] ?? {}}
-                onPick={(w, v) => onChange({ ...values, [l]: { ...(values[l] ?? {}), [w]: v } })}
+            {groups.map((g) => (
+              <FieldGroup
+                key={g.key}
+                group={g}
+                chosen={values[g.list] ?? {}}
+                onPick={(w, v) => onChange({ ...values, [g.list]: { ...(values[g.list] ?? {}), [w]: v } })}
               />
             ))}
           </div>
@@ -236,55 +224,45 @@ function focusNextToChoose(list: string) {
 const ROW =
   "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,12.5rem)_minmax(0,17.5rem)_minmax(0,1fr)] sm:items-center sm:gap-x-6";
 
-function ListGroup({
-  list,
-  words,
-  use,
+function FieldGroup({
+  group,
   chosen,
   onPick,
 }: {
-  list: ListName;
-  words: string[];
-  use: ReturnType<typeof listUse>;
+  group: FieldWords;
   chosen: Record<string, string>;
   onPick: (word: string, value: string) => void;
 }) {
   const titleId = React.useId();
-  // The most used first: they settle the most cases.
-  const sorted = [...words].sort((a, b) => (use.cases.get(b) ?? 0) - (use.cases.get(a) ?? 0));
+  const left = group.words.filter((w) => !chosen[w]).length;
   return (
-    <section id={sectionDomId(list)} aria-labelledby={titleId} className="scroll-mt-(--map-top)">
-    <Card variant="raised" className="gap-0 px-6 py-0">
-      <div className="flex min-h-14 items-center justify-between gap-4 border-b border-hairline pt-1">
-        <h2 id={titleId} className="min-w-0 text-body font-semibold">
-          {listTitle(list, use.fields)}
-          <span
-            className="text-body-compact font-normal text-muted-foreground"
-            title={use.fields.length > 1 ? join(use.fields) : use.columns.join(", ")}
-          >
-            {" · "}
-            {use.fields.length > 1 ? `${use.fields.length} fields` : capped(use.columns)}
-          </span>
-        </h2>
-        {words.filter((w) => !chosen[w]).length ? (
-          <span className="shrink-0 text-body-compact text-muted-foreground tabular-nums">
-            {words.filter((w) => !chosen[w]).length} to choose
-          </span>
-        ) : null}
-      </div>
-      <ul className="flex flex-col divide-y divide-hairline pb-2">
-        {sorted.map((w) => (
-          <WordRow
-            key={w}
-            list={list}
-            word={w}
-            cases={use.cases.get(w) ?? 0}
-            value={chosen[w] ?? ""}
-            onPick={(v) => onPick(w, v)}
-          />
-        ))}
-      </ul>
-    </Card>
+    <section id={sectionDomId(group.key)} aria-labelledby={titleId} className="scroll-mt-(--map-top)">
+      <Card variant="raised" className="gap-0 px-6 py-0">
+        <div className="flex min-h-14 items-center justify-between gap-4 border-b border-hairline pt-1">
+          <h2 id={titleId} className="min-w-0 text-body font-semibold">
+            {group.title}
+            <span className="text-body-compact font-normal text-muted-foreground" title={group.columns.join(", ")}>
+              {" · "}
+              {capped(group.columns)}
+            </span>
+          </h2>
+          {left ? (
+            <span className="shrink-0 text-body-compact text-muted-foreground tabular-nums">{left} to choose</span>
+          ) : null}
+        </div>
+        <ul className="flex flex-col divide-y divide-hairline pb-2">
+          {group.words.map((w) => (
+            <WordRow
+              key={w}
+              list={group.list}
+              word={w}
+              cases={group.cases.get(w) ?? 0}
+              value={chosen[w] ?? ""}
+              onPick={(v) => onPick(w, v)}
+            />
+          ))}
+        </ul>
+      </Card>
     </section>
   );
 }
