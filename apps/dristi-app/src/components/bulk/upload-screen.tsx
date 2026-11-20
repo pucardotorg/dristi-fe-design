@@ -39,7 +39,7 @@ import {
   type ValueMap,
   type Workbookish,
 } from "@/lib/bulk/excel";
-import { LISTS, matchTemplateHeader, type ListName } from "@/lib/bulk/excel-spec";
+import { matchTemplateHeader, type ListName } from "@/lib/bulk/excel-spec";
 import { useSetupKeeper } from "./setup-keeper";
 import { uploadAgainFor } from "@/lib/bulk/setup-repository";
 import { money } from "@/lib/filing/format";
@@ -58,10 +58,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -71,7 +67,8 @@ import { FilingFooter } from "@/components/filing/filing-footer";
 import { FilingPageHeader } from "@/components/filing/filing-page-header";
 import { FilingMain } from "@/components/filing/filing-shell";
 
-import { ColumnMapping, mappingLeft } from "./column-mapping";
+import { ColumnMapping, MAP_INTRO, mappingLeft } from "./column-mapping";
+import { ValueMapping, VALUES_INTRO, VALUES_TITLE, valuesTally } from "./value-mapping";
 import { useGujarat } from "./court-guard";
 import {
   defaultFormat,
@@ -230,19 +227,6 @@ function ReadingCard({ rows }: { rows: ReadingRow[] }) {
 
 /** Case documents, as opposed to a sheet. */
 const DOC = /\.(docx|pdf|txt)$/i;
-
-const LIST_TITLE: Record<ListName, string> = {
-  complainantEntity: "Complainant institution type",
-  gender: "Gender",
-  yesNo: "Yes / No",
-  accusedType: "Accused type",
-  accusedEntity: "Accused institution type",
-  returnReason: "Return reason",
-  natureOfDebt: "Nature of debt",
-  modeOfService: "Mode of service",
-  nonDelivery: "Reason for non-delivery",
-  payment: "Payment after notice",
-};
 
 /** What Create sends: the rows that can be cases, the batch's parties and its facts. */
 function makeRequest({
@@ -505,6 +489,7 @@ export function UploadScreen() {
   const valuesDone = unknownLists.every((l) =>
     unknown[l]!.every((v) => values[l]?.[v]),
   );
+  const valuesLeft = valuesTally(unknown, values).left;
 
   // Required fields Match columns still waits on (a column, or "fill in each case later").
   const mapLeft = book && !(template || docs) ? mappingLeft(book.cases.headers, map, counts, later) : 0;
@@ -533,8 +518,11 @@ export function UploadScreen() {
   const matchColumns = FORMAT_STEPS[ownPath ? "own" : "template"].includes("Match columns");
   // Values the committed file brings outside the lists add Match values to any path; a file
   // still on the Excel file step has not been matched yet, so it shows its path's own steps.
+  // On the own path it stays listed until the columns are matched (the card promised six
+  // steps); after that, only when the file's words need translating, so the rail never
+  // offers an empty step.
   const matchValues =
-    FORMAT_STEPS[ownPath ? "own" : "template"].includes("Match values") ||
+    (FORMAT_STEPS[ownPath ? "own" : "template"].includes("Match values") && (step === "file" || step === "map")) ||
     (!(step === "file" && check) && unknownLists.length > 0);
   React.useEffect(() => {
     report({ read: !!book, matchColumns, matchValues, documents: docs, format });
@@ -904,7 +892,7 @@ export function UploadScreen() {
         <FilingMain width="wide">
           <FilingPageHeader
             title="Match columns"
-            description={`${fileName} uses its own layout. Choose the column for each field, or fill it in each case later.`}
+            description={MAP_INTRO}
           />
           {errorNotice}
           <ColumnMapping
@@ -929,7 +917,7 @@ export function UploadScreen() {
             ) : undefined
           }
           continueBlocked={mapLeft > 0}
-          continueHint={mapLeft ? "Choose a column, or Fill in each case later, for each field" : undefined}
+          continueHint={mapLeft ? "Choose a column, or Not in my file, for each field" : undefined}
           onContinue={mapLeft ? undefined : () => setStep(unknownLists.length ? "values" : "facts")}
         />
       </>
@@ -939,55 +927,28 @@ export function UploadScreen() {
     return (
       <>
         <FilingMain>
-          <FilingPageHeader
-            title="Match values"
-            description="These values aren't in the court's lists. Choose what each means; every row with it changes too."
-          />
+          <FilingPageHeader title={VALUES_TITLE} description={VALUES_INTRO} />
           {errorNotice}
-          {unknownLists.map((l) => (
-            <Card key={l} variant="raised" >
-              <CardHeader>
-                <CardTitle className="text-body font-semibold">{LIST_TITLE[l]}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                {unknown[l]!.map((raw) => (
-                  <Field
-                    key={raw}
-                    orientation="horizontal"
-                    className="flex-col gap-1.5 sm:flex-row sm:items-center"
-                  >
-                    <FieldLabel htmlFor={`v-${l}-${raw}`} className="sm:w-56">
-                      &ldquo;{raw}&rdquo;
-                    </FieldLabel>
-                    <NativeSelect
-                      id={`v-${l}-${raw}`}
-                      value={values[l]?.[raw] ?? ""}
-                      onChange={(e) =>
-                        setValues((v) => ({
-                          ...v,
-                          [l]: { ...(v[l] ?? {}), [raw]: e.target.value },
-                        }))
-                      }
-                    >
-                      <NativeSelectOption value="">Choose</NativeSelectOption>
-                      {LISTS[l].map((o) => (
-                        <NativeSelectOption key={o.value} value={o.value}>
-                          {o.label}
-                        </NativeSelectOption>
-                      ))}
-                    </NativeSelect>
-                  </Field>
-                ))}
-              </CardContent>
-            </Card>
-          ))}
+          <ValueMapping
+            book={book}
+            map={map}
+            counts={counts}
+            unknown={unknown}
+            values={values}
+            onChange={setValues}
+          />
         </FilingMain>
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep(template ? "file" : "map")}
+          status={
+            valuesLeft ? (
+              <span className="text-body-compact text-muted-foreground tabular-nums">{valuesLeft} still to translate</span>
+            ) : undefined
+          }
           onContinue={() => setStep("facts")}
           continueBlocked={!valuesDone}
-          continueHint="Choose what each value means first."
+          continueHint="Choose what each word means first."
         />
       </>
     );
