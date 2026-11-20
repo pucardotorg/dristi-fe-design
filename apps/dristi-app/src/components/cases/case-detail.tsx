@@ -26,6 +26,7 @@ import {
 } from "@/components/cases/case-section-tabs";
 import { hearingRecords } from "@/lib/cases/hearing-record";
 import { parseCaseFileDoc, parseCaseFileView } from "@/lib/cases/case-file";
+import { caseFileFormatDoc } from "@/lib/cases/case-file-format";
 import {
   complaintTree,
   parseComplaintPart,
@@ -76,7 +77,8 @@ export function CaseDetail({
   const caseId = record.id;
 
   const section = parseCaseSection(searchParams.section);
-  const docId = parseCaseFileDoc(searchParams.doc);
+  const docId =
+    caseFileFormatDoc(searchParams.doc) ?? parseCaseFileDoc(searchParams.doc);
   const view = parseCaseFileView(searchParams.view);
   const partId = parseComplaintPart(
     searchParams.part,

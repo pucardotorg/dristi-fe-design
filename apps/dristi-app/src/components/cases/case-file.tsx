@@ -39,11 +39,11 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   ancestorIds,
-  CASE_FILE_TREE,
   caseFileDocHref,
   caseFilePdfSrc,
   fileNumberLabel,
   findNode,
+  firstLeaf,
   isCaseFileFolder,
   type CaseFileNode,
   type CaseFileView,
@@ -52,7 +52,13 @@ import {
   caseFileDigitalPane,
   caseFileRegisterDocumentId,
 } from "@/lib/cases/case-file-digital";
+import {
+  caseFileBaseId,
+  caseFileTree,
+  isMarkableCaseFileDoc,
+} from "@/lib/cases/case-file-format";
 import { useSessionValue } from "@/lib/cases/demo-session";
+import { useCourt } from "@/components/court/court-provider";
 import { documentsFile } from "@/lib/cases/documents";
 import {
   evidenceMarksKey,
@@ -111,37 +117,7 @@ export function CaseFile({
   view: CaseFileView;
 }) {
   const router = useCaseRouter();
-  const selected = findNode(CASE_FILE_TREE, docId);
-  const pane = caseFileDigitalPane(record, docId);
-  const isLeaf = Boolean(selected && !isCaseFileFolder(selected));
-  const leaf = selected && !isCaseFileFolder(selected) ? selected : undefined;
-  // The same src the pane renders, so Download and Full view hand over the
-  // page the reader is actually on rather than the top of the file.
-  const leafSrc = leaf ? caseFilePdfSrc(leaf) : undefined;
-  const leafLabel = leaf?.label;
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [openIds, setOpenIds] = useState(
-    () => new Set(ancestorIds(CASE_FILE_TREE, docId))
-  );
-
-  function selectDoc(id: string) {
-    setOpenIds((current) => {
-      const next = new Set(current);
-      for (const ancestor of ancestorIds(CASE_FILE_TREE, id)) next.add(ancestor);
-      return next;
-    });
-    router.replace(caseFileDocHref(record.id, id, view), { scroll: false });
-    setSheetOpen(false);
-  }
-
-  function setFolderOpen(id: string, open: boolean) {
-    setOpenIds((current) => {
-      const next = new Set(current);
-      if (open) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
+  const { court } = useCourt();
 
   /* Marking from the case file (DSB-20): a leaf that is a row of the
      Documents register, not yet marked, for a seat that marks evidence. */
@@ -160,33 +136,79 @@ export function CaseFile({
   }, [record, marks]);
   const [marking, setMarking] = useState<{ id: string; title: string } | null>(null);
   /**
-   * What marking a leaf marks, and the number it already has. Any document
-   * in the case file can be marked (DSB-12): one that is a Documents row is
-   * marked there, so both places show it; anything else (an order, a
-   * process, a receipt) is marked as the case file item itself.
+   * What marking a document marks, and the number it already has. One that
+   * is a Documents row is marked there, so both places show it; anything
+   * else is marked as the case file item itself. A copy (an exhibit shown
+   * again under Exhibits) resolves to the document it shows.
    */
-  const evidenceTarget = (nodeId: string) => {
-    const id = caseFileRegisterDocumentId(nodeId);
+  const evidenceTarget = (nodeId: string, title?: string) => {
+    const baseId = caseFileBaseId(nodeId);
+    const id = caseFileRegisterDocumentId(baseId);
     const document = id ? register.find((item) => item.id === id) : undefined;
     if (document) {
-      return { key: document.id, title: document.title, number: document.evidenceNumber };
+      return { key: document.id, title: title ?? document.title, number: document.evidenceNumber };
     }
-    const node = findNode(CASE_FILE_TREE, nodeId);
-    const key = `casefile:${nodeId}`;
-    return { key, title: node?.label ?? nodeId, number: marks[key] ?? null };
+    const key = `casefile:${baseId}`;
+    return { key, title: title ?? baseId, number: marks[key] ?? null };
   };
 
+  /* The state's format (case-file.md §6.2), with each document's exhibit
+     number in its name and Exhibits built from the numbers given (CFL-09). */
+  const tree = useMemo(
+    () => caseFileTree(court, (id) => evidenceTarget(id).number ?? undefined),
+    // evidenceTarget reads register and marks, both listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [court, register, marks]
+  );
+  const docFound = findNode(tree, docId);
+  const shownId =
+    docFound && !isCaseFileFolder(docFound) ? docId : (firstLeaf(tree)?.id ?? docId);
+  const selected = findNode(tree, shownId);
+  const pane = caseFileDigitalPane(record, caseFileBaseId(shownId));
+  const isLeaf = Boolean(selected && !isCaseFileFolder(selected));
+  const leaf = selected && !isCaseFileFolder(selected) ? selected : undefined;
+  // The same src the pane renders, so Download and Full view hand over the
+  // page the reader is actually on rather than the top of the file.
+  const leafSrc = leaf ? caseFilePdfSrc(leaf) : undefined;
+  const leafLabel = leaf?.label;
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [openIds, setOpenIds] = useState(
+    // The open document shows what is linked to it, as it does when its row is clicked.
+    () => new Set([...ancestorIds(tree, shownId), shownId])
+  );
+
+  function selectDoc(id: string) {
+    setOpenIds((current) => {
+      const next = new Set(current);
+      for (const ancestor of ancestorIds(tree, id)) next.add(ancestor);
+      return next;
+    });
+    router.replace(caseFileDocHref(record.id, id, view), { scroll: false });
+    setSheetOpen(false);
+  }
+
+  function setFolderOpen(id: string, open: boolean) {
+    setOpenIds((current) => {
+      const next = new Set(current);
+      if (open) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
   const indexProps = {
-    nodes: CASE_FILE_TREE,
-    selectedId: docId,
+    nodes: tree,
+    selectedId: shownId,
     openIds,
     onSelect: selectDoc,
     onFolderOpenChange: setFolderOpen,
     evidence: {
-      numberFor: (nodeId: string) => evidenceTarget(nodeId).number ?? undefined,
-      canMark: (nodeId: string) => canMark && !evidenceTarget(nodeId).number,
+      /* Only the categories in case-file.md §1.2 can be marked (CFL-22). */
+      canMark: (nodeId: string) =>
+        canMark && isMarkableCaseFileDoc(nodeId) && !evidenceTarget(nodeId).number,
       onMark: (nodeId: string) => {
-        const target = evidenceTarget(nodeId);
+        const node = findNode(tree, nodeId);
+        const target = evidenceTarget(nodeId, node?.label);
         if (!target.number) setMarking({ id: target.key, title: target.title });
       },
     },
@@ -276,7 +298,7 @@ export function CaseFile({
                   view={view}
                   onViewChange={(next) => {
                     router.replace(
-                      caseFileDocHref(record.id, docId, next),
+                      caseFileDocHref(record.id, shownId, next),
                       { scroll: false }
                     );
                   }}
@@ -347,12 +369,11 @@ export function CaseFileIndex({
   onSelect: (id: string) => void;
   onFolderOpenChange: (id: string, open: boolean) => void;
   /**
-   * Evidence on each leaf: its number once marked, and marking it, for a
-   * seat that marks evidence (DSB-12, DSB-20). Absent where the tree is
+   * Marking a leaf as evidence, for a seat that marks evidence (DSB-12,
+   * DSB-20). A marked leaf carries its exhibit number in its name (CFL-31). Absent where the tree is
    * only read (the order composer).
    */
   evidence?: {
-    numberFor: (id: string) => string | undefined;
     canMark: (id: string) => boolean;
     onMark: (id: string) => void;
   };
@@ -418,84 +439,116 @@ export function CaseFileIndex({
               </CollapsibleContent>
             </Collapsible>
           ) : (
-            <div className={rowShell}>
-              {/* DET-12. The row's actions twice over: on a ⋮ at its right end,
-                  where they can be seen (owner, Oct 26), and on right-click,
-                  the menu key or a long press. Marking is the court's;
-                  everyone with access to the case can download. */}
-              <div className="relative">
-                <ContextMenu>
-                  <ContextMenuTrigger asChild>
-                    <button
-                      type="button"
-                      aria-current={selectedId === node.id ? "page" : undefined}
-                      onClick={() => onSelect(node.id)}
-                      className={cn(
-                        rowClass,
-                        depthPad[Math.min(depth, depthPad.length - 1)],
-                        "pr-12",
-                        selectedId === node.id &&
-                          "bg-accent font-medium hover:bg-accent"
-                      )}
-                    >
-                      <IndexLabel number={node.number} label={node.label} />
-                      {evidence?.numberFor(node.id) ? (
-                        <Badge
-                          variant="secondary"
-                          className="shrink-0 font-mono"
-                          aria-label={`Marked as evidence, ${evidence.numberFor(node.id)}`}
-                        >
-                          {evidence.numberFor(node.id)}
-                        </Badge>
+            <Collapsible
+              open={openIds.has(node.id)}
+              onOpenChange={(open) => onFolderOpenChange(node.id, open)}
+            >
+              <div className={rowShell}>
+                {/* DET-12. The row's actions twice over: on a ⋮ at its right end,
+                    where they can be seen (owner, Oct 26), and on right-click,
+                    the menu key or a long press. Marking is the court's;
+                    everyone with access to the case can download. */}
+                <div className="relative">
+                  <ContextMenu>
+                    <ContextMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-current={selectedId === node.id ? "page" : undefined}
+                        /* CFL-03: a document with documents linked to it opens and
+                           shows them; clicked again while open, it hides them. */
+                        aria-expanded={node.children ? openIds.has(node.id) : undefined}
+                        onClick={() => {
+                          if (!node.children) return onSelect(node.id);
+                          if (selectedId === node.id) {
+                            onFolderOpenChange(node.id, !openIds.has(node.id));
+                          } else {
+                            onSelect(node.id);
+                            onFolderOpenChange(node.id, true);
+                          }
+                        }}
+                        className={cn(
+                          rowClass,
+                          depthPad[Math.min(depth, depthPad.length - 1)],
+                          "pr-12",
+                          selectedId === node.id &&
+                            "bg-accent font-medium hover:bg-accent"
+                        )}
+                      >
+                        <IndexLabel number={node.number} label={node.label} />
+                        {node.children ? (
+                          <>
+                            <ChevronDownIcon
+                              className="pointer-events-none mt-0.5 size-4 shrink-0 text-muted-foreground group-aria-expanded/file-row:hidden"
+                              aria-hidden
+                            />
+                            <ChevronUpIcon
+                              className="pointer-events-none mt-0.5 hidden size-4 shrink-0 text-muted-foreground group-aria-expanded/file-row:inline"
+                              aria-hidden
+                            />
+                          </>
+                        ) : null}
+                      </button>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      {evidence?.canMark(node.id) ? (
+                        <>
+                          <ContextMenuItem onSelect={() => evidence.onMark(node.id)}>
+                            Mark as evidence
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                        </>
                       ) : null}
-                    </button>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent>
-                    {evidence?.canMark(node.id) ? (
-                      <>
-                        <ContextMenuItem onSelect={() => evidence.onMark(node.id)}>
-                          Mark as evidence
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                      </>
-                    ) : null}
-                    <ContextMenuItem asChild>
-                      <a href={node.href} download>
-                        Download
-                      </a>
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="absolute top-1 right-1 text-muted-foreground md:pointer-fine:top-0.5 md:landscape:top-0.5"
-                      aria-label={`Actions for ${node.label}`}
-                    >
-                      <EllipsisVerticalIcon aria-hidden />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-44">
-                    {evidence?.canMark(node.id) ? (
-                      <>
-                        <DropdownMenuItem onSelect={() => evidence.onMark(node.id)}>
-                          Mark as evidence
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                      </>
-                    ) : null}
-                    <DropdownMenuItem asChild>
-                      <a href={node.href} download>
-                        Download
-                      </a>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <ContextMenuItem asChild>
+                        <a href={node.href} download>
+                          Download
+                        </a>
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="absolute top-1 right-1 text-muted-foreground md:pointer-fine:top-0.5 md:landscape:top-0.5"
+                        aria-label={`Actions for ${node.label}`}
+                      >
+                        <EllipsisVerticalIcon aria-hidden />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-44">
+                      {evidence?.canMark(node.id) ? (
+                        <>
+                          <DropdownMenuItem onSelect={() => evidence.onMark(node.id)}>
+                            Mark as evidence
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                        </>
+                      ) : null}
+                      <DropdownMenuItem asChild>
+                        <a href={node.href} download>
+                          Download
+                        </a>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-            </div>
+              {node.children ? (
+                <CollapsibleContent className={COLLAPSE_MOTION}>
+                  <CaseFileIndex
+                    nodes={node.children}
+                    selectedId={selectedId}
+                    openIds={openIds}
+                    onSelect={onSelect}
+                    onFolderOpenChange={onFolderOpenChange}
+                    evidence={evidence}
+                    depth={depth + 1}
+                  />
+                </CollapsibleContent>
+              ) : null}
+            </Collapsible>
           )}
         </li>
       ))}
@@ -509,7 +562,7 @@ const rowShell = "py-1";
 const rowClass =
   "group/file-row flex min-h-10 w-full min-w-0 items-start justify-between gap-2 rounded-lg py-2.5 text-left text-body-compact text-foreground outline-none hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-ring/50 md:pointer-fine:min-h-8 md:pointer-fine:py-1.5 md:landscape:min-h-8 md:landscape:py-1.5";
 
-const depthPad = ["px-2", "pr-2 pl-6", "pr-2 pl-8"] as const;
+const depthPad = ["px-2", "pr-2 pl-6", "pr-2 pl-8", "pr-2 pl-12"] as const;
 
 function scrollNodeIntoIndex(node: HTMLElement) {
   const viewport = node.closest("[data-slot=scroll-area-viewport]");
