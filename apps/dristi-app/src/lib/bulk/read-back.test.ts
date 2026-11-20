@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { COLUMNS, LISTS } from "./excel-spec";
-import { isCheckable, readBack } from "./read-back";
+import { isCheckable, judgeColumn, namedFor, readBack } from "./read-back";
 
 const col = (key: string) => COLUMNS.find((c) => c.key === key)!;
 
@@ -47,4 +47,15 @@ test("only fields whose values can be checked are confirmed", () => {
   assert.equal(isCheckable(col("returnReason")), true);
   assert.equal(isCheckable(col("accusedName")), false);
   assert.equal(isCheckable(col("accusedAddress")), false);
+});
+
+test("a tick needs the column's name and its values to agree", () => {
+  const nums = ["1", "2", "3", "4", "5"];
+  assert.deepEqual(judgeColumn(col("accusedAge"), "S.No", nums), { kind: "bad", note: "Looks like a serial number" });
+  assert.equal(judgeColumn(col("returnDate"), "Bounce Date", ["14/10/2026", "12/10/2026"]).kind, "confirmed");
+  // A date column under a date field it is not named for: examples, no tick.
+  assert.equal(judgeColumn(col("chequeDate"), "Sanction Dt", ["14/10/2025", "12/10/2025"]).kind, "plain");
+  assert.equal(judgeColumn(col("chequeAmount"), "Cust_Nm", ["Harsh V. Bhavsar", "Snehal K. Mistry"]).kind, "bad");
+  assert.equal(namedFor(col("accusedPin"), "PIN"), true);
+  assert.equal(namedFor(col("accusedPin"), "Postal"), false);
 });

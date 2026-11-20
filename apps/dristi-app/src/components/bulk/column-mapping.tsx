@@ -26,7 +26,7 @@ import {
   type Instance,
   type ListName,
 } from "@/lib/bulk/excel-spec";
-import { isCheckable, readBack } from "@/lib/bulk/read-back";
+import { judgeColumn, type Verdict } from "@/lib/bulk/read-back";
 import { cn } from "@/lib/utils";
 import { SidePanelRegion } from "@/components/ui/side-panel";
 import { CasePreview } from "./case-preview";
@@ -304,24 +304,22 @@ const ROW =
  * What the chosen column holds, read as the court will file it: "₹1,40,500, ₹67,500".
  * A value its field cannot take shows in the warning colour with why ("Not a date").
  */
-function ReadBackLine({ column, values }: { column: Column; values: string[] }) {
-  const read = values.map((v) => readBack(column, v)).filter((r) => r.kind !== "empty");
-  const bad = read.find((r) => r.kind === "bad");
-  if (bad && bad.kind === "bad") return <Mismatch note={bad.note} />;
-  const all = read.map((r) => ("text" in r ? r.text : ""));
-  if (!all.length) return <p className="max-sm:hidden" />;
+function VerdictLine({ verdict }: { verdict: Verdict }) {
+  if (verdict.kind === "bad") return <Mismatch note={verdict.note} />;
+  if (!verdict.examples.length) return <p className="max-sm:hidden" />;
+  const sure = verdict.kind === "confirmed";
   return (
     <p
-      title={all.join(", ")}
-      // The column reads as its field should: a tick and an example or two, as the court will
-      // file them. While the case preview is open it reads them in full and this steps aside.
+      title={verdict.examples.join(", ")}
+      // While the case preview is open it reads these in full and this steps aside.
       className="flex min-w-0 items-center gap-1.5 text-body-compact in-data-[panel-open]:hidden"
     >
-      {/* The tick only where the values could be checked; a name column cannot confirm a name. */}
-      {isCheckable(column) ? <CheckIcon aria-hidden className="size-4 shrink-0 text-success-ink" /> : null}
+      {/* The tick only when two signals agree: the column's name is one the court knows for
+          this field, and its values fit. A column chosen by hand shows its examples alone. */}
+      {sure ? <CheckIcon aria-hidden className="size-4 shrink-0 text-success-ink" /> : null}
       <span className="truncate text-muted-foreground tabular-nums">
-        {isCheckable(column) ? <span className="sr-only">Fits. </span> : null}e.g.{" "}
-        <span className="text-foreground">{all.slice(0, 2).join(", ")}</span>
+        {sure ? <span className="sr-only">Recognised. </span> : null}e.g.{" "}
+        <span className="text-foreground">{verdict.examples.join(", ")}</span>
       </span>
     </p>
   );
@@ -341,13 +339,11 @@ function Mismatch({ note }: { note: string }) {
 function FieldRow({
   slot,
   props,
-  samples,
   firsts,
   fresh = false,
 }: {
   slot: Slot;
   props: Props;
-  samples: string[][];
   firsts: string[];
   /** Just revealed: fades in rather than appearing at once. */
   fresh?: boolean;
@@ -369,7 +365,10 @@ function FieldRow({
     else later.delete(selfKey);
     props.onLater(later);
   };
-  const held = typeof src === "number" ? samples[src] : [];
+  const verdict = React.useMemo(
+    () => (typeof src === "number" ? judgeColumn(column, props.headers[src] ?? "", props.rows.map((r) => r[src] ?? "")) : null),
+    [column, src, props.headers, props.rows],
+  );
   return (
     <li
       data-field={selfKey}
@@ -394,10 +393,12 @@ function FieldRow({
           else commit(v, []);
         }}
       />
-      {state === "warn" && fit && !fit.ok && !held.some((v) => readBack(column, v).kind === "bad") ? (
+      {verdict?.kind !== "bad" && state === "warn" && fit && !fit.ok ? (
         <Mismatch note={fit.note} />
+      ) : verdict ? (
+        <VerdictLine verdict={verdict} />
       ) : (
-        <ReadBackLine column={column} values={held} />
+        <p className="max-sm:hidden" />
       )}
       <ConfirmDialog
         open={pending !== null}
@@ -479,13 +480,11 @@ export function focusNextToMatch(within?: string) {
 function SectionPanel({
   section,
   props,
-  samples,
   firsts,
   onRemove,
 }: {
   section: Section;
   props: Props;
-  samples: string[][];
   firsts: string[];
   /** A section the filer can take away (the last cheque, a witness): its Remove. */
   onRemove?: () => void;
@@ -566,7 +565,6 @@ function SectionPanel({
                 key={x.key}
                 slot={x}
                 props={props}
-                samples={samples}
                 firsts={firsts}
                 fresh={showAll && !kept.has(x.key)}
               />
@@ -630,22 +628,52 @@ export function useActiveSection(ids: string[]) {
     const list = key.split("|").filter(Boolean);
     const els = list.map((id) => document.getElementById(sectionDomId(id))).filter((e): e is HTMLElement => !!e);
     if (!els.length) return;
+    // A section chosen in the index stays current while the page scrolls to it, even when
+    // the page ends before that section can reach the reading line.
+    let holdUntil = 0;
     const pick = () => {
+      if (Date.now() < holdUntil) return;
+      const doc = document.scrollingElement ?? document.documentElement;
       const line = pinnedBottom() + (window.innerHeight - pinnedBottom()) * 0.4;
       let at = list[0];
-      // At the very top the first section is the one being read, however short the panels.
-      if (window.scrollY > 4)
+      // At the very top the first section; at the very bottom the last, which a short last
+      // panel could otherwise never reach the line to become.
+      if (window.scrollY + window.innerHeight >= doc.scrollHeight - 4) at = list[list.length - 1];
+      else if (window.scrollY > 4)
         els.forEach((el, k) => {
           if (el.getBoundingClientRect().top <= line) at = list[k];
         });
       setActive(at);
     };
+    const onChoose = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (!list.includes(id)) return;
+      holdUntil = Date.now() + 900;
+      setActive(id);
+    };
+    // The filer's own scrolling (wheel, touch, keys) ends the hold at once.
+    const release = () => {
+      holdUntil = 0;
+    };
     window.addEventListener("scroll", pick, { passive: true, capture: true });
+    window.addEventListener(CHOOSE, onChoose);
+    window.addEventListener("wheel", release, { passive: true });
+    window.addEventListener("touchmove", release, { passive: true });
+    window.addEventListener("keydown", release);
     pick();
-    return () => window.removeEventListener("scroll", pick, { capture: true });
+    return () => {
+      window.removeEventListener("scroll", pick, { capture: true });
+      window.removeEventListener(CHOOSE, onChoose);
+      window.removeEventListener("wheel", release);
+      window.removeEventListener("touchmove", release);
+      window.removeEventListener("keydown", release);
+    };
   }, [key]);
   return active;
 }
+
+/** The event an index sends when the filer picks a section, so it is current at once. */
+const CHOOSE = "bulk-index-choose";
 
 /**
  * A matching step's index, as one card beside the panels: the file being matched on a
@@ -713,7 +741,10 @@ export function IndexList({
               <button
                 type="button"
                 aria-current={here ? "location" : undefined}
-                onClick={() => onPick(s.id)}
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent(CHOOSE, { detail: s.id }));
+                  onPick(s.id);
+                }}
                 className={cn(
                   "flex min-h-10 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-body-compact transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50",
                   here && "bg-accent font-medium",
@@ -770,7 +801,10 @@ function MapIndex({
           warn: s.slots.some((x) => {
             const src = sourceFor(x.c, x.i, props.map, props.headers);
             if (typeof src !== "number") return false;
-            return stateOf(x, props).state === "warn" || props.rows.slice(0, 20).some((r) => readBack(x.c, r[src] ?? "").kind === "bad");
+            return (
+              stateOf(x, props).state === "warn" ||
+              judgeColumn(x.c, props.headers[src] ?? "", props.rows.map((r) => r[src] ?? "")).kind === "bad"
+            );
           }),
         }))}
       />
@@ -877,7 +911,6 @@ export function ColumnMapping(props: Props) {
                 key={s.id}
                 section={s}
                 props={props}
-                samples={samples}
                 firsts={firsts}
                 onRemove={removable.get(s.id)}
               />
