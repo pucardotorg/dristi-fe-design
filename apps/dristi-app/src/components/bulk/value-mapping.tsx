@@ -15,6 +15,9 @@ import { suggestOption } from "@/lib/bulk/value-suggest";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { SidePanelRegion } from "@/components/ui/side-panel";
+import { CasePreview } from "./case-preview";
+import { IndexHead, IndexList, previewSections, sectionDomId, useActiveSection, usePinned } from "./column-mapping";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /** The page's title and one line, for the page header above the list. */
@@ -30,6 +33,13 @@ type Props = {
   /** list → the file's word → the court's option value. */
   values: ValueMap;
   onChange: (next: ValueMap) => void;
+  /** The file being matched, named at the head of the index. */
+  fileName?: string;
+  /** A row's number in the file ("Row 2"), for the case preview. */
+  rowLabel?: (index: number) => string;
+  /** The case preview, opened from the page header. */
+  previewOpen?: boolean;
+  onPreviewOpen?: (open: boolean) => void;
 };
 
 /** What Match values still waits on: words matched and words in all. */
@@ -126,24 +136,82 @@ export function ValueMapping(props: Props) {
     if (next) onChange(next);
   }, [unknown, values, onChange]);
 
+  const active = useActiveSection(lists);
+  const pinned = usePinned();
+  const preview = props.previewOpen ?? false;
+  const sections = React.useMemo(
+    () => previewSections(props.book.cases.headers, props.counts),
+    [props.book.cases.headers, props.counts],
+  );
+  const titleOf = (l: ListName) => join(listUse(l, props).fields) || l;
+
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
-      {lists.map((l) => (
-        <ListGroup
-          key={l}
-          list={l}
-          words={props.unknown[l]!}
-          use={listUse(l, props)}
-          chosen={props.values[l] ?? {}}
-          onPick={(w, v) => onChange({ ...values, [l]: { ...(values[l] ?? {}), [w]: v } })}
-        />
-      ))}
-    </div>
+    <>
+      <SidePanelRegion open={preview} push="content">
+        <div
+          style={pinned}
+          className={cn("grid grid-cols-1 items-start gap-8", !preview && "lg:grid-cols-[16rem_minmax(0,1fr)]")}
+        >
+          {preview ? null : (
+            <aside aria-label="Fields" className="hidden lg:sticky lg:top-(--map-top) lg:flex lg:flex-col">
+              <IndexHead fileName={props.fileName} rows={props.book.cases.rows.length} />
+              {/* The file always heads the column, so the panels stand where they stood on Match
+                  columns; the list only when there is more than one field to move between. */}
+              {lists.length > 1 ? (
+              <IndexList
+                label="to choose"
+                active={active}
+                onPick={(id) => focusNextToChoose(id)}
+                items={lists.map((l) => ({
+                  id: l,
+                  title: titleOf(l),
+                  left: props.unknown[l]!.filter((w) => !values[l]?.[w]).length,
+                }))}
+              />
+              ) : null}
+            </aside>
+          )}
+          <div className="flex min-w-0 flex-col gap-4">
+            {lists.map((l) => (
+              <ListGroup
+                key={l}
+                list={l}
+                words={props.unknown[l]!}
+                use={listUse(l, props)}
+                chosen={props.values[l] ?? {}}
+                onPick={(w, v) => onChange({ ...values, [l]: { ...(values[l] ?? {}), [w]: v } })}
+              />
+            ))}
+          </div>
+        </div>
+      </SidePanelRegion>
+      <CasePreview
+        open={preview}
+        onOpenChange={(o) => props.onPreviewOpen?.(o)}
+        sections={sections}
+        headers={props.book.cases.headers}
+        rows={props.book.cases.rows}
+        map={props.map}
+        values={values}
+        rowLabel={props.rowLabel ?? ((i) => `Row ${i + 2}`)}
+      />
+    </>
   );
 }
 
-/** Word and option: one grid for every panel, so the pickers stand in one column. */
-const ROW = "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,17.5rem)] sm:items-center sm:gap-x-6";
+/** Take the filer to the first word still without an option in a field's panel, else to the panel. */
+function focusNextToChoose(list: string) {
+  const panel = document.getElementById(sectionDomId(list));
+  if (!panel) return;
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const open = panel.querySelector<HTMLElement>("[data-to-choose] button");
+  (open?.closest("li") ?? panel).scrollIntoView({ block: open ? "center" : "start", behavior: still ? "auto" : "smooth" });
+  open?.focus({ preventScroll: true });
+}
+
+/** Word, option, cases: Match columns' grid, so the pickers stand where they stood on the step before. */
+const ROW =
+  "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,12.5rem)_minmax(0,17.5rem)_minmax(0,1fr)] sm:items-center sm:gap-x-6";
 
 function ListGroup({
   list,
@@ -162,17 +230,20 @@ function ListGroup({
   // The most used first: they settle the most cases.
   const sorted = [...words].sort((a, b) => (use.cases.get(b) ?? 0) - (use.cases.get(a) ?? 0));
   return (
-    <Card variant="raised" role="group" aria-labelledby={titleId} className="gap-0 px-6 py-0">
-      <div className={cn(ROW, "border-b border-hairline pt-5 pb-3 max-sm:pb-2")}>
+    <section id={sectionDomId(list)} aria-labelledby={titleId} className="scroll-mt-(--map-top)">
+    <Card variant="raised" className="gap-0 px-6 py-0">
+      <div className="flex min-h-14 items-center justify-between gap-4 border-b border-hairline pt-1">
         <h2 id={titleId} className="min-w-0 text-body font-semibold">
           {join(use.fields) || list}
           {use.columns.length ? (
             <span className="text-body-compact font-normal text-muted-foreground"> · {use.columns.join(", ")}</span>
           ) : null}
         </h2>
-        <span aria-hidden className="hidden pl-3 text-body-compact font-medium text-muted-foreground sm:block">
-          Court&rsquo;s option
-        </span>
+        {words.filter((w) => !chosen[w]).length ? (
+          <span className="shrink-0 text-body-compact text-muted-foreground tabular-nums">
+            {words.filter((w) => !chosen[w]).length} to choose
+          </span>
+        ) : null}
       </div>
       <ul className="flex flex-col divide-y divide-hairline pb-2">
         {sorted.map((w) => (
@@ -187,6 +258,7 @@ function ListGroup({
         ))}
       </ul>
     </Card>
+    </section>
   );
 }
 
@@ -207,7 +279,8 @@ function WordRow({
   const id = React.useId();
   return (
     <li data-to-choose={!value || undefined} className={cn(ROW, "min-h-14 py-2")}>
-      <label htmlFor={id} className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-body-compact">
+      {/* The word with how many cases use it: both describe the word, so both sit before its option. */}
+      <label htmlFor={id} className="flex min-w-0 flex-col text-body-compact">
         <span className="font-medium break-words text-foreground">{word}</span>
         <span className="text-muted-foreground tabular-nums">
           <span className="sr-only">, </span>

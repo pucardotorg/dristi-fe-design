@@ -967,8 +967,17 @@ export function UploadScreen() {
   if (step === "values" && book)
     return (
       <>
-        <FilingMain>
-          <FilingPageHeader title={VALUES_TITLE} description={VALUES_INTRO} />
+        <FilingMain width="wide">
+          <FilingPageHeader
+            title={VALUES_TITLE}
+            description={VALUES_INTRO}
+            actions={
+              <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
+                <EyeIcon aria-hidden />
+                Preview a case
+              </Button>
+            }
+          />
           {errorNotice}
           <ValueMapping
             book={book}
@@ -977,6 +986,10 @@ export function UploadScreen() {
             unknown={unknown}
             values={values}
             onChange={setValues}
+            fileName={fileName}
+            rowLabel={(i) => `Row ${rowNumberOf(book.cases, i)}`}
+            previewOpen={previewOpen}
+            onPreviewOpen={setPreviewOpen}
           />
         </FilingMain>
         <FilingFooter

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
-import { sourceFor, type ColumnMap } from "@/lib/bulk/excel";
+import { sourceFor, type ColumnMap, type ValueMap } from "@/lib/bulk/excel";
 import type { Column, Instance } from "@/lib/bulk/excel-spec";
 import { readBack, type ReadBack } from "@/lib/bulk/read-back";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,7 @@ export function CasePreview({
   map,
   rowLabel,
   onReveal,
+  values,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -57,7 +58,9 @@ export function CasePreview({
   /** The row's number in the file ("Row 2"), as the filer sees it in Excel. */
   rowLabel: (index: number) => string;
   /** Take the filer to a field's picker on the page. */
-  onReveal: (slot: PreviewSlot) => void;
+  onReveal?: (slot: PreviewSlot) => void;
+  /** The filer's own words matched to the court's options so far (Match values). */
+  values?: ValueMap;
 }) {
   useDock(open);
   const [at, setAt] = React.useState(0);
@@ -66,10 +69,10 @@ export function CasePreview({
     (x: PreviewSlot, index: number): ReadBack | null => {
       const src = sourceFor(x.c, x.i, map, headers);
       if (src === null) return null;
-      if (typeof src === "object") return readBack(x.c, src.every);
-      return readBack(x.c, rows[index]?.[src] ?? "");
+      if (typeof src === "object") return readBack(x.c, src.every, values);
+      return readBack(x.c, rows[index]?.[src] ?? "", values);
     },
-    [map, headers, rows],
+    [map, headers, rows, values],
   );
   // Rows with a value the court cannot take, for "Next problem".
   const troubled = React.useMemo(
@@ -92,7 +95,7 @@ export function CasePreview({
     <SidePanel
       open={open}
       onOpenChange={onOpenChange}
-      className="sm:top-14! sm:bottom-(--case-preview-bottom)! sm:shadow-overlay"
+      className="sm:top-14! sm:bottom-(--case-preview-bottom)! sm:border-t sm:border-hairline sm:shadow-overlay"
       title={title}
       subtitle={
         <div className="flex items-center justify-between gap-3">
@@ -100,7 +103,7 @@ export function CasePreview({
         </div>
       }
       header={
-        <div className="flex items-center justify-between gap-3 border-b border-hairline px-6 pb-3">
+        <div className="flex items-center gap-3 border-b border-hairline px-6 pb-3">
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
@@ -127,10 +130,11 @@ export function CasePreview({
           {nextProblem !== undefined ? (
             <Button
               variant="ghost"
-              className="-mr-3 h-9 px-3 text-body-compact font-normal text-warning-ink"
+              className="h-9 px-3 text-body-compact font-normal text-warning-ink"
               onClick={() => setAt(nextProblem)}
             >
               Next problem
+              <span className="text-muted-foreground tabular-nums">· {troubled.length}</span>
             </Button>
           ) : null}
         </div>
@@ -144,15 +148,19 @@ export function CasePreview({
               {s.fields.map(({ x, v }) => (
                 <React.Fragment key={x.key}>
                   <dt className="min-w-0">
-                    {/* The field's name takes the filer to its picker, to change the column. */}
-                    <button
-                      type="button"
-                      onClick={() => onReveal(x)}
-                      className="min-h-8 w-full truncate rounded-sm py-1.5 text-left text-muted-foreground outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-                      title={`Change the column for ${x.name}`}
-                    >
-                      {x.name}
-                    </button>
+                    {onReveal ? (
+                      // The field's name takes the filer to its picker, to change the column.
+                      <button
+                        type="button"
+                        onClick={() => onReveal(x)}
+                        className="min-h-8 w-full truncate rounded-sm py-1.5 text-left text-muted-foreground outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                        title={`Change the column for ${x.name}`}
+                      >
+                        {x.name}
+                      </button>
+                    ) : (
+                      <span className="block truncate py-1.5 text-muted-foreground">{x.name}</span>
+                    )}
                   </dt>
                   <dd className="min-w-0 py-1.5 break-words">
                     {v!.kind === "empty" ? (
