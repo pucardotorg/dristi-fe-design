@@ -7,7 +7,8 @@
  * work follows: the template goes straight in, while an own layout is matched column by
  * column and usually leaves gaps to fill by hand. The template is the recommended path and
  * looks it (wider, primary border, its sheet's headers in green). The own file stays an
- * honest option, with its cost said up front (owner, v6–v8 explorations).
+ * honest option, with its cost said up front: each card counts its steps, two more for an
+ * own layout (owner, v6–v8 explorations; step counts 2026-11-20).
  *
  * The sheets are drawn, not pictured: a header row and three rows of placeholder bars, so
  * the two layouts can be told apart at a glance without reading.
@@ -20,6 +21,32 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 export type UploadFormat = "template" | "own";
+
+/**
+ * Each format's sub-steps under Add cases, as the stage rail shows them: the rail lists
+ * Match columns and Match values for an own layout, from what `upload-screen.tsx` reports
+ * (`useReportUploadState`), so the counts on the cards are the rail's own.
+ */
+export const FORMAT_STEPS: Record<UploadFormat, readonly string[]> = {
+  template: ["Choose a format", "Excel file", "Facts of the case", "Check"],
+  own: ["Choose a format", "Excel file", "Match columns", "Match values", "Facts of the case", "Check"],
+};
+
+/** How long a path is, at a glance: a mark per step and the count. */
+function StepCount({ format }: { format: UploadFormat }) {
+  const steps = FORMAT_STEPS[format];
+  return (
+    <span className="inline-flex items-center gap-2 text-body-compact text-foreground">
+      <span aria-hidden className="flex gap-1">
+        {steps.map((s) => (
+          <span key={s} className="h-1.5 w-3 rounded-full bg-track" />
+        ))}
+      </span>
+      <span className="tabular-nums">{steps.length} steps</span>
+      <span className="sr-only">: {steps.join(", ")}</span>
+    </span>
+  );
+}
 
 const TEMPLATE_HEADERS = ["Reference", "Accused", "Cheque", "Amount"];
 const OWN_HEADERS = ["Loan A/c", "Cust", "Chq"];
@@ -80,10 +107,13 @@ export function FormatChoice({
         <span className="flex items-center justify-center rounded-lg bg-brand-muted p-6">
           <SheetArt headers={TEMPLATE_HEADERS} ours />
         </span>
-        <Badge variant="success" className="w-fit">
-          <StarIcon aria-hidden />
-          Recommended
-        </Badge>
+        <span className="flex min-h-6 flex-wrap items-center gap-x-4 gap-y-2">
+          <Badge variant="success">
+            <StarIcon aria-hidden />
+            Recommended
+          </Badge>
+          <StepCount format="template" />
+        </span>
         <span className="flex flex-col gap-1.5">
           <span className="text-title-s font-semibold text-foreground">Use our template</span>
           <span className="text-body-compact text-muted-foreground">
@@ -112,8 +142,8 @@ export function FormatChoice({
         <span className="flex items-center justify-center rounded-lg bg-surface-sunken p-6">
           <SheetArt headers={OWN_HEADERS} ours={false} />
         </span>
-        <span className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">Takes longer</Badge>
+        <span className="flex min-h-6 flex-wrap items-center gap-x-4 gap-y-2">
+          <StepCount format="own" />
           {remembered ? <Badge variant="info">Matched before: {remembered}</Badge> : null}
         </span>
         <span className="flex flex-col gap-1.5">
