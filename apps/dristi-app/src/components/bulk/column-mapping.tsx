@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   ArrowLeftRightIcon,
+  ArrowRightIcon,
   CheckIcon,
   ChevronDownIcon,
   FileSpreadsheetIcon,
@@ -39,7 +40,7 @@ import { judgeColumn, type Verdict } from "@/lib/bulk/read-back";
 import { cn } from "@/lib/utils";
 import { SidePanelRegion } from "@/components/ui/side-panel";
 import { CasePreview } from "./case-preview";
-import { ConfirmDialog } from "@/components/shell/confirm-dialog";
+import { notify } from "@/components/ui/notify";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -123,7 +124,7 @@ export const SKIP = "Fill in each case later";
 const SKIP_OPTION = "Not in my file — fill in each case later";
 
 /** Which fields each sheet column already feeds, by column number. */
-type Use = { label: string; key: string };
+type Use = { label: string; key: string; section?: string };
 const UsedContext = React.createContext<Record<number, Use[]>>({});
 
 type PickOption = {
@@ -221,7 +222,7 @@ function ColumnPicker({
           className={cn(
             "w-full [&_input]:text-body-compact",
             tone !== "open" &&
-              "border-transparent bg-transparent hover:border-input hover:bg-card dark:bg-transparent [&_svg]:opacity-50 hover:[&_svg]:opacity-100 focus-within:[&_svg]:opacity-100",
+              "border-transparent bg-transparent hover:border-input hover:bg-card dark:bg-transparent [&_svg]:opacity-0 hover:[&_svg]:opacity-100 focus-within:[&_svg]:opacity-100",
             tone === "later" && "[&_input]:text-muted-foreground",
             // Open, the field and its list read as one box: the field's lower corners square off.
             "has-[[data-popup-open]]:border-ring",
@@ -306,8 +307,31 @@ function stateOf(slot: Slot, props: Props): { src: ColumnSource; state: RowState
  * Field, column, what the column holds: one grid for every panel, so the pickers stand on
  * one line down the page and the header labels sit over them.
  */
-const ROW =
-  "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,12.5rem)_minmax(0,17.5rem)_minmax(0,1fr)] sm:items-center sm:gap-x-6";
+export const ROW =
+  "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,13rem)_minmax(0,15rem)_minmax(0,1fr)] sm:items-center sm:gap-x-4";
+
+/**
+ * A row's brief highlight: a soft fill that lands at once and fades over a second, for the
+ * rows a move touched (the field that took a column and the one it left), so the filer
+ * sees where the column came from. The fill sits behind the row, wider than its text.
+ */
+export const FLASH =
+  "relative isolate before:pointer-events-none before:absolute before:-inset-x-3 before:inset-y-1 before:-z-10 before:rounded-lg before:bg-brand-muted before:opacity-0 before:transition-opacity before:duration-1000 before:ease-out data-[flash]:before:opacity-100 data-[flash]:before:duration-150";
+
+/** Flash the rows (and index entries) with these ids, once the render that shows them lands. */
+export function flash(ids: string[]) {
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      for (const id of ids) {
+        for (const el of document.querySelectorAll<HTMLElement>(`[data-field="${CSS.escape(id)}"], [data-index-id="${CSS.escape(id)}"]`)) {
+          el.setAttribute("data-flash", "");
+          window.setTimeout(() => el.removeAttribute("data-flash"), still ? 1200 : 700);
+        }
+      }
+    }),
+  );
+}
 
 /**
  * What the chosen column holds, read as the court will file it: "₹1,40,500, ₹67,500".
@@ -325,10 +349,14 @@ function VerdictLine({ verdict }: { verdict: Verdict }) {
     >
       {/* The tick only when two signals agree: the column's name is one the court knows for
           this field, and its values fit. A column chosen by hand shows its examples alone. */}
-      {sure ? <CheckIcon aria-hidden className="size-4 shrink-0 text-success-ink" /> : null}
-      <span className="truncate text-muted-foreground tabular-nums">
-        {sure ? <span className="sr-only">Recognised. </span> : null}Reads as{" "}
-        <span className="text-foreground">{verdict.examples.join(", ")}</span>
+      {sure ? (
+        <CheckIcon aria-hidden className="size-4 shrink-0 text-success-ink" />
+      ) : (
+        <ArrowRightIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+      )}
+      <span className="truncate tabular-nums">
+        <span className="sr-only">{sure ? "Recognised, reads as " : "Reads as "}</span>
+        {verdict.examples.join(", ")}
       </span>
     </p>
   );
@@ -361,7 +389,29 @@ function FieldRow({
   const { src, state, fit } = stateOf(slot, props);
   const id = pickerDomId(column.key, instance);
   const used = React.useContext(UsedContext);
-  const [pending, setPending] = React.useState<{ value: string; others: Use[] } | null>(null);
+  /**
+   * A column another field already reads moves here at once, no question asked: both rows
+   * flash so the filer sees where it came from, the field it left reappears among the open
+   * ones, and a toast offers Undo. A reversible move needs no confirmation in its way.
+   */
+  const move = (v: string, others: Use[]) => {
+    const before = { map: props.map, later: props.later };
+    commit(v, others);
+    const touched = [selfKey, ...others.map((o) => o.key), ...(others.map((o) => o.section).filter(Boolean) as string[])];
+    flash(touched);
+    notify.neutral(`Moved “${props.headers[Number(v)] ?? ""}” to ${slot.label}`, {
+      icon: ArrowLeftRightIcon,
+      description: `${others.map((o) => o.label).join(", ")} needs another column.`,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          props.onChange(before.map);
+          props.onLater(before.later);
+          flash(touched);
+        },
+      },
+    });
+  };
   const commit = (v: string, clear: Use[]) => {
     const next: ColumnSource = v === NONE ? null : v.startsWith("every:") ? { every: v.slice(6) } : Number(v);
     props.onChange({
@@ -382,9 +432,9 @@ function FieldRow({
     <li
       data-field={selfKey}
       data-to-match={state === "todo" || undefined}
-      className={cn(ROW, "min-h-14 py-2", fresh && "animate-in duration-200 fade-in-0")}
+      className={cn(ROW, FLASH, "min-h-14 py-2", fresh && "animate-in duration-200 fade-in-0")}
     >
-      <label htmlFor={id} className="min-w-0 text-body-compact break-words">
+      <label htmlFor={id} className="min-w-0 text-body-compact font-medium break-words">
         {name}
       </label>
       <ColumnPicker
@@ -398,7 +448,7 @@ function FieldRow({
         onPick={(v) => {
           // A column already matched elsewhere moves here only once the filer agrees.
           const others = /^\d+$/.test(v) ? (used[Number(v)] ?? []).filter((u) => u.key !== selfKey) : [];
-          if (others.length) setPending({ value: v, others });
+          if (others.length) move(v, others);
           else commit(v, []);
         }}
       />
@@ -409,25 +459,6 @@ function FieldRow({
       ) : (
         <p className="max-sm:hidden" />
       )}
-      <ConfirmDialog
-        open={pending !== null}
-        onOpenChange={(open) => {
-          if (!open) setPending(null);
-        }}
-        destructive={false}
-        icon={ArrowLeftRightIcon}
-        title={`Move "${pending ? props.headers[Number(pending.value)] : ""}" to ${slot.label}?`}
-        description={
-          pending
-            ? `It is matched to ${pending.others.map((o) => o.label).join(", ")}. Matching it here removes it from there, and that field will need another column.`
-            : undefined
-        }
-        confirmLabel="Move it here"
-        onConfirm={() => {
-          if (pending) commit(pending.value, pending.others);
-          setPending(null);
-        }}
-      />
     </li>
   );
 }
@@ -743,11 +774,12 @@ const INDEX_KEY = "bulk-match-index";
 const INDEX_EVENT = "bulk-match-index-change";
 
 export function useIndexOpen(): [boolean, (open: boolean) => void] {
-  const [open, setOpen] = React.useState(true);
+  // Folded unless the filer opened it: the panels get the width for their three columns.
+  const [open, setOpen] = React.useState(false);
   React.useEffect(() => {
     const read = () => {
       try {
-        setOpen(window.localStorage.getItem(INDEX_KEY) !== "closed");
+        setOpen(window.localStorage.getItem(INDEX_KEY) === "open");
       } catch {
         /* storage blocked: the index stays open */
       }
@@ -810,12 +842,13 @@ export function IndexList({
               <button
                 type="button"
                 aria-current={here ? "location" : undefined}
+                data-index-id={s.id}
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent(CHOOSE, { detail: s.id }));
                   onPick(s.id);
                 }}
                 className={cn(
-                  "flex min-h-10 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-body-compact transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50",
+                  "flex min-h-10 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-body-compact transition-colors duration-700 outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 data-[flash]:bg-brand-muted data-[flash]:duration-150",
                   here && "bg-accent font-medium",
                 )}
               >
@@ -922,7 +955,7 @@ export function ColumnMapping(props: Props) {
     const out: Record<number, Use[]> = {};
     for (const x of slots) {
       const src = sourceFor(x.c, x.i, props.map, props.headers);
-      if (typeof src === "number") (out[src] ??= []).push({ label: x.label, key: x.key });
+      if (typeof src === "number") (out[src] ??= []).push({ label: x.label, key: x.key, section: x.section });
     }
     return out;
   }, [slots, props.map, props.headers]);

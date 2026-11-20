@@ -229,7 +229,7 @@ function focusNextToChoose(list: string) {
 
 /** Word, option, cases: Match columns' grid, so the pickers stand where they stood on the step before. */
 const ROW =
-  "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,12.5rem)_minmax(0,17.5rem)_minmax(0,1fr)] sm:items-center sm:gap-x-6";
+  "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,13rem)_minmax(0,15rem)_minmax(0,1fr)] sm:items-center sm:gap-x-4";
 
 function FieldGroup({
   group,
