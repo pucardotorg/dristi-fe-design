@@ -124,6 +124,7 @@ const SAMPLES = [
   { key: "tata-capital-bulk-filing-template.xlsx", label: "Sample 1: the filled template" },
   { key: "tata-capital-recovery-mis.xlsx", label: "Sample 2: a lender's own export" },
   { key: "tata-capital-template-with-stories.xlsx", label: "Sample 3: the template, some rows with their own facts" },
+  { key: "sahyog-collections-ni138-dump.xlsx", label: "Sample 4: a collection agency's messy export" },
 ] as const;
 
 /**

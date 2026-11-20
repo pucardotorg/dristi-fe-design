@@ -363,16 +363,136 @@ async function misFile(cases: Demo[] = CASES, name = "tata-capital-recovery-mis.
   return file;
 }
 
+/* ─────────────── 4. A collection agency's messy export (worst case) ─────────────── */
+
+/**
+ * The worst a vendor file gets (owner, 2026-11-20): a collection agency's dump with its own
+ * abbreviations for every column, distractor columns that look like cheque dates and
+ * amounts (sanction date, EMI, loan amount), and its own words for every list: return
+ * reasons in bank-code style, party categories, modes, delivery status, yes/no as Y/1/TRUE.
+ * Dates and amounts come in several formats. Up to three cheques, numbered "_2", "_3".
+ * About half the list columns carry a name the court knows (Party Type, Notice Mode), so
+ * their own words land on Match values at once; the rest (Rtn Rsn, the cheque, the
+ * accused) have to be aligned by hand first, and bring more words when they are.
+ */
+const VENDOR_REASON: Record<string, string[]> = {
+  "funds-insufficient": ["INSUFF FUNDS", "01 - FUNDS INSUFFICIENT", "Insufficient Bal", "FUNDS INSUFF."],
+  "exceeds-arrangement": ["EXCEEDS ARRNGMT", "02 - EXCEEDS ARRANGEMENT"],
+  "payment-stopped": ["STOP PYMT", "PAYMENT STOPPED BY DRAWER", "STOPPED"],
+  "account-closed": ["A/C CLSD", "ACCT CLOSED"],
+};
+const VENDOR_CATEGORY = ["IND", "INDIVIDUAL", "Indiv.", "PROP", "PVT LTD", "PARTNERSHIP FIRM", "LLP", "HUF"];
+const VENDOR_MODE: Record<string, string[]> = { rpad: ["RPAD", "Regd A.D.", "REGD POST"], speed: ["SPD PST", "Speed Post", "SP"] };
+const VENDOR_DEBT = ["PL", "BL", "Two Wheeler Loan", "Consumer Durable", "Gold Loan"];
+const VENDOR_YES = ["Y", "YES", "1", "TRUE"];
+const VENDOR_NO = ["N", "No", "0", "FALSE"];
+const VENDOR_UNSERVED = ["Door Locked", "Addressee Moved", "Refused", "Insufficient Address", "Unclaimed"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+async function vendorFile(cases: Demo[], name = "sahyog-collections-ni138-dump.xlsx") {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Sahyog Collections (demo)";
+  const ws = wb.addWorksheet("DUMP_NOV");
+  const cheque = (n: number) =>
+    n === 1
+      ? ["Instr #", "Instr Dt", "Instr Amt", "Drawee IFSC Code", "Drawer Acct", "Dep Dt", "Rtn Dt", "Rtn Rsn"]
+      : [`Instr #_${n}`, `Instr Dt_${n}`, `Instr Amt_${n}`, `Drawee IFSC Code_${n}`, `Drawer Acct_${n}`, `Dep Dt_${n}`, `Rtn Dt_${n}`, `Rtn Rsn_${n}`];
+  const cols = [
+    "S.No", "LAN", "Zone", "Branch", "Agent Nm", "Bucket", "DPD", "Loan Amt", "EMI", "Sanction Dt", "Disb Dt",
+    "Cust_Nm", "Party Type", "Auth Signatory", "Contact #", "E-mail Addr", "Addr Ln1", "Town/City", "Postal", "Thana",
+    "Within Jurisdiction", ...cheque(1), "Coll Br IFSC", "Deposited in own account", ...cheque(2), ...cheque(3),
+    "Debt Type", "LN Dt", "Notice Mode", "LN Consignment", "Notice Served", "LN Served Dt", "Undelivered Reason", "Reply Received",
+    "Paid Post LN", "Paid Amt", "Other Case Pending", "Remarks",
+  ];
+  ws.columns = cols.map((h) => ({ header: h, key: h, width: Math.max(12, h.length + 3) }));
+  header(ws);
+  // Dates and amounts in whatever format each agent's desk typed them.
+  const date = (d: Date, i: number) => {
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const yy = d.getUTCFullYear();
+    return [`${dd}/${mm}/${yy}`, `${dd}-${MONTHS[d.getUTCMonth()]}-${String(yy).slice(2)}`, `${yy}.${mm}.${dd}`, `${dd}-${mm}-${yy}`][i % 4];
+  };
+  const money = (n: number, i: number) => [`Rs. ${n.toLocaleString("en-IN")}/-`, `${n}.00`, n.toLocaleString("en-IN"), `INR ${n}`][i % 4];
+  const pick = <T,>(xs: T[], i: number) => xs[i % xs.length];
+  cases.forEach((c, i) => {
+    const t = timeline(c);
+    const chq = (k: number, no: string, amt: number) => {
+      const [num, dt, am, ifsc, acct, dep, rtn, rsn] = cheque(k);
+      return {
+        [num]: no,
+        [dt]: date(t.dated, i + k),
+        [am]: money(amt, i + k),
+        [ifsc]: i % 5 === 0 ? c.ifsc.toLowerCase() : c.ifsc,
+        [acct]: c.account,
+        [dep]: date(t.presented, i + k + 1),
+        [rtn]: date(t.returned, i + k + 2),
+        [rsn]: pick(VENDOR_REASON[c.reason] ?? VENDOR_REASON["funds-insufficient"], i + k),
+      };
+    };
+    const sanction = daysAgo(c.served + 400);
+    ws.addRow({
+      "S.No": i + 1,
+      LAN: c.ref.replace("TCL", "SAH"),
+      Zone: "WEST",
+      Branch: "AHMEDABAD-CG ROAD",
+      "Agent Nm": pick(["R. Patel", "S. Desai", "M. Khan"], i),
+      Bucket: pick(["B3", "B4", "NPA"], i),
+      DPD: 90 + (i % 7) * 15,
+      "Loan Amt": money(c.amount * 4, i),
+      EMI: money(Math.round(c.amount / 12), i),
+      "Sanction Dt": date(sanction, i),
+      "Disb Dt": date(daysAgo(c.served + 390), i + 1),
+      Cust_Nm: c.name,
+      "Party Type": c.type === "individual" ? pick(VENDOR_CATEGORY.slice(0, 3), i) : pick(VENDOR_CATEGORY.slice(3), i),
+      "Auth Signatory": c.person?.[0] ?? "",
+      "Contact #": i % 3 ? `+91-${c.mobile}` : `0${c.mobile}`,
+      "E-mail Addr": c.email,
+      "Addr Ln1": c.address,
+      "Town/City": i % 2 ? c.city.toUpperCase() : c.city,
+      Postal: i % 11 === 7 ? c.pin.slice(0, 5) : c.pin,
+      Thana: c.police.replace(" Police Station", " PS"),
+      "Within Jurisdiction": pick(VENDOR_YES, i),
+      ...chq(1, c.cheque, c.amount),
+      "Coll Br IFSC": "HDFC0000060",
+      "Deposited in own account": pick(VENDOR_YES, i + 1),
+      ...(c.second ? chq(2, c.second.cheque, c.second.amount) : {}),
+      ...(i % 9 === 4 ? chq(3, String(Number(c.cheque) + 7), Math.round(c.amount / 3)) : {}),
+      "Debt Type": pick(VENDOR_DEBT, i),
+      "LN Dt": date(t.dispatched, i + 2),
+      "Notice Mode": pick(VENDOR_MODE[c.mode], i),
+      "LN Consignment": `EK${c.cheque}${i}IN`,
+      "Notice Served": c.delivered ? pick(["DLVD", "Delivered", "SERVED"], i) : pick(["RTO", "Returned", "UNDELIVERED"], i),
+      "LN Served Dt": c.delivered ? date(t.served, i + 3) : "",
+      "Undelivered Reason": c.delivered ? "" : pick(VENDOR_UNSERVED, i),
+      "Reply Received": c.replied ? pick(VENDOR_YES, i) : pick(VENDOR_NO, i),
+      "Paid Post LN": c.paid ? pick(["PART PAID", "Partial"], i) : pick(["NIL", "No Payment", "-"], i),
+      "Paid Amt": c.paid ? money(c.paid, i) : "",
+      "Other Case Pending": c.otherCase ? "Y" : pick(VENDOR_NO, i),
+      Remarks: i % 6 === 0 ? "Customer not traceable" : "",
+    });
+  });
+  const file = path.join(OUT, name);
+  await wb.xlsx.writeFile(file);
+  return file;
+}
+
 mkdirSync(OUT, { recursive: true });
-const files = [
-  await templateFile(),
-  await misFile(),
-  await templateFile("tata-capital-template-with-stories.xlsx", STORIES),
+// `--only=<file name>` writes just that file, leaving the other samples (and their dates) as they are.
+const only = process.argv.find((a) => a.startsWith("--only="))?.slice("--only=".length);
+const builders: [string, () => Promise<string>][] = [
+  ["tata-capital-bulk-filing-template.xlsx", () => templateFile()],
+  ["tata-capital-recovery-mis.xlsx", () => misFile()],
+  ["tata-capital-template-with-stories.xlsx", () => templateFile("tata-capital-template-with-stories.xlsx", STORIES)],
   // At scale (owner, 2026-11-16): 300 cases each, the three scenarios of `sandbox-scale.ts`.
-  await templateFile("scale-300-clean-template.xlsx", {}, scaleCases("clean")),
-  await misFile(scaleCases("gaps"), "scale-300-lender-export-with-gaps.xlsx"),
-  await templateFile("scale-300-every-edge.xlsx", {}, scaleCases("mixed")),
+  ["scale-300-clean-template.xlsx", () => templateFile("scale-300-clean-template.xlsx", {}, scaleCases("clean"))],
+  ["scale-300-lender-export-with-gaps.xlsx", () => misFile(scaleCases("gaps"), "scale-300-lender-export-with-gaps.xlsx")],
+  ["scale-300-every-edge.xlsx", () => templateFile("scale-300-every-edge.xlsx", {}, scaleCases("mixed"))],
+  ["sahyog-collections-ni138-dump.xlsx", () => vendorFile(scaleCases("mixed", 40))],
 ];
+const files: string[] = [];
+for (const [name, build] of builders) if (!only || only === name) files.push(await build());
+
 for (const f of files) console.log(`Wrote ${path.relative(process.cwd(), f)}`);
 
 // The upload's sample buttons serve the same two files as static assets, so they work
