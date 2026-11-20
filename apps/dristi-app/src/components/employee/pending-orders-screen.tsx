@@ -17,6 +17,8 @@ import { QueueAnnouncer } from "@/components/employee/queue-announcer";
 import { useCourt } from "@/components/court/court-provider";
 import { useCourtRole } from "@/components/employee/use-court-role";
 import { AddOrderItemsDialog } from "@/components/employee/pending-orders-bulk";
+import { ColumnsMenu } from "@/components/employee/columns-menu";
+import { usePendingOrderColumns } from "@/components/employee/use-pending-order-columns";
 import { useOrderDrafts } from "@/components/employee/use-order-draft";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
@@ -62,6 +64,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CourtId } from "@/lib/court/profiles";
 import type { CourtRole } from "@/lib/employee/content";
 import { seatHolds } from "@/lib/employee/seat-roles";
+import { CASE_TYPE } from "@/lib/filing/options";
 import { orderTextPreview } from "@/lib/employee/order-bulk-items";
 import { editorDraftKey, updateOrderDraft } from "@/lib/employee/order-drafts";
 import { markOrdersSigned } from "@/lib/employee/order-signing";
@@ -211,7 +214,13 @@ export function PendingOrdersScreen({
   const chosen = signable.filter((row) => selected.has(row.key));
   /* The order's first words, on the tab where the steno works through them. */
   const showText = tab === "workflow-to-fill";
-  const columns = 5 + (picking ? 1 : 0) + (showText ? 1 : 0) + (showType ? 1 : 0);
+  const { showCaseType, setShowCaseType } = usePendingOrderColumns();
+  const columns =
+    5 +
+    (picking ? 1 : 0) +
+    (showText ? 1 : 0) +
+    (showType ? 1 : 0) +
+    (showCaseType ? 1 : 0);
   const awaitingCompanions = companionRows.filter(
     (row) => row.stage === "awaiting-signature",
   ).length;
@@ -274,7 +283,10 @@ export function PendingOrdersScreen({
           }}
           className="flex min-w-0 flex-col gap-6"
         >
-          <div className="overflow-x-auto border-b border-hairline">
+          {/* Edit columns at the row's far end, as on Today's hearings; the tabs scroll on
+              their own beside it. */}
+          <div className="flex min-w-0 items-center gap-4">
+          <div className="min-w-0 flex-1 overflow-x-auto border-b border-hairline">
             <TabsList
               variant="line"
               aria-label="Which orders to show"
@@ -296,6 +308,33 @@ export function PendingOrdersScreen({
                 </TabsTrigger>
               ))}
             </TabsList>
+          </div>
+          {/* Case type is the only column a person can add or take away (stakeholder
+              call, 2026-11-04); the rest are listed ticked and fixed, as the cause
+              list's S. no. and Case name are. */}
+          <ColumnsMenu
+            idPrefix="pending-orders-column"
+            items={[
+              { id: "caseName", label: "Case name", locked: true, shown: true },
+              { id: "caseNumber", label: "Case number", locked: true, shown: true },
+              { id: "caseType", label: "Case type", locked: false, shown: showCaseType },
+              { id: "title", label: "Title", locked: true, shown: true },
+              ...(showType
+                ? [{ id: "type", label: "Type", locked: true, shown: true }]
+                : []),
+              ...(showText
+                ? [{ id: "order", label: "Order", locked: true, shown: true }]
+                : []),
+              { id: "status", label: "Status", locked: true, shown: true },
+            ]}
+            onToggle={(id) => {
+              if (id === "caseType") setShowCaseType(!showCaseType);
+            }}
+            onShowAll={() => setShowCaseType(true)}
+            onReset={() => setShowCaseType(false)}
+            isDefault={!showCaseType}
+            isAllVisible={showCaseType}
+          />
           </div>
         </Tabs>
 
@@ -338,6 +377,11 @@ export function PendingOrdersScreen({
                   <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>
                     Case number
                   </TableHead>
+                  {showCaseType ? (
+                    <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>
+                      Case type
+                    </TableHead>
+                  ) : null}
                   <TableHead
                     className={cn(TABLE_HEAD, "min-w-40 whitespace-normal")}
                   >
@@ -399,6 +443,13 @@ export function PendingOrdersScreen({
                     <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
                       <Identifier value={row.caseNumber} label="case number" />
                     </TableCell>
+                    {showCaseType ? (
+                      /* Every order is on a §138 case until the record carries its own
+                         type. */
+                      <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
+                        {CASE_TYPE.label}
+                      </TableCell>
+                    ) : null}
                     <TableCell
                       className={cn(TABLE_CELL, "min-w-40 whitespace-normal")}
                     >

@@ -31,6 +31,7 @@ export type CauseListColumnId =
   | "item"
   | "caseName"
   | "caseNumber"
+  | "caseType"
   | "advocates"
   | "purpose"
   | "stage"
@@ -50,6 +51,10 @@ export const CAUSE_LIST_COLUMNS: readonly CauseListColumn[] = [
   { id: "item", label: "S. no.", locked: true },
   { id: "caseName", label: "Case name", locked: true },
   { id: "caseNumber", label: "Case number", locked: false },
+  /* S138/NIA. Off by default for every seat: a court that hears one kind of case would
+     read the same code on every row, so each person adds it if they want it
+     (stakeholder call, 2026-11-04). */
+  { id: "caseType", label: "Case type", locked: false },
   { id: "advocates", label: "Advocates", locked: false },
   { id: "purpose", label: "Purpose", locked: false },
   /* The case's stage — on the listing, never shown on the board before. Off by default
@@ -120,14 +125,16 @@ export function defaultColumns(
   }
   return {
     order: available,
-    visible: available.filter((id) => id !== "stage" && id !== "nextHearing"),
+    visible: available.filter(
+      (id) => id !== "stage" && id !== "caseType" && id !== "nextHearing",
+    ),
   };
 }
 
 /**
  * A stored choice, read back safely: unknown or no-longer-offered columns dropped, a
- * column added since appended (hidden) so it can be found in the menu, locked columns
- * always on.
+ * column added since put in its default slot (hidden) so it can be found in the menu,
+ * locked columns always on.
  */
 export function normaliseColumns(
   stored: { order?: unknown; visible?: unknown } | null,
@@ -151,7 +158,16 @@ export function normaliseColumns(
       order.push(value);
     }
   }
-  for (const id of available) if (!order.includes(id)) order.push(id);
+  /* After the nearest column that precedes it on the board, so a stored default order
+     is still the default. */
+  available.forEach((id, index) => {
+    if (order.includes(id)) return;
+    const before = available
+      .slice(0, index)
+      .reverse()
+      .find((earlier) => order.includes(earlier));
+    order.splice(before === undefined ? 0 : order.indexOf(before) + 1, 0, id);
+  });
   const visible = order.filter(
     (id) =>
       causeListColumn(id).locked ||

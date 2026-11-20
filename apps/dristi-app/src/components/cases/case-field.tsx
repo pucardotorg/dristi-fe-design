@@ -1,4 +1,5 @@
 import { type TableColumnId } from "@/lib/cases/table-columns";
+import { CASE_TYPE } from "@/lib/filing/options";
 import { counselFor, type CaseRecord } from "@/lib/cases/types";
 import { viewerAccess, viewerRepresentation } from "@/lib/cases/viewer";
 
@@ -37,6 +38,10 @@ export function CaseField({
       );
     case "caseName":
       return <CaseTitle record={record} />;
+    case "caseType":
+      /* Every case on the list is §138 until the record carries its own type
+         (`caseTypeOf` in lib/cases/query.ts). */
+      return <CasePlain>{CASE_TYPE.label}</CasePlain>;
     case "advocates":
       return <CaseAdvocatesPair record={record} dense={!list} />;
     case "representation": {
@@ -81,6 +86,7 @@ export function caseFieldIsEmpty(record: CaseRecord, id: TableColumnId): boolean
   switch (id) {
     case "caseNumber":
     case "caseName":
+    case "caseType":
     case "stage":
     case "representation":
     case "access":
