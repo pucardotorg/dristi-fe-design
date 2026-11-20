@@ -28,6 +28,11 @@ import {
 import { getRepository, storeUpload } from "@/lib/filing/data";
 import { forgetFile, formatDuration, getFileUrl } from "@/lib/filing/files";
 import type { OathVideo, StoredFileRef } from "@/lib/filing/types";
+import type { SecondLanguage } from "@/lib/locale-config";
+import type { Locale } from "@/lib/onboarding/content";
+import { useCourt } from "@/components/court/court-provider";
+import { LanguageToggle } from "@/components/shell/language-toggle";
+import { useLocale } from "@/components/shell/locale";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionNotice } from "@/components/filing/notices";
@@ -43,6 +48,23 @@ export const OATH_TEXT =
   "I solemnly affirm that the contents of this complaint, and everything I have stated " +
   "in support of it, are true to the best of my knowledge and belief, and that I have " +
   "not concealed anything material to this case.";
+
+/**
+ * The oath's words in each language a state offers (`oathLanguages` on its court profile).
+ * Only the court can supply a translation of an oath, so a language without its words
+ * here is offered but awaited: the switch shows it, and recording waits for its text.
+ * Gujarati is awaited from the Gujarat High Court (feedback #40).
+ */
+export const OATH_WORDS: Partial<Record<Locale, string>> = { en: OATH_TEXT };
+
+/** Languages as English sentences name them; the switch names each in its own script. */
+const IN_ENGLISH: Record<Locale, string> = {
+  en: "English",
+  gu: "Gujarati",
+  hi: "Hindi",
+  pa: "Punjabi",
+  ml: "Malayalam",
+};
 
 /** The recorder stops itself here (`OTH-1`). */
 export const OATH_MAX_SECONDS = 120;
@@ -97,6 +119,23 @@ export function OathCapture({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // The words can be read in another language than the page; the switch starts on the
+  // language already sworn in, else the site's, else English.
+  const { profile } = useCourt();
+  const { locale } = useLocale();
+  const languages = profile.oathLanguages;
+  const [language, setLanguage] = React.useState<Locale>(() =>
+    [value?.language, locale].find((l): l is Locale => !!l && languages.includes(l)) ??
+    languages[0]
+  );
+  // The top bar's switch, offering the second languages the state allows beside English
+  // (design feedback #40). It starts on the language already chosen, else the first.
+  const seconds = languages.filter((l): l is SecondLanguage => l !== "en");
+  const [second, setSecond] = React.useState<SecondLanguage | undefined>(() =>
+    language !== "en" ? language : seconds[0]
+  );
+  const words = OATH_WORDS[language];
+
   const commit = async (file: File, durationSeconds: number) => {
     setBusy(true);
     let ref: StoredFileRef;
@@ -108,7 +147,7 @@ export function OathCapture({
       return;
     }
     const previous = value;
-    onChange({ file: ref, durationSeconds });
+    onChange({ file: ref, durationSeconds, language });
     if (previous) {
       forgetFile(previous.file.id);
       void getRepository().deleteFile(previous.file.id);
@@ -156,18 +195,47 @@ export function OathCapture({
       </section>
 
       <section aria-labelledby="oath-words" className="flex flex-col gap-3">
-        <h3 id="oath-words" className="text-body font-semibold">
-          Say these words
-        </h3>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 id="oath-words" className="text-body font-semibold">
+            Say these words
+          </h3>
+          {languages.includes("en") && second ? (
+            // Locked while recording, so the words cannot change mid-oath.
+            <LanguageToggle
+              value={language}
+              onValueChange={setLanguage}
+              second={second}
+              onSecondChange={(next) => {
+                setSecond(next);
+                setLanguage(next);
+              }}
+              choices={seconds}
+              ariaLabel="Language of the oath"
+              disabled={recording || busy}
+            />
+          ) : null}
+        </div>
         {name.trim() ? (
           <p className="text-body-compact text-muted-foreground">
             Recording as <span className="font-medium text-foreground">{name.trim()}</span>
-            {forWhom ? `, for ${forWhom}` : ""}.
+            {forWhom ? `, for ${forWhom}` : ""}
+            {/* "Nasreen K." already ends the sentence. */}
+            {(forWhom ?? name.trim()).endsWith(".") ? "" : "."}
           </p>
         ) : null}
-        <blockquote className="rounded-lg border border-hairline bg-surface-sunken p-4 text-body text-foreground">
-          {OATH_TEXT}
-        </blockquote>
+        {words ? (
+          <blockquote
+            lang={language}
+            className="rounded-lg border border-hairline bg-surface-sunken p-4 text-body text-foreground"
+          >
+            {words}
+          </blockquote>
+        ) : (
+          <p className="rounded-lg border border-dashed border-border p-4 text-body-compact text-muted-foreground">
+            The court has not provided the {IN_ENGLISH[language]} wording yet. Choose{" "}
+            {IN_ENGLISH[languages[0]]} to record now.
+          </p>
+        )}
       </section>
 
       {error ? (
@@ -182,14 +250,21 @@ export function OathCapture({
             Your oath
           </h3>
           <OathVideoPlayer file={value.file} />
-          {value.durationSeconds !== null ? (
+          {value.durationSeconds !== null || languages.length > 1 ? (
             <p className="text-caption text-muted-foreground tabular-nums">
-              {formatDuration(value.durationSeconds)}
+              {[
+                value.durationSeconds !== null ? formatDuration(value.durationSeconds) : null,
+                languages.length > 1
+                  ? `Sworn in ${IN_ENGLISH[value.language ?? "en"]}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           ) : null}
           {recording ? (
             recorder
-          ) : (
+          ) : !words ? null : (
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" onClick={record} disabled={busy}>
                 <RefreshCwIcon data-icon="inline-start" aria-hidden />
@@ -200,7 +275,7 @@ export function OathCapture({
         </section>
       ) : recording ? (
         recorder
-      ) : (
+      ) : !words ? null : (
         <section aria-labelledby="oath-how" className="flex flex-col gap-3">
           <h3 id="oath-how" className="text-body font-semibold">
             Record your oath
