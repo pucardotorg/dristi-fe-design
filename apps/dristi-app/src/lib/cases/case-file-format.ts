@@ -87,6 +87,10 @@ type Doc = {
   links?: string[];
   /** A document submitted with an application or bail bond: that document's id. */
   parent?: string;
+  /** An objection: the application it objects to (CFL-05). */
+  objectsTo?: string;
+  /** An execution report: the process it reports on. */
+  reportOn?: string;
 };
 
 /**
@@ -114,11 +118,19 @@ const DOCUMENTS: Doc[] = [
   { id: "pw1-chief-affidavit-145", name: "PW-1 chief affidavit under section 145 of the Negotiable Instruments Act", href: PDF.affidavits, page: 4, category: "affidavits" },
   { id: "affidavit-pw2", name: "Chief affidavit of PW-2", href: "/case-file/13-affidavit-pw2.pdf", category: "affidavits" },
 
-  { id: "application-advancement", name: "Advance (prepone) - CMP/214/2025", href: "/case-file/14-application-advancement.pdf", category: "applications" },
-  { id: "application-additional-witnesses", name: "Application for adding witnesses - CMP/236/2025", href: "/case-file/15-application-additional-witnesses.pdf", category: "applications" },
-  { id: "application-withdrawal", name: "Application for withdrawal - CMP/241/2025", href: "/case-file/16-application-withdrawal.pdf", category: "applications" },
+  /* In the order filed, by the dates on the applications. */
   /* The pack gives this pending application no number. */
   { id: "application-production-return-memo", name: "Production of documents", href: "/case-file/17-application-production-return-memo.pdf", category: "applications" },
+  { id: "application-withdrawal", name: "Application for withdrawal - CMP/241/2025", href: "/case-file/16-application-withdrawal.pdf", category: "applications" },
+  { id: "application-additional-witnesses", name: "Application for adding witnesses - CMP/236/2025", href: "/case-file/15-application-additional-witnesses.pdf", category: "applications" },
+  { id: "application-bail", name: "Bail - CMP/287/2025", href: "/case-file/22-application-documents.pdf", page: 2, category: "applications" },
+  /* Bail's fixed attachments, named by their field (application-lifecycle.md); one surety, so no number. */
+  { id: "bail-surety-id", name: "Document attached: Surety ID proof", href: "/case-file/22-application-documents.pdf", page: 3, category: "applications", parent: "application-bail" },
+  { id: "bail-solvency", name: "Document attached: Proof of solvency", href: "/case-file/22-application-documents.pdf", page: 4, category: "applications", parent: "application-bail" },
+  { id: "application-advancement", name: "Advance (prepone) - CMP/214/2025", href: "/case-file/14-application-advancement.pdf", category: "applications" },
+  /* A supporting document, named by the filer. */
+  { id: "advancement-bank-letter", name: "Document attached: Letter from the bank on PW-2's transfer", href: "/case-file/22-application-documents.pdf", page: 5, category: "applications", parent: "application-advancement" },
+  { id: "objection-advancement", name: "Objection - CMP/214/2025", href: "/case-file/22-application-documents.pdf", page: 6, category: "applications", objectsTo: "application-advancement" },
 
   ...[
     /* Sample links, each to documents the order deals with. */
@@ -128,19 +140,19 @@ const DOCUMENTS: Doc[] = [
       id: "order-appearance-plea-bail",
       title: "Order on appearance, plea and bail",
       date: "12 August 2025",
-      links: ["application-withdrawal", "application-additional-witnesses", "plea", "bail-bond", "vakalatnama-2"],
+      links: ["application-withdrawal", "application-additional-witnesses", "application-bail", "plea", "bail-bond", "vakalatnama-2"],
     },
     {
       id: "order-day-evidence-complainant",
       title: "Order of the day, complainant evidence",
       date: "15 September 2025",
-      links: ["pw1-chief-affidavit-145", "application-advancement", "witness-deposition-pw1"],
+      links: ["pw1-chief-affidavit-145", "application-advancement", "witness-deposition-pw1", "process-summons-pw2-rpad", "process-summons-pw2-hand"],
     },
     {
       id: "order-closing-complainant-evidence",
       title: "Order closing complainant evidence",
       date: "3 November 2025",
-      links: ["affidavit-pw2", "witness-deposition-pw2", "exhibit-index-p1-p6"],
+      links: ["affidavit-pw2", "witness-deposition-pw2", "process-summons-pw2-hand", "exhibit-index-p1-p6"],
     },
     {
       id: "order-day-351-examination",
@@ -212,8 +224,14 @@ const DOCUMENTS: Doc[] = [
     parent: "bail-bond",
   },
 
-  /* The pack does not say how the summons was sent, so the channel is left out. */
-  { id: "process-summons", name: "Summons - 7 July 2025", href: PDF.orders, page: 3, docket: false, category: "processes" },
+  /* Each process is one channel (process.md §3): the witness summons to PW-2 went by RPAD
+     and By hand on one order. Execution reports sit under their process. */
+  { id: "process-summons", name: "Summons via RPAD - 7 July 2025", href: "/case-file/23-processes.pdf", page: 2, category: "processes" },
+  { id: "report-summons", name: "Execution report - 21 July 2025", href: "/case-file/23-processes.pdf", page: 3, category: "processes", reportOn: "process-summons" },
+  { id: "process-summons-pw2-rpad", name: "Summons via RPAD - 15 September 2025", href: "/case-file/23-processes.pdf", page: 4, category: "processes" },
+  { id: "report-summons-pw2-rpad", name: "Execution report - 1 October 2025", href: "/case-file/23-processes.pdf", page: 5, category: "processes", reportOn: "process-summons-pw2-rpad" },
+  { id: "process-summons-pw2-hand", name: "Summons via By hand - 15 September 2025", href: "/case-file/23-processes.pdf", page: 6, category: "processes" },
+  { id: "report-summons-pw2-hand", name: "Execution report - 30 September 2025", href: "/case-file/23-processes.pdf", page: 7, category: "processes", reportOn: "process-summons-pw2-hand" },
 
   ...[
     { id: "case-filing-payment", receipt: "RCPT-DUMMY-2025-0001", date: "12 June 2025" },
@@ -282,7 +300,13 @@ export function caseFileBaseId(id: string): string {
 /** Whether a document's category lets it be marked as evidence (§1.2). */
 export function isMarkableCaseFileDoc(id: string): boolean {
   const doc = DOCUMENTS.find((item) => item.id === caseFileBaseId(id));
-  return Boolean(doc && MARKABLE.has(doc.category));
+  return Boolean(doc && markable(doc));
+}
+
+/** §1.2: of an application, only the documents submitted with it can be marked. */
+function markable(doc: Doc): boolean {
+  if (doc.category === "applications") return Boolean(doc.parent);
+  return MARKABLE.has(doc.category);
 }
 
 /** A `doc` query value that names a document in this format, or undefined. */
@@ -297,18 +321,16 @@ function named(doc: Doc, exhibit: string | undefined): string {
   return exhibit ? `${doc.name} (${exhibit})` : doc.name;
 }
 
-/**
- * §6.2, "Linked to each document, in order": the kinds of linked document a
- * section shows under each document. Execution reports and objections have
- * no sample documents yet, so only attachments and orders appear.
- */
-const LINKED_KINDS: Partial<Record<CategoryId, ("attachments" | "orders")[]>> = {
+type LinkedKind = "attachments" | "objections" | "reports" | "orders";
+
+/** §6.2, "Linked to each document, in order": the kinds of linked document a section shows under each document. */
+const LINKED_KINDS: Partial<Record<CategoryId, LinkedKind[]>> = {
   complaint: ["orders"],
   "original-filing": ["orders"],
   affidavits: ["orders"],
-  applications: ["attachments", "orders"],
+  applications: ["attachments", "objections", "orders"],
   "recorded-statements": ["orders"],
-  processes: ["orders"],
+  processes: ["reports", "orders"],
   "bail-bonds": ["attachments", "orders"],
   vakalatnamas: ["orders"],
   exhibits: ["orders"],
@@ -319,9 +341,12 @@ const LINKED_KINDS: Partial<Record<CategoryId, ("attachments" | "orders")[]>> = 
 /** The documents shown under `doc` in a section, in the format's order (CFL-03). */
 function linkedTo(doc: Doc, section: CategoryId): Doc[] {
   return (LINKED_KINDS[section] ?? []).flatMap((kind) =>
-    kind === "attachments"
-      ? DOCUMENTS.filter((item) => item.parent === doc.id)
-      : DOCUMENTS.filter((item) => item.category === "orders" && item.links?.includes(doc.id)),
+    DOCUMENTS.filter((item) => {
+      if (kind === "attachments") return item.parent === doc.id;
+      if (kind === "objections") return item.objectsTo === doc.id;
+      if (kind === "reports") return item.reportOn === doc.id;
+      return item.category === "orders" && item.links?.includes(doc.id);
+    }),
   );
 }
 
@@ -405,7 +430,7 @@ export function caseFileTree(court: CourtId, exhibitFor: ExhibitFor): CaseFileNo
     const label = CATEGORY_LABEL[category];
 
     if (category === "exhibits") {
-      const marked = DOCUMENTS.filter((doc) => MARKABLE.has(doc.category) && exhibitFor(doc.id)).sort(
+      const marked = DOCUMENTS.filter((doc) => markable(doc) && exhibitFor(doc.id)).sort(
         byExhibit(exhibitFor),
       );
       if (!EVIDENCE_BY_PARTY[court]) {
@@ -429,7 +454,10 @@ export function caseFileTree(court: CourtId, exhibitFor: ExhibitFor): CaseFileNo
     }
 
     /* Documents submitted with another sit under it, not in the section's own list. */
-    const docs = DOCUMENTS.filter((doc) => doc.category === category && !doc.parent);
+    /* Attachments, objections and execution reports sit under the document they belong to. */
+    const docs = DOCUMENTS.filter(
+      (doc) => doc.category === category && !doc.parent && !doc.objectsTo && !doc.reportOn,
+    );
 
     if (category === "orders") {
       const parts = [
