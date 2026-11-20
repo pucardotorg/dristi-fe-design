@@ -1,7 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeftRightIcon, CheckIcon, ChevronDownIcon, FileSpreadsheetIcon, PlusIcon, TriangleAlertIcon } from "lucide-react";
+import {
+  ArrowLeftRightIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  FileSpreadsheetIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  PlusIcon,
+  TriangleAlertIcon,
+} from "lucide-react";
 
 import {
   columnFit,
@@ -683,10 +692,13 @@ const CHOOSE = "bulk-index-choose";
 export function IndexCard({
   fileName,
   rows,
+  onCollapse,
   children,
 }: {
   fileName?: string;
   rows: number;
+  /** Fold the index to a slim button, giving the panels its width. */
+  onCollapse?: () => void;
   children?: React.ReactNode;
 }) {
   return (
@@ -708,11 +720,68 @@ export function IndexCard({
             {rows} {rows === 1 ? "case" : "cases"}
           </p>
         </div>
+        {onCollapse ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="-mr-1 ml-auto shrink-0 text-muted-foreground"
+            aria-label="Hide sections"
+            title="Hide sections"
+            onClick={onCollapse}
+          >
+            <PanelLeftCloseIcon aria-hidden />
+          </Button>
+        ) : null}
       </div>
       {children}
     </Card>
   );
 }
+
+/** Whether the matching steps show their index; one choice for both steps, kept in this browser. */
+const INDEX_KEY = "bulk-match-index";
+const INDEX_EVENT = "bulk-match-index-change";
+
+export function useIndexOpen(): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = React.useState(true);
+  React.useEffect(() => {
+    const read = () => {
+      try {
+        setOpen(window.localStorage.getItem(INDEX_KEY) !== "closed");
+      } catch {
+        /* storage blocked: the index stays open */
+      }
+    };
+    read();
+    window.addEventListener(INDEX_EVENT, read);
+    return () => window.removeEventListener(INDEX_EVENT, read);
+  }, []);
+  const set = React.useCallback((next: boolean) => {
+    setOpen(next);
+    try {
+      window.localStorage.setItem(INDEX_KEY, next ? "open" : "closed");
+      window.dispatchEvent(new Event(INDEX_EVENT));
+    } catch {
+      /* storage blocked: this page only */
+    }
+  }, []);
+  return [open, set];
+}
+
+/** The folded index: one button at the panels' edge that opens it again. */
+export function IndexRail({ onOpen }: { onOpen: () => void }) {
+  return (
+    <div className="hidden lg:sticky lg:top-(--map-top) lg:block">
+      <Button variant="outline" size="icon" aria-label="Show sections" title="Show sections" onClick={onOpen}>
+        <PanelLeftOpenIcon aria-hidden />
+      </Button>
+    </div>
+  );
+}
+
+/** The index's grid column: the card's width, the rail's, or none while the case preview is open. */
+export const indexGrid = (preview: boolean, open: boolean) =>
+  preview ? "" : open ? "lg:grid-cols-[16rem_minmax(0,1fr)]" : "lg:grid-cols-[2.5rem_minmax(0,1fr)]";
 
 /**
  * The index's list: each section with what it still needs as a plain number, or a muted
@@ -780,16 +849,18 @@ function MapIndex({
   sections,
   active,
   props,
+  onCollapse,
 }: {
   fileName?: string;
   rows: number;
   sections: Section[];
   active: string | null;
   props: Props;
+  onCollapse: () => void;
 }) {
   return (
     <aside aria-label="Sections" className="hidden lg:sticky lg:top-(--map-top) lg:block">
-      <IndexCard fileName={fileName} rows={rows}>
+      <IndexCard fileName={fileName} rows={rows} onCollapse={onCollapse}>
       <IndexList
         label="to match"
         active={active}
@@ -875,6 +946,7 @@ export function ColumnMapping(props: Props) {
   const pinned = usePinned();
   const preview = props.previewOpen ?? false;
   const setPreview = (open: boolean) => props.onPreviewOpen?.(open);
+  const [indexOpen, setIndexOpen] = useIndexOpen();
   // The last of each repeating section, where a case can do with one fewer.
   const removable = new Map<string, () => void>();
   for (const g of REPEATING) {
@@ -893,17 +965,20 @@ export function ColumnMapping(props: Props) {
           className={cn(
             "grid grid-cols-1 items-start gap-8",
             // With the preview open the index steps out, so the panels keep their width.
-            !preview && "lg:grid-cols-[16rem_minmax(0,1fr)]",
+            indexGrid(preview, indexOpen),
           )}
         >
-          {preview ? null : (
+          {preview ? null : indexOpen ? (
             <MapIndex
               fileName={props.fileName}
               rows={props.rows.length}
               sections={sections}
               active={active}
               props={props}
+              onCollapse={() => setIndexOpen(false)}
             />
+          ) : (
+            <IndexRail onOpen={() => setIndexOpen(true)} />
           )}
           <div className="flex min-w-0 flex-col gap-4">
             {sections.map((s) => (

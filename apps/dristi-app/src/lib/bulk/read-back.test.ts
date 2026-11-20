@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { COLUMNS, LISTS } from "./excel-spec";
-import { isCheckable, judgeColumn, namedFor, readBack } from "./read-back";
+import { isCheckable, judgeColumn, namedFor, readBack, unusualFor } from "./read-back";
 
 const col = (key: string) => COLUMNS.find((c) => c.key === key)!;
 
@@ -58,4 +58,22 @@ test("a tick needs the column's name and its values to agree", () => {
   assert.equal(judgeColumn(col("chequeAmount"), "Cust_Nm", ["Harsh V. Bhavsar", "Snehal K. Mistry"]).kind, "bad");
   assert.equal(namedFor(col("accusedPin"), "PIN"), true);
   assert.equal(namedFor(col("accusedPin"), "Postal"), false);
+});
+
+test("columns that do not look like their field are flagged, beyond their type", () => {
+  const serial = Array.from({ length: 14 }, (_, k) => String(k + 1));
+  const refs = Array.from({ length: 14 }, (_, k) => `TCL-AHD-PL-${1001 + k}`);
+  const products = Array.from({ length: 14 }, (_, k) => (k % 2 ? "Personal Loan" : "Business Loan"));
+  assert.equal(unusualFor(col("accusedType"), serial), "Not like the court's options");
+  assert.equal(unusualFor(col("accusedJurisdiction"), refs), "Not like the court's options");
+  assert.equal(unusualFor(col("finalRelief"), products), "Too short for this field");
+  assert.equal(unusualFor(col("accusedName"), products), "Doesn't look like names");
+  assert.equal(unusualFor(col("accusedName"), refs), "Doesn't look like names");
+  assert.equal(unusualFor(col("accusedName"), ["+91 98790 12301", "+91 98790 12302", "+91 98790 12303"]), "Doesn't look like names");
+  assert.equal(unusualFor(col("accusedAddress"), serial), "Doesn't look like an address");
+  // What the right columns hold passes.
+  assert.equal(unusualFor(col("accusedType"), ["IND", "INDIVIDUAL", "PVT LTD", "IND", "LLP", "IND"]), null);
+  assert.equal(unusualFor(col("delivered"), ["DLVD", "Delivered", "SERVED", "RTO", "DLVD", "Returned", "DLVD"]), null);
+  assert.equal(unusualFor(col("accusedName"), ["Harsh V. Bhavsar", "Snehal K. Mistry", "Pravin D. Solanki"]), null);
+  assert.equal(unusualFor(col("accusedAddress"), ["B-12, Sundaram Flats, Vastrapur", "14, Gokul Row Houses", "7, Shreeji Society"]), null);
 });

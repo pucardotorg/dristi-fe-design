@@ -91,11 +91,60 @@ export type Verdict =
   | { kind: "confirmed" | "plain"; examples: string[] }
   | { kind: "bad"; note: string };
 
+/** Prose the court files whole: a relief, the affidavit, what a witness will prove. */
+const PROSE = new Set(["interimRelief", "finalRelief", "affidavit", "otherDetails", "witnessProve", "condonation"]);
+/** People's names. */
+const NAMES = new Set(["accusedName", "personName", "witnessName"]);
+/** Addresses and places. */
+const PLACES = new Set([
+  "accusedAddress", "accusedCity", "accusedPolice", "personAddress", "personCity", "personPolice",
+  "witnessAddress", "witnessCity", "payeePolice", "drawerPolice", "otherCourt",
+]);
+
+/** A value that is a number or an identifier (digits in a short token), not words. */
+const idLike = (v: string) => /^[\d\s.,/()+-]+$/.test(v) || (/\d/.test(v) && !/\s/.test(v) && v.length <= 24);
+
+/**
+ * What a field's values usually look like, beyond their type: a column that breaks it is
+ * flagged even though any text passes as text. A list answer repeats across rows (a column
+ * with a different value in nearly every row is a reference or a serial, not Individual or
+ * Institution); a name is words and mostly differs row to row; an address or a place is
+ * words; a relief or an affidavit is a passage, not a label. Null when nothing is unusual.
+ */
+export function unusualFor(column: Column, values: string[]): string | null {
+  const filled = values.map((v) => v.trim()).filter(Boolean);
+  if (filled.length < 3) return null;
+  const share = (test: (v: string) => boolean) => filled.filter(test).length / filled.length;
+  const distinct = new Set(filled.map((v) => v.toLowerCase())).size;
+  if (column.kind === "list" && column.list) {
+    const options = LISTS[column.list].length;
+    const tooVaried = filled.length >= 6 && distinct > Math.max(8, options * 2) && distinct / filled.length > 0.5;
+    const ids = column.list !== "yesNo" && share((v) => idLike(v) && listValue(column.list!, v) === null) > 0.5;
+    return tooVaried || ids ? "Not like the court's options" : null;
+  }
+  if (PROSE.has(column.key)) {
+    const lengths = filled.map((v) => v.length).sort((x, y) => x - y);
+    return lengths[Math.floor(lengths.length / 2)] < 40 ? "Too short for this field" : null;
+  }
+  if (NAMES.has(column.key)) {
+    if (share(idLike) > 0.3) return "Doesn't look like names";
+    if (filled.length >= 8 && distinct / filled.length < 0.3) return "Doesn't look like names";
+    return null;
+  }
+  if (PLACES.has(column.key)) {
+    if (share(idLike) > 0.3) return column.key.endsWith("Address") ? "Doesn't look like an address" : "Doesn't look like places";
+    return null;
+  }
+  return null;
+}
+
 export function judgeColumn(column: Column, header: string, values: string[], picks: ValueMap = {}): Verdict {
   const filled = values.map((v) => v.trim()).filter(Boolean).slice(0, 25);
   const read = filled.map((v) => readBack(column, v, picks));
   const bad = read.filter((r): r is Extract<ReadBack, { kind: "bad" }> => r.kind === "bad");
   if (bad.length && bad.length * 2 >= read.length) return { kind: "bad", note: bad[0].note };
+  const odd = unusualFor(column, values);
+  if (odd) return { kind: "bad", note: odd };
   if (column.kind === "number") {
     const n = filled.slice(0, 6).map((v) => Number(v.replace(/[₹,\s]|rs\.?/gi, "")));
     if (n.length >= 3 && n.every((x, k) => k === 0 || x === n[k - 1] + 1)) return { kind: "bad", note: "Looks like a serial number" };

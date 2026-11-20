@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SidePanelRegion } from "@/components/ui/side-panel";
 import { CasePreview } from "./case-preview";
-import { IndexCard, IndexList, previewSections, sectionDomId, useActiveSection, usePinned } from "./column-mapping";
+import { IndexCard, IndexList, IndexRail, indexGrid, previewSections, useIndexOpen, sectionDomId, useActiveSection, usePinned } from "./column-mapping";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /** The page's title and one line, for the page header above the list. */
@@ -152,6 +152,7 @@ export function ValueMapping(props: Props) {
   const active = useActiveSection(groups.map((g) => g.key));
   const pinned = usePinned();
   const preview = props.previewOpen ?? false;
+  const [indexOpen, setIndexOpen] = useIndexOpen();
   const sections = React.useMemo(
     () => previewSections(props.book.cases.headers, props.counts),
     [props.book.cases.headers, props.counts],
@@ -162,11 +163,17 @@ export function ValueMapping(props: Props) {
       <SidePanelRegion open={preview} push="content">
         <div
           style={pinned}
-          className={cn("grid grid-cols-1 items-start gap-8", !preview && "lg:grid-cols-[16rem_minmax(0,1fr)]")}
+          className={cn("grid grid-cols-1 items-start gap-8", indexGrid(preview, indexOpen))}
         >
-          {preview ? null : (
+          {preview ? null : !indexOpen ? (
+            <IndexRail onOpen={() => setIndexOpen(true)} />
+          ) : (
             <aside aria-label="Fields" className="hidden lg:sticky lg:top-(--map-top) lg:block">
-              <IndexCard fileName={props.fileName} rows={props.book.cases.rows.length}>
+              <IndexCard
+                fileName={props.fileName}
+                rows={props.book.cases.rows.length}
+                onCollapse={() => setIndexOpen(false)}
+              >
               {/* The file always heads the column, so the panels stand where they stood on Match
                   columns; the list only when there is more than one field to move between. */}
               {groups.length > 1 ? (
