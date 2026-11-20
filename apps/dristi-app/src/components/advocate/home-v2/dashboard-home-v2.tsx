@@ -460,8 +460,6 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
      only on hover, focus or a tap (owner, 2026-11-19). A new visit to Home shows it again. */
   const [intro, setIntro] = React.useState(false);
   const introDone = React.useRef(false);
-  const [hover, setHover] = React.useState(false);
-  const [tapped, setTapped] = React.useState(false);
   React.useEffect(() => {
     if (!show || introDone.current) return;
     introDone.current = true;
@@ -476,9 +474,16 @@ function FloatingQuickActions({ show, top }: { show: boolean; top: number }) {
   }, [show]);
   const barOpen = intro || hover || tapped;
   return (
+  const [hover, setHover] = React.useState(false);
+  const [tapped, setTapped] = React.useState(false);
     <>
       <div
         data-state={state}
+    /* Leaving forgets it was open. The bar goes inert as it leaves, and an inert element never
+       hears the pointer leave it, so a bar left open under a resting pointer came back still open
+       and stayed open until it left again (owner, 2026-11-20). */
+    setHover(false);
+    setTapped(false);
         className={cn("qa-fab fixed right-4 z-40 xl:hidden", !show && "pointer-events-none")}
         /* 24px up from the bottom (owner, 2026-11-19: 16px sat too low), plus the home bar. */
         style={{ bottom: "calc(var(--spacing) * 6 + env(safe-area-inset-bottom))" }}
