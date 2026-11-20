@@ -67,8 +67,8 @@ import { FilingFooter } from "@/components/filing/filing-footer";
 import { FilingPageHeader } from "@/components/filing/filing-page-header";
 import { FilingMain } from "@/components/filing/filing-shell";
 
-import { ColumnMapping, MAP_INTRO, mappingLeft } from "./column-mapping";
-import { ValueMapping, VALUES_INTRO, VALUES_TITLE, valuesTally } from "./value-mapping";
+import { ColumnMapping, focusNextToMatch, MAP_INTRO, mappingLeft } from "./column-mapping";
+import { ValueMapping, ValuesProgress, VALUES_INTRO, VALUES_TITLE } from "./value-mapping";
 import { useGujarat } from "./court-guard";
 import {
   defaultFormat,
@@ -489,7 +489,6 @@ export function UploadScreen() {
   const valuesDone = unknownLists.every((l) =>
     unknown[l]!.every((v) => values[l]?.[v]),
   );
-  const valuesLeft = valuesTally(unknown, values).left;
 
   // Required fields Match columns still waits on (a column, or "fill in each case later").
   const mapLeft = book && !(template || docs) ? mappingLeft(book.cases.headers, map, counts, later) : 0;
@@ -911,9 +910,17 @@ export function UploadScreen() {
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep("file")}
+          // The count is the way to what it counts, as the filing footer's missing fields are.
           status={
             mapLeft ? (
-              <span className="text-body-compact text-muted-foreground tabular-nums">{mapLeft} still to match</span>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => focusNextToMatch()}
+                className="-mr-2 h-auto min-h-10 px-2 text-body-compact font-normal text-foreground tabular-nums"
+              >
+                <span className="underline decoration-muted-foreground underline-offset-4">{mapLeft} still to match</span>
+              </Button>
             ) : undefined
           }
           continueBlocked={mapLeft > 0}
@@ -941,11 +948,7 @@ export function UploadScreen() {
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep(template ? "file" : "map")}
-          status={
-            valuesLeft ? (
-              <span className="text-body-compact text-muted-foreground tabular-nums">{valuesLeft} still to translate</span>
-            ) : undefined
-          }
+          status={<ValuesProgress unknown={unknown} values={values} />}
           onContinue={() => setStep("facts")}
           continueBlocked={!valuesDone}
           continueHint="Choose what each word means first."
