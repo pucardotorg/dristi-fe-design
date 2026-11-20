@@ -24,6 +24,8 @@ import { UpdatesCard as UpdatesCarouselCard } from "@/components/advocate/home-v
 import { TodosCard } from "@/components/advocate/home-v2/todos-card";
 import { RecentCasesCard } from "@/components/advocate/home-v2/recent-card";
 import { demoUpdates } from "@/components/advocate/home-v2/updates";
+import { CardBoard, type SlotId } from "@/components/advocate/home-v2/card-board";
+import { useMinWidth } from "@/hooks/use-min-width";
 import { notify } from "@/components/feedback";
 import { PANEL_CLASS } from "@/components/shell/panel";
 import { useProfile } from "@/components/shell/profile";
@@ -121,6 +123,18 @@ function busyDay(day: ReturnType<typeof homeDay>): ReturnType<typeof homeDay> {
   return { ...day, tasks: [...day.tasks, ...extra, ...waiting] };
 }
 
+const DEFAULT_ORDER: SlotId[] = ["hearings", "todos", "updates", "week", "recent"];
+/** The desktop right column's cards: the only ones that move there. */
+const SIDE: ReadonlySet<SlotId> = new Set(["updates", "week", "recent"]);
+const noopSubscribe = () => () => {};
+
+/** Puts `part`'s new order back into the places its cards hold in `all`. */
+function mergeInto(all: SlotId[], part: SlotId[]): SlotId[] {
+  const inPart = new Set(part);
+  let i = 0;
+  return all.map((id) => (inPart.has(id) ? part[i++] : id));
+}
+
 function greetingFor(hour: number): string {
   if (hour < 12) return "Morning";
   if (hour < 17) return "Afternoon";
@@ -193,6 +207,30 @@ export function DashboardHomeV2({
     notify.success(`${task.title}: done`);
   };
 
+  /* The cards' order: set by dragging, for this visit only (a refresh restores it, as with every
+     other demo action here). */
+  const [order, setOrder] = React.useState<SlotId[]>(DEFAULT_ORDER);
+  const wide = useMinWidth(1280);
+  const ready = React.useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
+  const renderCard = (id: SlotId): React.ReactNode => {
+    switch (id) {
+      case "hearings":
+        return <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />;
+      case "todos":
+        return <TodosCard tasks={day.tasks} today={day.today} onAct={act} />;
+      case "updates":
+        return <UpdatesCarouselCard updates={updates} now={nowDate} />;
+      case "week":
+        return <ComingUpCard day={day} />;
+      case "recent":
+        return <RecentCasesCard today={day.today} />;
+    }
+  };
+
   const hour = Number(
     new Intl.DateTimeFormat("en-IN", {
       hour: "numeric",
@@ -240,28 +278,53 @@ export function DashboardHomeV2({
             {card === "5" ? <ComingUpCard day={day} /> : null}
             {card === "6" ? <RecentCasesCard today={day.today} /> : null}
           </div>
-        ) : (
+        ) : !ready ? (
           <>
-            {/* Left: Your hearings, then Your to-dos (owner, 2026-11-19: it was cramped beside
+            {/* Before the page knows its width (the server's pass): the default order, nothing
+                movable yet, drawn by CSS alone so no width flashes the wrong layout.
+                Left: Your hearings, then Your to-dos (owner, 2026-11-19: it was cramped beside
                 hearings). Right: Updates, Your week ahead, then Recent cases. Must do today and
                 Waiting on you merged into Your to-dos; Insights is out of draft 2 for this release
                 (tag home-v2-before-todos keeps it; draft 1 runs it). */}
             <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
               <div className="flex min-w-0 flex-col gap-6">
-                <HearingsTodayCard courts={DEMO_COURTS} nextCourts={DEMO_NEXT_COURTS} />
-                <TodosCard tasks={day.tasks} today={day.today} onAct={act} />
+                {renderCard("hearings")}
+                {renderCard("todos")}
               </div>
               {/* 1024 to 1279px (iPad Pro upright, iPad mini sideways): Updates and Your week ahead side
                   by side, Recent cases under them; a carousel stretched across an iPad read empty
                   (owner, 2026-11-19). Desktop: one column that sticks once its end is in view, while
                   the left column scrolls on (owner, 2026-11-19). */}
               <StickyColumn className="flex min-w-0 flex-col gap-6 lg:grid lg:grid-cols-2 xl:flex">
-                <UpdatesCarouselCard updates={updates} now={nowDate} />
-                <ComingUpCard day={day} />
-                <RecentCasesCard today={day.today} className="lg:col-span-2" />
+                {renderCard("updates")}
+                {renderCard("week")}
+                <div className="lg:col-span-2">{renderCard("recent")}</div>
               </StickyColumn>
             </div>
           </>
+        ) : wide ? (
+          /* Desktop: the two columns stay; only the right column's cards move (lead designer,
+             2026-11-20). Hearings and to-dos keep the left. */
+          <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+            <div className="flex min-w-0 flex-col gap-6">
+              {order.filter((id) => !SIDE.has(id)).map((id) => (
+                <React.Fragment key={id}>{renderCard(id)}</React.Fragment>
+              ))}
+            </div>
+            <StickyColumn className="min-w-0">
+              <CardBoard
+                label="Cards beside your day"
+                layout="column"
+                ids={order.filter((id) => SIDE.has(id))}
+                onReorder={(side) => setOrder((all) => mergeInto(all, side))}
+                render={renderCard}
+              />
+            </StickyColumn>
+          </div>
+        ) : (
+          /* Phones and iPads: one stack, so every card moves. From 1024px Updates and Your week
+             ahead sit side by side whenever they are next to each other. */
+          <CardBoard label="Home cards" layout="pairs" ids={order} onReorder={setOrder} render={renderCard} />
         )}
       </div>
       {card ? null : <FloatingQuickActions show={away} top={barH + 12} />}

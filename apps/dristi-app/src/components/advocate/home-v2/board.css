@@ -1,0 +1,170 @@
+/* Home's movable cards (card-board.tsx). Curves: the DS "settle" curve for things finding their
+   place, its "pop" curve for the lift. */
+
+.board-item {
+  --board-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.board-card {
+  height: 100%;
+  transition:
+    opacity 220ms var(--board-ease),
+    transform 260ms var(--board-ease);
+}
+
+/* The handle: a 56×40 target (DS minimum 40) whose visible grip is a 36×20 pill centred in the
+   card's 24px top padding. It reaches 8px above the card into the gap and 8px into the title
+   row's middle, where no title reaches. */
+.board-handle {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  z-index: 10;
+  display: grid;
+  width: 56px;
+  height: 40px;
+  place-items: center;
+  translate: -50% 0;
+  /* Clear of the sticky top bar when the page follows a moved card. */
+  scroll-margin-top: 96px;
+  scroll-margin-bottom: 24px;
+  color: var(--color-muted-foreground);
+  cursor: grab;
+  outline: none;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 160ms var(--board-ease), color 160ms var(--board-ease);
+}
+.board-handle::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 36px;
+  height: 20px;
+  translate: -50% 0;
+  border-radius: 9999px;
+  transition:
+    background-color 160ms var(--board-ease),
+    scale 260ms var(--board-ease),
+    box-shadow 160ms var(--board-ease);
+}
+.board-handle > svg {
+  position: relative;
+}
+.board-handle:hover,
+.board-handle[data-open],
+.board-item[data-grabbed] .board-handle {
+  color: var(--color-foreground);
+}
+.board-handle:hover::before,
+.board-handle[data-open]::before {
+  background: var(--color-accent);
+}
+.board-handle:focus-visible::before {
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
+}
+.board-item[data-holding] .board-handle::before,
+.board-item[data-grabbed] .board-handle::before {
+  background: var(--color-accent-strong);
+  scale: 1.1;
+}
+
+/* With a mouse the handle waits for the card to be hovered; touch has no hover, so it stays. */
+@media (pointer: fine) {
+  .board-handle {
+    opacity: 0;
+  }
+  .board-item:hover .board-handle,
+  .board-handle:focus-visible,
+  .board-handle[data-open],
+  .board-item[data-grabbed] .board-handle {
+    opacity: 1;
+  }
+}
+
+/* Holding on touch: the card sinks a little over the hold, so the wait reads as "working". */
+.board-item[data-holding] .board-card {
+  transform: scale(0.985);
+  transition-duration: 260ms;
+  transition-timing-function: ease-out;
+}
+
+/* Lifted: the card's place becomes the slot it will land in. */
+.board-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px dashed color-mix(in oklab, var(--color-primary) 45%, transparent);
+  border-radius: var(--radius-xl);
+  background: color-mix(in oklab, var(--color-brand-muted) 55%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms var(--board-ease);
+}
+.board-item[data-lifted]::after {
+  opacity: 1;
+}
+.board-item[data-lifted] .board-card {
+  opacity: 0;
+  transition-duration: 120ms;
+}
+
+/* Picked up from the keyboard: the card itself rises in place. */
+.board-item[data-grabbed] .board-card {
+  transform: translateY(-2px);
+}
+.board-item[data-grabbed] [data-slot="card"] {
+  box-shadow: var(--shadow-modal);
+}
+
+/* The ticket rides under the finger; it pops up as the card lets go of it. */
+.board-ticket {
+  animation: board-lift 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes board-lift {
+  from {
+    opacity: 0.5;
+    transform: scale(0.94);
+  }
+}
+
+body[data-board-dragging],
+body[data-board-dragging] * {
+  cursor: grabbing !important;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* The floating Quick actions step aside while a card is carried past them. */
+body .qa-fab,
+body .qa-bar {
+  transition: opacity 160ms ease-out;
+}
+body[data-board-dragging] .qa-fab,
+body[data-board-dragging] .qa-bar {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+body[data-board-dragging] .board-item .board-handle {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-card,
+  .board-handle,
+  .board-handle::before,
+  .board-item::after {
+    transition: none;
+  }
+  .board-item[data-holding] .board-card,
+  .board-item[data-grabbed] .board-card {
+    transform: none;
+  }
+  .board-ticket {
+    animation: none;
+  }
+}
