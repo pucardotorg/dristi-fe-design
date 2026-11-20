@@ -691,6 +691,7 @@ export function columnFit(column: Column, values: string[]): ColumnFit {
   };
   const digits = (v: string) => v.replace(/^\+?91[\s-]?/, "").replace(/\D/g, "");
   if (/Pin$/.test(column.key)) return test((v) => /^\d{6}$/.test(v.replace(/\s/g, "")), "6-digit pincodes");
+  if (column.key === "chequeNumber") return test((v) => /^\d{6}$/.test(v.replace(/\s/g, "")), "6-digit cheque numbers");
   if (/Ifsc$/.test(column.key)) return test((v) => /^[A-Z]{4}0[A-Z0-9]{6}$/i.test(v.trim()), "IFSC codes");
   if (/Email$/.test(column.key)) return test((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "email addresses");
   switch (column.kind) {
