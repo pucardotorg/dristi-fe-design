@@ -67,7 +67,7 @@ import { FilingFooter } from "@/components/filing/filing-footer";
 import { FilingPageHeader } from "@/components/filing/filing-page-header";
 import { FilingMain } from "@/components/filing/filing-shell";
 
-import { ColumnMapping, focusNextToMatch, MAP_INTRO, mappingLeft } from "./column-mapping";
+import { ColumnMapping, focusNextToMatch, leaveRestForLater, MAP_INTRO, mappingLeft, mappingTally } from "./column-mapping";
 import { ValueMapping, ValuesProgress, VALUES_INTRO, VALUES_TITLE } from "./value-mapping";
 import { useGujarat } from "./court-guard";
 import {
@@ -492,6 +492,7 @@ export function UploadScreen() {
 
   // Required fields Match columns still waits on (a column, or "fill in each case later").
   const mapLeft = book && !(template || docs) ? mappingLeft(book.cases.headers, map, counts, later) : 0;
+  const mapLater = book && !(template || docs) ? mappingTally(book.cases.headers, map, counts, later).later : 0;
   // The path this upload takes. On the Excel file step, what the chosen file turned out to
   // be: the template on the own-layout path skips matching, while a stray file on the
   // template path waits for the filer (below). Otherwise what was read, else what was chosen.
@@ -903,6 +904,7 @@ export function UploadScreen() {
             onCounts={setCounts}
             later={later}
             onLater={setLater}
+            fileName={fileName}
           />
         </FilingMain>
         {/* Every required field is answered before going on: a column, or "Fill in each
@@ -917,14 +919,34 @@ export function UploadScreen() {
                 type="button"
                 variant="ghost"
                 onClick={() => focusNextToMatch()}
-                className="-mr-2 h-auto min-h-10 px-2 text-body-compact font-normal text-foreground tabular-nums"
+                className="-mr-2 h-10 px-2 text-body-compact font-normal text-foreground tabular-nums"
               >
-                <span className="underline decoration-muted-foreground underline-offset-4">{mapLeft} still to match</span>
+                {mapLeft} to match
+              </Button>
+            ) : (
+              <span className="text-body-compact text-muted-foreground tabular-nums">
+                All answered
+                {mapLater ? ` · ${mapLater} fields to fill per case` : ""}
+              </span>
+            )
+          }
+          extra={
+            mapLeft ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const next = leaveRestForLater(headers, map, counts, later);
+                  setMap(next.map);
+                  setLater(next.later);
+                }}
+              >
+                Fill the rest in later
               </Button>
             ) : undefined
           }
           continueBlocked={mapLeft > 0}
-          continueHint={mapLeft ? "Choose a column, or Not in my file, for each field" : undefined}
+          continueHint={mapLeft ? "Choose a column for each field, or fill the rest in later" : undefined}
           onContinue={mapLeft ? undefined : () => setStep(unknownLists.length ? "values" : "facts")}
         />
       </>

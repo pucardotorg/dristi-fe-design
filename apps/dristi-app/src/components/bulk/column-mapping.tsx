@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeftRightIcon, ArrowRightIcon, MinusIcon, PencilLineIcon, PlusIcon } from "lucide-react";
+import { ArrowLeftRightIcon, CheckIcon, ChevronDownIcon } from "lucide-react";
 
 import {
   columnFit,
@@ -28,9 +28,9 @@ import {
 } from "@/lib/bulk/excel-spec";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shell/confirm-dialog";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StatusMark } from "@/components/ui/status-mark";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Combobox,
   ComboboxCollection,
@@ -60,10 +60,12 @@ type Props = {
    */
   later: Set<string>;
   onLater: (next: Set<string>) => void;
+  /** The file being matched, named at the head of the index. */
+  fileName?: string;
 };
 
 /** The page's one line under "Match columns": what the screen asks, in the filer's words. */
-export const MAP_INTRO = "For each court field, choose the column in your file that holds it. Every case follows.";
+export const MAP_INTRO = "Choose the column in your file that holds each court field.";
 
 /** Sections in the single filing's order. */
 const ORDER: GroupId[] = [
@@ -75,15 +77,6 @@ const ORDER: GroupId[] = [
   "otherCase",
   "witness",
 ];
-
-/** "Accused", "Cheques": what a count of a section is called beside its stepper. */
-const PLURAL: Partial<Record<GroupId, string>> = {
-  accused: "Accused",
-  cheque: "Cheques",
-  notice: "Demand notices",
-  witness: "Witnesses",
-  otherCase: "Other pending cases",
-};
 
 /** Singular and plural names for a count in a sentence: "1 accused", "2 cheques". */
 const NOUN: Partial<Record<GroupId, [string, string]>> = {
@@ -109,74 +102,44 @@ const SAID_BY_SECTION: Partial<Record<GroupId, string>> = {
 const REPEATING = GROUPS.filter((g) => g.repeats && !g.parent);
 
 /**
- * How many of each repeating section a case can have, as one fact: "Up to 2 cheques per
- * case, from your column names." The count is the most any one case has; it says where it
- * came from until the filer sets it.
+ * How many of each repeating section a case holds (BLK-38c), as one line that edits in
+ * place: "1 accused · 2 cheques · 1 demand notice". Each number is a quiet select. It heads
+ * the page because it decides which sections exist below.
  */
-function repeatsLine(instances: Record<GroupId, { length: number }>, counts: InstanceCounts): string {
-  const more = REPEATING.map((g) => ({ g, n: instances[g.id].length, noun: NOUN[g.id] }))
-    .filter(({ g, n, noun }) => noun && (g.always ? n > 1 : n > 0))
-    .map(({ n, noun }) => `${n} ${noun![n === 1 ? 0 : 1]}`);
-  const join = (xs: string[]) =>
-    xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
-  const from = Object.keys(counts).length ? "" : ", from your column names";
-  return more.length
-    ? `Up to ${join(more)} per case${from}.`
-    : `1 accused, 1 cheque and 1 demand notice per case${from}.`;
-}
-
-/** The counts behind that line, one stepper each, opened by its Edit. */
-function RepeatSteppers({
-  props,
-  instances,
-}: {
-  props: Props;
-  instances: Record<GroupId, Instance[]>;
-}) {
+function PerCase({ props, instances }: { props: Props; instances: Record<GroupId, Instance[]> }) {
   return (
-    <ul
-      aria-label="Most of each in one case"
-      className="flex flex-wrap gap-2 rounded-lg border border-hairline bg-surface-sunken p-2"
-    >
-      {REPEATING.map((g) => {
-        const n = instances[g.id].length;
-        const floor = g.always ? 1 : 0;
-        const set = (next: number) =>
-          props.onCounts({ ...props.counts, [g.id]: Math.max(floor, next) });
-        const name = PLURAL[g.id] ?? g.label;
-        return (
-          <li
-            key={g.id}
-            className="flex items-center gap-1 rounded-lg border border-hairline bg-card py-1 pr-1 pl-3"
-          >
-            <span className="text-body-compact">{name}</span>
-            <span
-              className="min-w-6 text-center text-body-compact font-semibold tabular-nums"
-              aria-live="polite"
-            >
-              {n}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={n <= floor}
-              onClick={() => set(n - 1)}
-              aria-label={`One fewer: ${name}`}
-            >
-              <MinusIcon aria-hidden />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => set(n + 1)}
-              aria-label={`One more: ${name}`}
-            >
-              <PlusIcon aria-hidden />
-            </Button>
-          </li>
-        );
-      })}
-    </ul>
+    <Card variant="raised" className="flex-row flex-wrap items-center gap-x-6 gap-y-1 px-6 py-2">
+      <h2 className="text-body-compact font-medium text-muted-foreground">Per case</h2>
+      <ul className="-ml-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+        {REPEATING.map((g) => {
+          const n = instances[g.id].length;
+          const floor = g.always ? 1 : 0;
+          const noun = NOUN[g.id] ?? [g.label, g.label];
+          const choices = Array.from({ length: Math.max(n + 3, 5) - floor + 1 }, (_, j) => floor + j);
+          return (
+            <li key={g.id}>
+              <Select value={String(n)} onValueChange={(v) => props.onCounts({ ...props.counts, [g.id]: Number(v) })}>
+                <SelectTrigger
+                  aria-label={`How many ${noun[1]}`}
+                  className="gap-1.5 border-transparent bg-transparent px-2 text-body-compact shadow-none hover:bg-accent dark:bg-transparent [&_svg]:opacity-60"
+                >
+                  <SelectValue>
+                    <span className="font-semibold tabular-nums">{n}</span> {noun[n === 1 ? 0 : 1]}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent position="popper" className="min-w-24">
+                  {choices.map((c) => (
+                    <SelectItem key={c} value={String(c)} className="text-body-compact tabular-nums">
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
   );
 }
 
@@ -238,6 +201,7 @@ function ColumnPicker({
   headers,
   firsts,
   list,
+  tone = "open",
   onPick,
 }: {
   id: string;
@@ -246,6 +210,12 @@ function ColumnPicker({
   headers: string[];
   firsts: string[];
   list?: ListName;
+  /**
+   * Open: a bordered field, the one question on its row. Set (a column, or one value for
+   * every case): a quiet statement that shows its border on hover and focus. Later: as set,
+   * with the answer muted, as no column.
+   */
+  tone?: "open" | "set" | "later";
   onPick: (value: string) => void;
 }) {
   const used = React.useContext(UsedContext);
@@ -302,9 +272,12 @@ function ColumnPicker({
           id={id}
           aria-label={label}
           className={cn(
-            "w-full",
+            "w-full [&_input]:text-body-compact",
+            tone !== "open" &&
+              "border-transparent bg-transparent hover:border-input hover:bg-card dark:bg-transparent [&_svg]:opacity-50 hover:[&_svg]:opacity-100 focus-within:[&_svg]:opacity-100",
+            tone === "later" && "[&_input]:text-muted-foreground",
             // Open, the field and its list read as one box: the field's lower corners square off.
-            "has-[[data-popup-open]]:border-ring has-[[data-popup-open]]:ring-0 has-[[data-popup-side=bottom]]:rounded-b-none has-[[data-popup-side=top]]:rounded-t-none",
+            "has-[[data-popup-open]]:border-ring",
           )}
           autoComplete="off"
           showTrigger={false}
@@ -324,8 +297,8 @@ function ColumnPicker({
           than the list. */}
       <ComboboxContent
         anchor={anchor}
-        sideOffset={-1}
-        className="min-w-(--anchor-width) overflow-x-hidden border border-ring ring-0 data-[side=bottom]:rounded-t-none data-[side=bottom]:border-t-0 data-[side=top]:rounded-b-none data-[side=top]:border-b-0"
+        sideOffset={4}
+        className="w-90! max-w-(--available-width) overflow-x-hidden"
       >
         <ComboboxEmpty>No column matches</ComboboxEmpty>
         <ComboboxList className="overflow-x-hidden overscroll-x-none">
@@ -356,7 +329,7 @@ function ColumnPicker({
                     ) : o.kind === "every" ? (
                       <span>{o.name}</span>
                     ) : (
-                      <span className="text-muted-foreground">{o.name}</span>
+                      <span>{o.name}</span>
                     )}
                   </ComboboxItem>
                 )}
@@ -376,112 +349,46 @@ function sourceValue(src: ColumnSource): string {
 }
 
 /**
- * A field's state. Not chosen: no mark at all, so the empty picker beside it is the one
- * thing that says so (an empty ring read as a radio button). Matched: the DS success mark.
- * Matched, but the column's values do not fit: the warning mark, with the reason under the
- * column. Left to each case: a neutral mark with a pencil, since each case is then typed
- * in by hand. Each says its state to assistive tech.
+ * A field's state, carried by the picker alone: empty (still to match), a column, one
+ * value for every case, or "Fill in each case later" in muted text. No marks beside it.
  */
 type RowState = "todo" | "ok" | "warn" | "later";
 
-const STATE_LABEL: Record<RowState, string> = {
-  todo: "Not matched yet",
-  ok: "Matched",
-  warn: "Matched, check the values",
-  later: "Filled in each case later",
-};
-
-function RowMark({ state }: { state: RowState }) {
-  // A mark plays only when the filer's own choice changes it; at rest every mark is still.
-  const [prev, setPrev] = React.useState(state);
-  const [play, setPlay] = React.useState(false);
-  if (prev !== state) {
-    setPrev(state);
-    setPlay(state === "ok");
-  }
-  const label = STATE_LABEL[state];
-  if (state === "todo") return <span className="sr-only">{label}: </span>;
-  return (
-    <span title={label} className="flex shrink-0">
-      <StatusMark
-        size={16}
-        tone={state === "ok" ? "success" : state === "warn" ? "warning" : "neutral"}
-        icon={state === "later" ? PencilLineIcon : undefined}
-        still={!play}
-        label={label}
-      />
-    </span>
-  );
-}
-
-/** What one sheet column holds: a few of its values from different rows, and how many rows fill it. */
-type ColumnFacts = { samples: string[]; filled: number };
-
-/** Where a field stands, worked out once so the row and the section rail agree. */
-type SlotInfo = {
-  src: ColumnSource;
-  state: RowState;
-  fit: ColumnFit | null;
-  /** Words of a court list the file uses and the court does not know: the next step's work. */
-  words: number;
-};
-
-function infoOf(slot: Slot, props: Props): SlotInfo {
+function stateOf(slot: Slot, props: Props): { src: ColumnSource; state: RowState; fit: ColumnFit | null } {
   const src = sourceFor(slot.c, slot.i, props.map, props.headers);
-  // Not chosen at all, as opposed to chosen to fill in each case later.
-  const unset = src === null && !props.later.has(slot.key);
+  if (src === null) return { src, state: props.later.has(slot.key) ? "later" : "todo", fit: null };
   const values = typeof src === "number" ? props.rows.map((r) => r[src] ?? "") : null;
   const fit = values ? columnFit(slot.c, values) : null;
-  // A list column whose words the court does not know fits: the next step translates them.
+  // A list column whose words the court does not know fits: Match values takes them.
   const words =
-    values && slot.c.list
-      ? new Set(values.map((v) => v.trim()).filter((v) => v && listValue(slot.c.list!, v) === null)).size
-      : 0;
-  const state: RowState = unset ? "todo" : src === null ? "later" : fit && !fit.ok && !words ? "warn" : "ok";
-  return { src, state, fit, words };
+    values && slot.c.list ? values.some((v) => v.trim() && listValue(slot.c.list!, v) === null) : false;
+  return { src, state: fit && !fit.ok && !words ? "warn" : "ok", fit };
 }
 
 /**
- * Field, arrow, column, what the column holds: one grid for every row of every section, so
- * the pickers and the values stand in two clean columns down the page.
+ * Field, column, what the column holds: one grid for every panel, so the pickers stand on
+ * one line down the page and the header labels sit over them.
  */
 const ROW =
-  "sm:grid-cols-[minmax(0,0.85fr)_1rem_minmax(0,1.25fr)_minmax(0,0.9fr)] sm:items-center sm:gap-x-4";
-
-/** A column's values as small wells, as many whole ones as fit on one line; the rest wrap out of sight. */
-function Samples({ values }: { values: string[] }) {
-  return (
-    <div className="flex h-6 min-w-0 flex-wrap gap-2 overflow-hidden">
-      <span className="sr-only">Values in this column: </span>
-      {values.map((v, k) => (
-        <span
-          key={k}
-          title={v}
-          className="flex h-6 max-w-full items-center rounded-md bg-surface-sunken px-2 text-body-compact tabular-nums"
-        >
-          <span className="truncate">{v}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
+  "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,12.5rem)_minmax(0,17.5rem)_minmax(0,1fr)] sm:items-center sm:gap-x-6";
 
 /** One field of one instance: its name, the column it is read from, and what that column holds. */
 function FieldRow({
   slot,
-  info,
   props,
-  facts,
+  samples,
   firsts,
+  fresh = false,
 }: {
   slot: Slot;
-  info: SlotInfo;
   props: Props;
-  facts: ColumnFacts[];
+  samples: string[][];
   firsts: string[];
+  /** Just revealed: fades in rather than appearing at once. */
+  fresh?: boolean;
 }) {
   const { c: column, i: instance, key: selfKey, name } = slot;
-  const { src, state, fit, words } = info;
+  const { src, state, fit } = stateOf(slot, props);
   const id = `map-${column.key}-${instanceKey(instance) || "0"}`;
   const used = React.useContext(UsedContext);
   const [pending, setPending] = React.useState<{ value: string; others: Use[] } | null>(null);
@@ -497,80 +404,41 @@ function FieldRow({
     else later.delete(selfKey);
     props.onLater(later);
   };
-  const held = typeof src === "number" ? facts[src] : null;
-  const rows = props.rows.length;
-  // A required column most rows leave blank is likely the wrong column; a few blanks are
-  // cases Fix & check will ask about. A second cheque or accused is blank wherever a case has
-  // only one, so only a section's first counts.
-  const first = instance.every((n) => n === 1);
-  const blanks = held && slot.required && first && held.filled > 0 && held.filled * 2 < rows ? rows - held.filled : 0;
-  const note = words ? (
-    <p className="text-body-compact text-muted-foreground">
-      <span className="tabular-nums">{words}</span> {words === 1 ? "word" : "words"} to translate next
-    </p>
-  ) : fit && !fit.ok ? (
-    <p className="text-body-compact text-warning-ink">{fit.note}</p>
-  ) : blanks ? (
-    <p className="text-body-compact text-muted-foreground tabular-nums">
-      Empty in {blanks} of {rows} rows
-    </p>
-  ) : null;
+  const held = typeof src === "number" ? samples[src] : [];
   return (
     <li
       data-to-match={state === "todo" || undefined}
-      // On a phone: the name, with "Not in my file" across from it; the column under both.
-      className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-y-2 py-3 max-sm:gap-x-3", ROW)}
+      className={cn(ROW, "min-h-14 py-2", fresh && "animate-in duration-200 fade-in-0")}
     >
-      <label htmlFor={id} className="flex min-w-0 items-center gap-2">
-        {/* The mark's slot stays when there is no mark, so every name starts on one line. */}
-        <span className="flex size-4 shrink-0 items-center justify-center">
-          <RowMark state={state} />
-        </span>
-        <span className="min-w-0 text-body-compact font-medium break-words">{name}</span>
+      <label htmlFor={id} className="min-w-0 text-body-compact break-words">
+        {name}
       </label>
-      <ArrowRightIcon aria-hidden className="hidden size-4 text-muted-foreground sm:block" />
-      <div className="min-w-0 max-sm:col-span-2 max-sm:pl-6">
-        <ColumnPicker
-          id={id}
-          label={`${name}, ${slot.sectionTitle}`}
-          value={state === "todo" ? "" : sourceValue(src) || NONE}
-          headers={props.headers}
-          firsts={firsts}
-          list={column.list}
-          onPick={(v) => {
-            // A column already matched elsewhere moves here only once the filer agrees.
-            const others = /^\d+$/.test(v) ? (used[Number(v)] ?? []).filter((u) => u.key !== selfKey) : [];
-            if (others.length) setPending({ value: v, others });
-            else commit(v, []);
-          }}
-        />
-      </div>
-      <div
-        className={cn(
-          "min-w-0 max-sm:empty:hidden",
-          state === "todo" ? "max-sm:col-start-2 max-sm:row-start-1" : "max-sm:col-span-2 max-sm:pl-6",
-        )}
-      >
-        {state === "todo" ? (
-          // The other answer, one press away rather than at the top of the list.
-          <Button
-            variant="ghost"
-            className="px-3 text-body-compact font-normal max-sm:-mr-3 sm:-ml-3"
-            onClick={(e) => {
-              const row = e.currentTarget.closest("li");
-              commit(NONE, []);
-              // The button goes with the answer: focus walks on to the next field still to match.
-              requestAnimationFrame(() => focusAfter(row));
-            }}
-            aria-label={`Not in my file: ${name}, ${slot.sectionTitle}`}
-          >
-            <span className="underline decoration-muted-foreground underline-offset-4">Not in my file</span>
-          </Button>
-        ) : held && held.samples.length ? (
-          <Samples values={held.samples} />
-        ) : null}
-      </div>
-      {note ? <div className="max-sm:col-span-2 max-sm:pl-6 sm:col-span-2 sm:col-start-3">{note}</div> : null}
+      <ColumnPicker
+        id={id}
+        label={`${name}, ${slot.sectionTitle}`}
+        value={state === "todo" ? "" : sourceValue(src) || NONE}
+        headers={props.headers}
+        firsts={firsts}
+        list={column.list}
+        tone={state === "todo" ? "open" : state === "later" ? "later" : "set"}
+        onPick={(v) => {
+          // A column already matched elsewhere moves here only once the filer agrees.
+          const others = /^\d+$/.test(v) ? (used[Number(v)] ?? []).filter((u) => u.key !== selfKey) : [];
+          if (others.length) setPending({ value: v, others });
+          else commit(v, []);
+        }}
+      />
+      {state === "warn" && fit && !fit.ok ? (
+        <p className="min-w-0 text-body-compact text-warning-ink">{fit.note}</p>
+      ) : (
+        <p
+          title={held.join(", ")}
+          className="min-w-0 truncate text-body-compact text-muted-foreground tabular-nums max-sm:empty:hidden"
+        >
+          {held.length ? <span className="sr-only">Holds: </span> : null}
+          {held.join(", ")}
+        </p>
+      )}
       <ConfirmDialog
         open={pending !== null}
         onOpenChange={(open) => {
@@ -594,7 +462,7 @@ function FieldRow({
   );
 }
 
-/** One section of a case, in the single filing's order: what the court calls it, and its fields. */
+/** One section of a case, in the single filing's order (§4.3's column groups): its name and fields. */
 type Section = { id: string; title: string; slots: Slot[] };
 
 function sectionsOf(slots: Slot[]): Section[] {
@@ -607,34 +475,9 @@ function sectionsOf(slots: Slot[]): Section[] {
   return out;
 }
 
-/** Where a section stands: how many of its fields still wait, and whether any needs a look. */
-function sectionState(section: Section, infos: Map<string, SlotInfo>) {
-  const req = section.slots.filter((x) => x.required);
-  const todo = req.filter((x) => infos.get(x.key)!.state === "todo").length;
-  const warn = req.some((x) => infos.get(x.key)!.state === "warn");
-  const later = req.some((x) => infos.get(x.key)!.state === "later");
-  return { todo, warn, later, required: req.length };
-}
-
 const sectionDomId = (id: string) => `map-section-${id.replace(/[^a-z0-9]/gi, "-")}`;
 
-/** After a row is answered: the next field still to match below it, else that row's own picker. */
-function focusAfter(row: Element | null) {
-  if (!row) return;
-  const next = [...document.querySelectorAll<HTMLElement>("[data-to-match]")].find(
-    (el) => row.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
-  );
-  const target = (next ?? row).querySelector<HTMLInputElement>("input");
-  if (!target) return;
-  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  (next ?? row).scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
-  target.focus({ preventScroll: true });
-}
-
-/**
- * Take the filer to a field still to match: the first in `within` (a section), else the
- * first on the page. Its picker takes focus, so the next keys choose its column.
- */
+/** Take the filer to a field still to match, in `within` (a section) or on the page; its picker takes focus. */
 export function focusNextToMatch(within?: string) {
   const root = within ? document.getElementById(sectionDomId(within)) : document;
   const row = root?.querySelector<HTMLElement>("[data-to-match]");
@@ -647,100 +490,85 @@ export function focusNextToMatch(within?: string) {
   row.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
 }
 
-function SectionCard({
+/**
+ * A section's panel: its name over the column labels, then its fields. A field's name drops
+ * what the section's name says ("Date" under "Cheque 2").
+ */
+function SectionPanel({
   section,
-  infos,
   props,
-  facts,
+  samples,
   firsts,
 }: {
   section: Section;
-  infos: Map<string, SlotInfo>;
   props: Props;
-  facts: ColumnFacts[];
+  samples: string[][];
   firsts: string[];
 }) {
   const [open, setOpen] = React.useState(false);
   const titleId = React.useId();
-  const { todo, required } = sectionState(section, infos);
-  const optional = section.slots.filter((x) => !x.required);
-  // A section the file brought only optional fields for shows them; the others keep them behind one link.
+  const required = section.slots.filter((x) => x.required).length;
+  const optional = section.slots.length - required;
+  // A section the file brought only optional fields for shows them; the rest keep them behind one button.
   const shown = required ? section.slots.filter((x) => x.required || open) : section.slots;
+  const holds = shown.some((x) => {
+    const src = sourceFor(x.c, x.i, props.map, props.headers);
+    return typeof src === "number" && samples[src]?.length;
+  });
   return (
-    <section
-      id={sectionDomId(section.id)}
-      data-map-section={section.id}
-      aria-labelledby={titleId}
-      className="scroll-mt-(--map-top)"
-    >
-      <Card variant="raised" className="gap-0 py-0">
-        <div className="flex items-baseline justify-between gap-4 px-6 pt-6 pb-1">
+    <section id={sectionDomId(section.id)} aria-labelledby={titleId} className="scroll-mt-(--map-top)">
+      <Card variant="raised" className="gap-0 px-6 py-0">
+        <div className={cn(ROW, "border-b border-hairline pt-5 pb-3 max-sm:pb-2")}>
           <h2 id={titleId} className="text-body font-semibold">
             {section.title}
           </h2>
-          {todo ? (
-            <span className="shrink-0 text-body-compact text-muted-foreground tabular-nums">{todo} to match</span>
-          ) : !required ? (
-            <span className="shrink-0 text-body-compact text-muted-foreground">Optional</span>
+          <span aria-hidden className="hidden pl-3 text-body-compact font-medium text-muted-foreground sm:block">
+            Your column
+          </span>
+          {holds ? (
+            <span aria-hidden className="hidden text-body-compact font-medium text-muted-foreground sm:block">
+              Holds
+            </span>
           ) : null}
         </div>
-        <ul className="flex flex-col divide-y divide-hairline px-6">
+        <ul className="flex flex-col divide-y divide-hairline">
           {shown.map((x) => (
-            <FieldRow key={x.key} slot={x} info={infos.get(x.key)!} props={props} facts={facts} firsts={firsts} />
+            <FieldRow
+              key={x.key}
+              slot={x}
+              props={props}
+              samples={samples}
+              firsts={firsts}
+              fresh={open && !x.required}
+            />
           ))}
         </ul>
-        {required && optional.length ? (
-          <div className="border-t border-hairline px-6 pt-2 pb-3">
+        {required && optional ? (
+          <div className="border-t border-hairline py-2">
             <Button
-              variant="link"
-              className="h-10 px-0 text-body-compact"
+              variant="ghost"
+              className="-ml-3 h-10 px-3 text-body-compact font-normal"
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
             >
-              {open ? "Hide optional fields" : `Show ${optional.length} optional ${optional.length === 1 ? "field" : "fields"}`}
+              {open ? "Hide optional fields" : `${optional} optional ${optional === 1 ? "field" : "fields"}`}
+              <ChevronDownIcon
+                aria-hidden
+                className={cn("text-muted-foreground transition-transform duration-200", open && "rotate-180")}
+              />
             </Button>
           </div>
         ) : (
-          <div className="pb-3" />
+          <div className="pb-2" />
         )}
       </Card>
     </section>
   );
 }
 
-/** A section's state in the rail: what is left, or that it is answered. */
-function RailMark({ state }: { state: ReturnType<typeof sectionState> }) {
-  const tone = state.todo ? null : state.warn ? "warning" : state.later ? "neutral" : "success";
-  // A section's mark plays once, when the filer's last answer in it lands.
-  const [prev, setPrev] = React.useState(tone);
-  const [play, setPlay] = React.useState(false);
-  if (prev !== tone) {
-    setPrev(tone);
-    setPlay(tone === "success");
-  }
-  if (!state.required) return null;
-  if (state.todo)
-    return (
-      <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full border border-hairline bg-card px-2 text-body-compact tabular-nums">
-        {state.todo}
-        <span className="sr-only"> to match</span>
-      </span>
-    );
-  const label = tone === "warning" ? "Matched, check the values" : tone === "neutral" ? "Answered, some in each case later" : "All matched";
-  return (
-    <StatusMark
-      size={16}
-      tone={tone!}
-      icon={tone === "neutral" ? PencilLineIcon : undefined}
-      still={!play}
-      label={label}
-    />
-  );
-}
-
 /**
- * Where the page's pinned band ends (the top bar, then the batch's steps), as the bulk
- * lists measure it, so the rail stops under it and a section scrolled to lands clear of it.
+ * Where the page's pinned band ends (the top bar, then the batch's steps), so the index
+ * stops under it and a section scrolled to lands clear of it.
  */
 function pinnedBottom(): number {
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -750,16 +578,10 @@ function pinnedBottom(): number {
   return (parseFloat(getComputedStyle(steps).top) || bar) + steps.offsetHeight;
 }
 
-/** The rail's place under the pinned band, and the room it has above the footer. */
 function usePinned() {
-  const [m, setM] = React.useState({ top: 0, room: 0 });
+  const [top, setTop] = React.useState(0);
   React.useEffect(() => {
-    const measure = () => {
-      const top = Math.round(pinnedBottom());
-      const footer = document.querySelector("footer")?.getBoundingClientRect().height ?? 0;
-      const room = Math.round(window.innerHeight - top - footer);
-      setM((p) => (p.top === top && p.room === room ? p : { top, room }));
-    };
+    const measure = () => setTop(Math.round(pinnedBottom()));
     measure();
     const ro = new ResizeObserver(measure);
     const steps = document.querySelector('nav[aria-label="Batch steps"]')?.parentElement;
@@ -770,11 +592,7 @@ function usePinned() {
       window.removeEventListener("resize", measure);
     };
   }, []);
-  // 24px of air under the band, and as much over the footer.
-  return {
-    "--map-top": `${m.top + 24}px`,
-    "--map-room": `${Math.max(0, m.room - 48)}px`,
-  } as React.CSSProperties;
+  return { "--map-top": `${top + 24}px` } as React.CSSProperties;
 }
 
 /** The section the filer is reading: the last whose top has passed a third of the way down the window. */
@@ -786,35 +604,87 @@ function useActiveSection(ids: string[]) {
     const els = list.map((id) => document.getElementById(sectionDomId(id))).filter((e): e is HTMLElement => !!e);
     if (!els.length) return;
     const pick = () => {
-      const line = window.innerHeight / 3;
+      const line = pinnedBottom() + 120;
       let at = list[0];
       els.forEach((el, k) => {
         if (el.getBoundingClientRect().top <= line) at = list[k];
       });
       setActive(at);
     };
-    const io = new IntersectionObserver(pick, { threshold: [0, 0.25, 0.5, 0.75, 1] });
-    els.forEach((el) => io.observe(el));
     window.addEventListener("scroll", pick, { passive: true, capture: true });
     pick();
-    return () => {
-      io.disconnect();
-      window.removeEventListener("scroll", pick, { capture: true });
-    };
+    return () => window.removeEventListener("scroll", pick, { capture: true });
   }, [key]);
   return active;
 }
 
 /**
- * Match columns, as a match-the-following in the shape of a case: one panel per section
- * (Case, Accused, Cheque 1, Cheque 2…), each court field on the left, the column of the
- * filer's file that holds it on the right, and a few of that column's values beside it so
- * the match can be checked at a glance. A column whose name is the field's (or a known
- * alias, case and punctuation ignored) arrives chosen; nothing else is guessed. Beside
- * the sections, a rail says what is left in each and takes the filer to it.
+ * The index beside the panels: the file being matched, then each section with what it still
+ * waits on, a plain number, or a muted tick once nothing does. Clicking a section takes the
+ * filer to its first open field, or to the section.
+ */
+function MapIndex({
+  fileName,
+  rows,
+  columns,
+  sections,
+  active,
+  props,
+}: {
+  fileName?: string;
+  rows: number;
+  columns: number;
+  sections: Section[];
+  active: string | null;
+  props: Props;
+}) {
+  return (
+    <aside aria-label="Sections" className="hidden lg:sticky lg:top-(--map-top) lg:flex lg:flex-col lg:gap-4">
+      <div className="flex flex-col gap-0.5 px-3 pt-1">
+        {fileName ? <p className="truncate text-body-compact font-semibold" title={fileName}>{fileName}</p> : null}
+        <p className="text-body-compact text-muted-foreground tabular-nums">
+          {rows} {rows === 1 ? "case" : "cases"} · {columns} columns
+        </p>
+      </div>
+      <nav>
+        <ul className="flex flex-col gap-0.5">
+          {sections.map((s) => {
+            const todo = s.slots.filter((x) => x.required && stateOf(x, props).state === "todo").length;
+            return (
+              <li key={s.id}>
+                <Button
+                  variant="ghost"
+                  aria-current={active === s.id ? "location" : undefined}
+                  onClick={() => focusNextToMatch(s.id)}
+                  className="h-auto min-h-10 w-full justify-between gap-3 border border-transparent px-3 py-2 text-left text-body-compact font-normal whitespace-normal hover:bg-card/60 aria-[current=location]:border-hairline aria-[current=location]:bg-card aria-[current=location]:font-medium"
+                >
+                  <span className="min-w-0">{s.title}</span>
+                  {todo ? (
+                    <span className="shrink-0 text-muted-foreground tabular-nums">
+                      {todo}
+                      <span className="sr-only"> to match</span>
+                    </span>
+                  ) : (
+                    <CheckIcon aria-label="Done" className="size-4 shrink-0 text-muted-foreground" />
+                  )}
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </aside>
+  );
+}
+
+/**
+ * Match columns (BLK-38): an index of the case's sections beside one panel per section,
+ * each court field with the column of the filer's file that holds it and a few of that
+ * column's values. A column whose name is the field's (or a known alias) arrives chosen
+ * and reads as a quiet statement; a field still open is the one bordered control on its
+ * row. What is left shows in the index and the footer.
  */
 export function ColumnMapping(props: Props) {
-  const [repeatsOpen, setRepeatsOpen] = React.useState(false);
   const instances = React.useMemo(() => instancesIn(props.headers, props.counts), [props.headers, props.counts]);
   const slots = React.useMemo(() => mappingSlots(props.headers, props.counts, true), [props.headers, props.counts]);
   // What each sheet column already feeds, so the dropdown can say so.
@@ -826,116 +696,40 @@ export function ColumnMapping(props: Props) {
     }
     return out;
   }, [slots, props.map, props.headers]);
-  // What each column holds: up to three different values, from the top of the file down,
-  // and how many rows have anything in it.
-  const facts = React.useMemo<ColumnFacts[]>(
+  // Up to three different values from each column, from the top of the file down.
+  const samples = React.useMemo(
     () =>
       props.headers.map((_, k) => {
-        const samples: string[] = [];
-        let filled = 0;
+        const out: string[] = [];
         for (const r of props.rows) {
           const v = r[k]?.trim() ?? "";
-          if (!v) continue;
-          filled += 1;
-          if (samples.length < 3 && !samples.includes(v)) samples.push(v);
+          if (v && !out.includes(v)) out.push(v);
+          if (out.length === 3) break;
         }
-        return { samples, filled };
+        return out;
       }),
     [props.headers, props.rows],
   );
-  const firsts = React.useMemo(() => facts.map((f) => f.samples[0] ?? ""), [facts]);
-  const infos = React.useMemo(
-    () => new Map(slots.map((x) => [x.key, infoOf(x, props)])),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- infoOf reads only these
-    [slots, props.map, props.later, props.rows, props.headers],
-  );
+  const firsts = React.useMemo(() => samples.map((s) => s[0] ?? ""), [samples]);
   const sections = React.useMemo(() => sectionsOf(slots), [slots]);
   const active = useActiveSection(sections.map((s) => s.id));
   const pinned = usePinned();
-  const tallyRef = React.useRef<HTMLDivElement>(null);
-  const required = slots.filter((x) => x.required);
-  const tally = tallyOf(required, props);
-  const unresolved = required.filter((x) => infos.get(x.key)!.state === "todo");
 
   return (
     <UsedContext.Provider value={used}>
-      <div
-        style={pinned}
-        className="flex flex-col gap-4 lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start lg:gap-8"
-      >
-        <aside aria-label="Progress" className="lg:sticky lg:top-(--map-top)">
-          <Card
-            variant="raised"
-            size="sm"
-            className="gap-3 sm:max-lg:flex-row sm:max-lg:items-center sm:max-lg:justify-between lg:max-h-(--map-room) lg:overflow-y-auto"
-          >
-            <CardHeader className="sm:max-lg:flex-1">
-              {/* Takes focus when the one-move answer removes its own button. */}
-              <CardTitle ref={tallyRef} tabIndex={-1} className="text-body font-semibold tabular-nums outline-none">
-                {tally.matched} of {tally.total} matched
-              </CardTitle>
-              {tally.later ? (
-                <CardDescription className="text-body-compact tabular-nums">
-                  {tally.later} to fill in each case later
-                </CardDescription>
-              ) : null}
-            </CardHeader>
-            <nav aria-label="Sections" className="hidden px-2 lg:block">
-              <ul className="flex flex-col gap-1">
-                {sections.map((s) => {
-                  const st = sectionState(s, infos);
-                  return (
-                    <li key={s.id}>
-                      <Button
-                        variant="ghost"
-                        aria-current={active === s.id ? "location" : undefined}
-                        onClick={() => focusNextToMatch(s.id)}
-                        className="h-auto min-h-10 w-full justify-between gap-3 px-2 py-2 text-left text-body-compact font-normal whitespace-normal aria-[current=location]:bg-accent-strong aria-[current=location]:font-medium"
-                      >
-                        <span className="min-w-0">{s.title}</span>
-                        <RailMark state={st} />
-                      </Button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
-            {/* Fields the file has nothing for, decided in one move: each case gets them typed in
-                at Case details. Every row stays to change back. */}
-            {unresolved.length > 1 ? (
-              <div className="px-4 sm:max-lg:pl-0 lg:border-t lg:border-hairline lg:pt-3">
-                <Button
-                  variant="outline"
-                  className="w-full text-body-compact"
-                  onClick={() => {
-                    const later = new Set(props.later);
-                    for (const x of unresolved) later.add(x.key);
-                    props.onLater(later);
-                    props.onChange({ ...props.map, ...Object.fromEntries(unresolved.map((x) => [x.key, null])) });
-                    requestAnimationFrame(() => tallyRef.current?.focus());
-                  }}
-                >
-                  The rest aren&rsquo;t in my file
-                </Button>
-              </div>
-            ) : null}
-          </Card>
-        </aside>
-        <div className="flex min-w-0 flex-col gap-4">
-          <p className="text-body-compact text-muted-foreground">
-            {repeatsLine(instances, props.counts)}{" "}
-            <Button
-              variant="link"
-              className="h-auto p-0 text-body-compact"
-              aria-expanded={repeatsOpen}
-              onClick={() => setRepeatsOpen((v) => !v)}
-            >
-              {repeatsOpen ? "Done" : "Edit"}
-            </Button>
-          </p>
-          {repeatsOpen ? <RepeatSteppers props={props} instances={instances} /> : null}
+      <div style={pinned} className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
+        <MapIndex
+          fileName={props.fileName}
+          rows={props.rows.length}
+          columns={props.headers.length}
+          sections={sections}
+          active={active}
+          props={props}
+        />
+        <div className="flex min-w-0 flex-col gap-6">
+          <PerCase props={props} instances={instances} />
           {sections.map((s) => (
-            <SectionCard key={s.id} section={s} infos={infos} props={props} facts={facts} firsts={firsts} />
+            <SectionPanel key={s.id} section={s} props={props} samples={samples} firsts={firsts} />
           ))}
         </div>
       </div>
@@ -1020,6 +814,25 @@ export function mappingTally(
   later: Set<string>,
 ): Tally {
   return tallyOf(mappingSlots(headers, counts, false), { headers, map, later });
+}
+
+/**
+ * Every required field still without an answer, left to each case in one move (BLK-38a):
+ * the footer's "Fill in the rest later". Each stays to change back.
+ */
+export function leaveRestForLater(
+  headers: string[],
+  map: ColumnMap,
+  counts: InstanceCounts,
+  later: Set<string>,
+): { map: ColumnMap; later: Set<string> } {
+  const open = mappingSlots(headers, counts, false).filter(
+    (x) => sourceFor(x.c, x.i, map, headers) === null && !later.has(x.key),
+  );
+  return {
+    map: { ...map, ...Object.fromEntries(open.map((x) => [x.key, null])) },
+    later: new Set([...later, ...open.map((x) => x.key)]),
+  };
 }
 
 /** Required fields not yet matched or set to fill in each case later: Match columns' "still to match". */
