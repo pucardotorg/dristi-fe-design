@@ -3,8 +3,8 @@
 import "./board.css";
 
 import * as React from "react";
-import { createPortal } from "react-dom";
 import {
+  AutoScrollActivator,
   DndContext,
   DragOverlay,
   PointerSensor,
@@ -34,15 +34,17 @@ import { cn } from "@/lib/utils";
 
 /**
  * Home's cards in an order the advocate sets (lead designer, 2026-11-20): pick a card up by its
- * handle and put it somewhere else. For this visit only, like every other demo action here.
+ * handle and put it somewhere else. The order is kept on this device across visits (owner,
+ * 2026-11-20: resetting it on refresh would annoy people); see `dashboard-home-v2`.
  *
  * - Handle: a grip centred in the card's top padding, where no card keeps anything. With a mouse
  *   it shows on hover; on touch it is always there (there is no hover).
  * - Mouse: press the handle and move 4px. Touch: hold the handle (260ms; the card sinks a little
  *   while you hold so you know it is working), then drag. Android buzzes on pick-up, at each new
  *   place and on drop; iPhones and iPads do not let web pages vibrate, so the lift does that job.
- * - While dragging, the card's title rides under your finger as a small "ticket" and the card's
- *   place turns into a dashed slot, which moves through the list to where it will land. Near the
+ * - While dragging, the whole card rides under your finger, lifted a little, its handle staying
+ *   where you hold it (owner, 2026-11-20: a title strip read as something else). A card taller
+ *   than 60% of the screen is carried clipped with a fade. Its place turns into a dashed slot, which moves through the list to where it will land. Near the
  *   top or bottom of the screen the page scrolls. Escape puts everything back.
  * - Without dragging (WCAG 2.5.7, voice control, keyboards): click or tap the handle for Move up /
  *   Move down (a menu with a mouse, a bottom drawer on touch). Keyboard: Space picks the card up,
@@ -65,8 +67,9 @@ export const SLOT_NAMES: Record<SlotId, string> = {
 /** Cards that sit two across on an iPad (1024 to 1279px) when they are next to each other. */
 const HALF: ReadonlySet<SlotId> = new Set(["updates", "week"]);
 
-/** The ticket's height: one 56px row, the same as a Quick actions tile. */
-const TICKET_H = 56;
+/** A card taller than this share of the screen is carried clipped, fading out at the bottom, so
+    the place it will land stays in view (a phone's to-dos list is longer than the screen). */
+const LIFT_CAP = 0.6;
 const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 const HOLD_MS = 260;
 
@@ -110,7 +113,7 @@ function moveTo(ids: SlotId[], from: number, to: number): SlotId[] {
 }
 
 /**
- * Where the dragged card should go, from the ticket's grip point. A card swaps with the one under
+ * Where the dragged card should go, from the carried card's middle. A card swaps with the one under
  * the point only once the point is past that card's middle in the direction of travel; after the
  * swap the point sits before the other card's middle, so it never flips back and forth.
  */
@@ -153,17 +156,15 @@ export function CardBoard({
   className?: string;
 }) {
   const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const portal = React.useSyncExternalStore(
-    noopSubscribe,
-    () => document.body,
-    () => null,
-  );
   const [active, setActive] = React.useState<SlotId | null>(null);
+  /* A picture of the card being carried: a copy of its drawn DOM, so the card itself never
+     remounts (its carousel slide, its played animations stay as they are). */
+  const [lift, setLift] = React.useState<{ node: HTMLElement; height: number; capped: boolean } | null>(null);
   const [grabbed, setGrabbed] = React.useState<SlotId | null>(null);
   const [message, setMessage] = React.useState("");
   const nodes = React.useRef(new Map<SlotId, HTMLElement>());
   const handles = React.useRef(new Map<SlotId, HTMLButtonElement>());
-  const ticket = React.useRef<HTMLDivElement>(null);
+  const carried = React.useRef<HTMLDivElement>(null);
   const idsRef = React.useRef(ids);
   React.useLayoutEffect(() => {
     idsRef.current = ids;
@@ -173,7 +174,10 @@ export function CardBoard({
   /* Where each card was drawn just before a move, for the slide (FLIP). */
   const before = React.useRef<Map<SlotId, { left: number; top: number }> | null>(null);
   const refocus = React.useRef<SlotId | null>(null);
-  const checkRef = React.useRef<((at?: { left: number; top: number; width: number } | null) => void) | null>(null);
+  /* The carried card's drawn height; its middle decides where it goes, so two cards trade places
+     once they overlap by half. */
+  const liftH = React.useRef(Infinity);
+  const checkRef = React.useRef<((at?: { left: number; top: number; width: number; height: number } | null) => void) | null>(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
@@ -227,8 +231,8 @@ export function CardBoard({
     });
   }, [ids, reduced]);
 
-  /* While a card is up: each frame, and on every scroll, find where the ticket's grip point says
-     it goes. Not only on pointer moves, so the slot keeps up while the page auto-scrolls under a
+  /* While a card is up: each frame, and on every scroll, find where the carried card's middle
+     says it goes. Not only on pointer moves, so the slot keeps up while the page auto-scrolls under a
      still finger. */
   React.useEffect(() => {
     if (!active) return;
@@ -237,10 +241,10 @@ export function CardBoard({
       raf = requestAnimationFrame(loop);
       check();
     };
-    const check = (at?: { left: number; top: number; width: number } | null) => {
+    const check = (at?: { left: number; top: number; width: number; height: number } | null) => {
       /* A move not yet drawn: the boxes on screen are the old order's. */
       if (before.current) return;
-      const t = at ?? ticket.current?.getBoundingClientRect();
+      const t = at ?? carried.current?.getBoundingClientRect();
       if (!t) return;
       const rects = new Map<SlotId, DOMRect>();
       /* Layout boxes, ignoring the slide's transforms, so a card mid-slide is judged where it
@@ -251,7 +255,7 @@ export function CardBoard({
         rects.set(id, new DOMRect(r.left - m.m41, r.top - m.m42, r.width, r.height));
       });
       const list = idsRef.current;
-      const to = targetIndex(list, active, t.left + t.width / 2, t.top + TICKET_H / 2, rects);
+      const to = targetIndex(list, active, t.left + t.width / 2, t.top + Math.min(t.height, liftH.current) / 2, rects);
       if (to === null) return;
       const next = moveTo(list, list.indexOf(active), to);
       commit(next);
@@ -272,14 +276,24 @@ export function CardBoard({
 
   const onDragStart = (e: DragStartEvent) => {
     const id = e.active.id as SlotId;
+    const card = nodes.current.get(id)?.querySelector<HTMLElement>(".board-card");
+    if (card) {
+      const node = card.cloneNode(true) as HTMLElement;
+      node.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+      node.querySelectorAll("a, button, input, [tabindex]").forEach((el) => el.setAttribute("tabindex", "-1"));
+      const full = card.getBoundingClientRect().height;
+      const cap = Math.round(window.innerHeight * LIFT_CAP);
+      liftH.current = Math.min(full, cap);
+      setLift({ node, height: liftH.current, capped: full > cap });
+    }
     start.current = idsRef.current;
     touchDrag.current = typeof TouchEvent !== "undefined" && e.activatorEvent instanceof TouchEvent;
     if (touchDrag.current) buzz(12);
     setGrabbed(null);
     setActive(id);
   };
-  /* Pointer moves, and the drop itself, judge from the ticket's newest position, which the
-     ticket on screen may not have been drawn at yet. */
+  /* Pointer moves, and the drop itself, judge from the card's newest position, which the
+     copy on screen may not have been drawn at yet. */
   const onDragMove = (e: DragMoveEvent) => checkRef.current?.(e.active.rect.current.translated);
   const onDragEnd = (e: DragEndEvent) => {
     checkRef.current?.(e.active.rect.current.translated);
@@ -348,10 +362,13 @@ export function CardBoard({
     : {
         duration: 240,
         easing: EASE,
-        sideEffects: null,
+        /* The card settles back to its own size and shadow as it lands. */
+        sideEffects: ({ dragOverlay }) => {
+          dragOverlay.node.querySelector(".board-lift")?.setAttribute("data-dropping", "");
+        },
         keyframes: ({ transform }) => [
-          { transform: CSS.Transform.toString({ ...transform.initial, scaleX: 1, scaleY: 1 }), opacity: 1 },
-          { transform: CSS.Transform.toString({ ...transform.final, scaleX: 1, scaleY: 1 }), opacity: 0 },
+          { transform: CSS.Transform.toString({ ...transform.initial, scaleX: 1, scaleY: 1 }) },
+          { transform: CSS.Transform.toString({ ...transform.final, scaleX: 1, scaleY: 1 }) },
         ],
       };
 
@@ -361,7 +378,9 @@ export function CardBoard({
     <DndContext
       sensors={sensors}
       collisionDetection={() => []}
-      autoScroll={{ threshold: { x: 0, y: 0.18 }, acceleration: 12 }}
+      /* Scroll by where the finger is, not the carried card's edges: a tall card would touch the
+         screen's edge long before the finger does. */
+      autoScroll={{ activator: AutoScrollActivator.Pointer, threshold: { x: 0, y: 0.15 }, acceleration: 12 }}
       accessibility={{ announcements: NO_ANNOUNCEMENTS, screenReaderInstructions: { draggable: "" } }}
       onDragStart={onDragStart}
       onDragMove={onDragMove}
@@ -396,23 +415,17 @@ export function CardBoard({
           </BoardItem>
         ))}
       </ul>
-      {/* On the body, above every layer of the page (the floating Quick actions included). */}
-      {portal
-        ? createPortal(
-            <DragOverlay dropAnimation={dropAnimation} style={{ height: TICKET_H }} zIndex={100}>
-              {active ? <Ticket ref={ticket} name={SLOT_NAMES[active]} still={reduced} /> : null}
-            </DragOverlay>,
-            portal,
-          )
-        : null}
+      {/* Inside the page, not a portal: the card's copy keeps the page's container queries, so it
+          is drawn exactly as the card is. The floating Quick actions step aside while dragging. */}
+      <DragOverlay dropAnimation={dropAnimation} style={lift ? { height: lift.height } : undefined} zIndex={100}>
+        {active && lift ? <Lifted ref={carried} node={lift.node} capped={lift.capped} still={reduced} /> : null}
+      </DragOverlay>
       <p aria-live="polite" className="sr-only">
         {message}
       </p>
     </DndContext>
   );
 }
-
-const noopSubscribe = () => () => {};
 
 const NO_ANNOUNCEMENTS = {
   onDragStart: () => undefined,
@@ -422,16 +435,18 @@ const NO_ANNOUNCEMENTS = {
   onDragCancel: () => undefined,
 };
 
-/** The card's title, lifted: what rides under the finger while its place is a slot. */
-const Ticket = React.forwardRef<HTMLDivElement, { name: string; still: boolean }>(function Ticket({ name, still }, ref) {
+/** The carried card: its copy, lifted a little, with its handle where it was, held. */
+const Lifted = React.forwardRef<HTMLDivElement, { node: HTMLElement; capped: boolean; still: boolean }>(function Lifted(
+  { node, capped, still },
+  ref,
+) {
+  const holder = React.useCallback((el: HTMLDivElement | null) => el?.replaceChildren(node), [node]);
   return (
-    <div
-      ref={ref}
-      data-still={still || undefined}
-      className="board-ticket flex h-14 w-full cursor-grabbing items-center gap-3 rounded-xl border border-hairline bg-card px-4 shadow-modal"
-    >
-      <GripHorizontalIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-      <span className="truncate text-body font-semibold">{name}</span>
+    <div ref={ref} aria-hidden="true" data-still={still || undefined} className="board-lift relative h-full cursor-grabbing">
+      <div ref={holder} data-capped={capped || undefined} className="board-lift-card h-full overflow-hidden rounded-xl" />
+      <span className="board-handle board-handle-ghost">
+        <GripHorizontalIcon aria-hidden="true" className="size-4" />
+      </span>
     </div>
   );
 });

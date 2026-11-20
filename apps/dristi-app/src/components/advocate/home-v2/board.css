@@ -12,12 +12,13 @@
     transform 260ms var(--board-ease);
 }
 
-/* The handle: a 56×40 target (DS minimum 40) whose visible grip is a 36×20 pill centred in the
-   card's 24px top padding. It reaches 8px above the card into the gap and 8px into the title
-   row's middle, where no title reaches. */
+/* The handle: a 56×40 target (DS minimum 40) whose visible grip is a 36×20 pill, its dots 15px
+   below the card's top edge (owner, 2026-11-20: a little lower than the padding's middle). The
+   card's padding is unchanged; the target reaches 5px above the card into the gap and 11px into
+   the title row's middle, where no title reaches. */
 .board-handle {
   position: absolute;
-  top: -8px;
+  top: -5px;
   left: 50%;
   z-index: 10;
   display: grid;
@@ -121,15 +122,51 @@
   box-shadow: var(--shadow-modal);
 }
 
-/* The ticket rides under the finger; it pops up as the card lets go of it. */
-.board-ticket {
-  animation: board-lift 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+/* The carried card: a copy, risen 2% with the modal shadow, popping up as it leaves its place
+   and settling back to its own size as it lands. */
+.board-lift {
+  scale: 1.02;
+  transition: scale 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: board-lift 260ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
 @keyframes board-lift {
   from {
-    opacity: 0.5;
-    transform: scale(0.94);
+    scale: 1;
   }
+}
+.board-lift-card {
+  box-shadow: var(--shadow-modal);
+  transition: box-shadow 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.board-lift[data-dropping] {
+  scale: 1;
+}
+.board-lift[data-dropping] .board-lift-card {
+  box-shadow: var(--shadow-raised);
+}
+/* A picture, not the card: nothing in it plays again or reacts. */
+.board-lift-card,
+.board-lift-card * {
+  animation: none !important;
+  transition-property: none !important;
+  pointer-events: none;
+}
+.board-lift-card[data-capped] {
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent);
+}
+.board-lift-card > .board-card > * {
+  box-shadow: none;
+}
+/* Its handle, held: where the finger is. */
+.board-handle-ghost {
+  opacity: 1 !important;
+  color: var(--color-foreground);
+  cursor: grabbing;
+}
+.board-handle-ghost::before {
+  background: var(--color-accent-strong);
+  scale: 1.1;
 }
 
 body[data-board-dragging],
@@ -164,7 +201,9 @@ body[data-board-dragging] .board-item .board-handle {
   .board-item[data-grabbed] .board-card {
     transform: none;
   }
-  .board-ticket {
+  .board-lift {
     animation: none;
+    scale: 1;
+    transition: none;
   }
 }
