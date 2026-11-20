@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-  ArrowLeftRightIcon,
   ArrowRightIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -40,7 +39,6 @@ import { judgeColumn, type Verdict } from "@/lib/bulk/read-back";
 import { cn } from "@/lib/utils";
 import { SidePanelRegion } from "@/components/ui/side-panel";
 import { CasePreview } from "./case-preview";
-import { notify } from "@/components/ui/notify";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -311,20 +309,20 @@ export const ROW =
   "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,13rem)_minmax(0,15rem)_minmax(0,1fr)] sm:items-center sm:gap-x-4";
 
 /**
- * A row's brief highlight: a soft fill that lands at once and fades over a second, for the
- * rows a move touched (the field that took a column and the one it left), so the filer
- * sees where the column came from. The fill sits behind the row, wider than its text.
+ * A row's brief highlight: a soft fill that lands at once and fades over a second, only for
+ * a field whose column was just taken by another field and so needs a new one. The fill
+ * sits behind the row, wider than its text.
  */
 export const FLASH =
   "relative isolate before:pointer-events-none before:absolute before:-inset-x-3 before:inset-y-1 before:-z-10 before:rounded-lg before:bg-brand-muted before:opacity-0 before:transition-opacity before:duration-1000 before:ease-out data-[flash]:before:opacity-100 data-[flash]:before:duration-150";
 
-/** Flash the rows (and index entries) with these ids, once the render that shows them lands. */
+/** Flash the rows with these field ids, once the render that shows them lands. */
 export function flash(ids: string[]) {
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   requestAnimationFrame(() =>
     requestAnimationFrame(() => {
       for (const id of ids) {
-        for (const el of document.querySelectorAll<HTMLElement>(`[data-field="${CSS.escape(id)}"], [data-index-id="${CSS.escape(id)}"]`)) {
+        for (const el of document.querySelectorAll<HTMLElement>(`[data-field="${CSS.escape(id)}"]`)) {
           el.setAttribute("data-flash", "");
           window.setTimeout(() => el.removeAttribute("data-flash"), still ? 1200 : 700);
         }
@@ -390,27 +388,13 @@ function FieldRow({
   const id = pickerDomId(column.key, instance);
   const used = React.useContext(UsedContext);
   /**
-   * A column another field already reads moves here at once, no question asked: both rows
-   * flash so the filer sees where it came from, the field it left reappears among the open
-   * ones, and a toast offers Undo. A reversible move needs no confirmation in its way.
+   * A column another field already reads moves here at once. The field it left now has no
+   * column: it reappears among the open fields and flashes, so the filer sees what needs a
+   * new column. Nothing else is highlighted.
    */
   const move = (v: string, others: Use[]) => {
-    const before = { map: props.map, later: props.later };
     commit(v, others);
-    const touched = [selfKey, ...others.map((o) => o.key), ...(others.map((o) => o.section).filter(Boolean) as string[])];
-    flash(touched);
-    notify.neutral(`Moved “${props.headers[Number(v)] ?? ""}” to ${slot.label}`, {
-      icon: ArrowLeftRightIcon,
-      description: `${others.map((o) => o.label).join(", ")} needs another column.`,
-      action: {
-        label: "Undo",
-        onClick: () => {
-          props.onChange(before.map);
-          props.onLater(before.later);
-          flash(touched);
-        },
-      },
-    });
+    flash(others.map((o) => o.key));
   };
   const commit = (v: string, clear: Use[]) => {
     const next: ColumnSource = v === NONE ? null : v.startsWith("every:") ? { every: v.slice(6) } : Number(v);
@@ -842,13 +826,12 @@ export function IndexList({
               <button
                 type="button"
                 aria-current={here ? "location" : undefined}
-                data-index-id={s.id}
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent(CHOOSE, { detail: s.id }));
                   onPick(s.id);
                 }}
                 className={cn(
-                  "flex min-h-10 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-body-compact transition-colors duration-700 outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 data-[flash]:bg-brand-muted data-[flash]:duration-150",
+                  "flex min-h-10 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-body-compact transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50",
                   here && "bg-accent font-medium",
                 )}
               >
