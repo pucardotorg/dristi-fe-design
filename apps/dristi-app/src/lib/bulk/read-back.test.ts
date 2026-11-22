@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { answerFor } from "./excel";
 import { COLUMNS, LISTS } from "./excel-spec";
 import { isCheckable, judgeColumn, namedFor, readBack, unusualFor } from "./read-back";
 
@@ -76,4 +77,17 @@ test("columns that do not look like their field are flagged, beyond their type",
   assert.equal(unusualFor(col("delivered"), ["DLVD", "Delivered", "SERVED", "RTO", "DLVD", "Returned", "DLVD"]), null);
   assert.equal(unusualFor(col("accusedName"), ["Harsh V. Bhavsar", "Snehal K. Mistry", "Pravin D. Solanki"]), null);
   assert.equal(unusualFor(col("accusedAddress"), ["B-12, Sundaram Flats, Vastrapur", "14, Gokul Row Houses", "7, Shreeji Society"]), null);
+});
+
+test("answers are per field, with an older per-list answer read as a fallback", () => {
+  const replied = col("replied");
+  const delivered = col("delivered");
+  // Each field is its own decision: "Y" answered under Accused replied says nothing for Notice delivered.
+  const own = { replied: { Y: "yes" } };
+  assert.equal(answerFor(own, replied, "Y"), "yes");
+  assert.equal(answerFor(own, delivered, "Y"), null);
+  // An upload saved before answers were per field keyed them by list.
+  assert.equal(answerFor({ yesNo: { Y: "yes" } }, delivered, "Y"), "yes");
+  // A field's own "" (taken back) wins over an older list answer.
+  assert.equal(answerFor({ yesNo: { Y: "yes" }, delivered: { Y: "" } }, delivered, "Y"), null);
 });

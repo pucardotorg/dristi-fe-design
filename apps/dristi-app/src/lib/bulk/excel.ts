@@ -440,7 +440,19 @@ export function unmatchedRequired(headers: string[], map: ColumnMap): Column[] {
 }
 
 /** list → raw value as written → list value chosen by the filer. */
-export type ValueMap = Partial<Record<ListName, Record<string, string>>>;
+/**
+ * The filer's answers on Match values: court field key → the file's word → the court's
+ * option ("" for left unanswered). Each field is its own decision (BLK-39). Uploads saved
+ * before answers were per field keyed them by list name; those are still read as a fallback.
+ */
+export type ValueMap = Partial<Record<string, Record<string, string>>>;
+
+/** The filer's answer for a word in a field, or null: the field's own answer, else an old per-list one. */
+export function answerFor(values: ValueMap, column: Column, word: string): string | null {
+  const own = values[column.key]?.[word];
+  if (own !== undefined) return own || null;
+  return (column.list && values[column.list]?.[word]) || null;
+}
 
 /** Values in list columns that the list does not know, by list, across every instance. */
 export function unknownValues(
@@ -496,7 +508,7 @@ function reader(row: string[], headers: string[], map: ColumnMap, values: ValueM
     if (!v || !c.list) return "";
     // A word the court's list does not know, and the filer did not match, is invalid: the
     // field is left empty, and a required one sends the case to Needs fixing (BLK-39a, BLK-34).
-    return listValue(c.list, v) ?? values[c.list]?.[v] ?? "";
+    return listValue(c.list, v) ?? answerFor(values, c, v) ?? "";
   };
   /** Whether this instance has anything in this row (optional sections). */
   const any = (group: GroupId, instance: Instance) =>

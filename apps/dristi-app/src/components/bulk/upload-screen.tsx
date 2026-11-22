@@ -993,7 +993,7 @@ export function UploadScreen() {
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep(template ? "file" : "map")}
-          status={<ValuesProgress unknown={unknown} values={values} />}
+          status={<ValuesProgress book={book} map={map} counts={counts} unknown={unknown} values={values} />}
           // A word left unmatched does not hold the batch back: that field is left empty and
           // the case goes to Needs fixing on Case details (BLK-39a, BLK-34).
           onContinue={() => setStep("facts")}

@@ -1,8 +1,10 @@
 "use client";
 
 import * as React from "react";
+import { FileSpreadsheetIcon } from "lucide-react";
 
 import {
+  answerFor,
   instancesIn,
   sourceFor,
   type ColumnMap,
@@ -10,19 +12,29 @@ import {
   type ValueMap,
   type Workbookish,
 } from "@/lib/bulk/excel";
-import { COLUMNS, LISTS, type ListName } from "@/lib/bulk/excel-spec";
-import { suggestOption } from "@/lib/bulk/value-suggest";
+import { COLUMNS, LISTS, listValue, type Column, type ListName } from "@/lib/bulk/excel-spec";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SidePanelRegion } from "@/components/ui/side-panel";
-import { CasePreview } from "./case-preview";
-import { IndexCard, IndexList, IndexRail, indexGrid, previewSections, useIndexOpen, sectionDomId, useActiveSection, usePinned } from "./column-mapping";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
+import { CasePreview } from "./case-preview";
+import {
+  IndexCard,
+  IndexList,
+  IndexRail,
+  indexGrid,
+  previewSections,
+  sectionDomId,
+  useActiveSection,
+  useIndexOpen,
+  usePinned,
+} from "./column-mapping";
 
-/** The page's title and one line, for the page header above the list. */
+/** The page's title and one line, for the page header above the tables. */
 export const VALUES_TITLE = "Match values";
-export const VALUES_INTRO = "Choose the court’s option for each word in your file.";
+export const VALUES_INTRO = "Some words in your file aren’t on the court’s lists. Choose what each one means.";
 
 type Props = {
   book: Workbookish;
@@ -30,39 +42,96 @@ type Props = {
   counts: InstanceCounts;
   /** Words each list does not know, as `unknownValues` reads them. */
   unknown: Partial<Record<ListName, string[]>>;
-  /** list → the file's word → the court's option value. */
+  /** Court field → the file's word → the court's option value (BLK-39). */
   values: ValueMap;
   onChange: (next: ValueMap) => void;
   /** The file being matched, named at the head of the index. */
   fileName?: string;
   /** A row's number in the file ("Row 2"), for the case preview. */
   rowLabel?: (index: number) => string;
-  /** The case preview, opened from the page header. */
+  /** The case preview, opened from the page header or from a word's case count. */
   previewOpen?: boolean;
   onPreviewOpen?: (open: boolean) => void;
 };
 
-/** What Match values still waits on: words matched and words in all. */
-export function valuesTally(unknown: Partial<Record<ListName, string[]>>, values: ValueMap) {
-  let total = 0;
-  let done = 0;
-  for (const [l, words] of Object.entries(unknown) as [ListName, string[]][]) {
-    total += words.length;
-    done += words.filter((w) => values[l]?.[w]).length;
+/** One distinct value of the file in a field, and the rows that hold it. */
+type Word = { word: string; rows: number[] };
+
+/**
+ * One court field whose answers come from a fixed list: the file's values that are not on
+ * it (open, for the filer to translate), and those that already are, word for word (shown
+ * settled, so the rule is visible: an exact word passes, anything else is asked).
+ */
+type FieldWords = {
+  column: Column;
+  key: string;
+  title: string;
+  list: ListName;
+  open: Word[];
+  matched: Word[];
+  columns: string[];
+  required: boolean;
+};
+
+function fieldGroups(props: Pick<Props, "book" | "map" | "counts" | "unknown">): FieldWords[] {
+  const { headers, rows } = props.book.cases;
+  const instances = instancesIn(headers, props.counts);
+  const out: FieldWords[] = [];
+  for (const c of COLUMNS) {
+    if (!c.list || !props.unknown[c.list]?.length) continue;
+    const cols: number[] = [];
+    for (const i of instances[c.group]) {
+      const src = sourceFor(c, i, props.map, headers);
+      if (typeof src === "number" && !cols.includes(src)) cols.push(src);
+    }
+    if (!cols.length) continue;
+    const at = new Map<string, number[]>();
+    rows.forEach((row, k) => {
+      for (const w of new Set(cols.map((x) => row[x]?.trim() ?? "").filter(Boolean)))
+        (at.get(w) ?? at.set(w, []).get(w)!).push(k);
+    });
+    const words = [...at.entries()]
+      .map(([word, r]) => ({ word, rows: r }))
+      // The most cases first: a mistake there costs the most.
+      .sort((a, b) => b.rows.length - a.rows.length);
+    const open = words.filter((w) => listValue(c.list!, w.word) === null);
+    if (!open.length) continue;
+    out.push({
+      column: c,
+      key: c.key,
+      title: c.header,
+      list: c.list,
+      open,
+      matched: words.filter((w) => listValue(c.list!, w.word) !== null),
+      columns: cols.map((k) => headers[k] || `Column ${k + 1}`),
+      required: c.required.startsWith("Yes"),
+    });
   }
-  return { total, done, left: total - done };
+  return out;
 }
 
-/** The footer's one fact: how many words still need an option, as the way to the next. */
-export function ValuesProgress({
-  unknown,
-  values,
-}: {
-  unknown: Partial<Record<ListName, string[]>>;
-  values: ValueMap;
-}) {
-  const { left } = valuesTally(unknown, values);
-  if (!left) return <span className="text-body-compact text-muted-foreground">All chosen</span>;
+/** What Match values still waits on, and how many cases a gap leaves needing fixing (BLK-34). */
+export function valuesTally(props: Pick<Props, "book" | "map" | "counts" | "unknown" | "values">) {
+  const groups = fieldGroups(props);
+  let left = 0;
+  const broken = new Set<number>();
+  for (const g of groups)
+    for (const w of g.open) {
+      if (answerFor(props.values, g.column, w.word)) continue;
+      left += 1;
+      if (g.required) for (const r of w.rows) broken.add(r);
+    }
+  return { left, broken: broken.size };
+}
+
+/**
+ * The footer's fact: how many words are left and what leaving them costs, as the way to the
+ * next one. A gap never blocks Continue: the field is left empty and a required one sends
+ * its cases to Needs fixing (BLK-39a, BLK-34).
+ */
+export function ValuesProgress(props: Pick<Props, "book" | "map" | "counts" | "unknown" | "values">) {
+  const { left, broken } = valuesTally(props);
+  if (!left) return <span className="text-body-compact text-muted-foreground">All matched</span>;
   return (
     <Button
       type="button"
@@ -76,81 +145,48 @@ export function ValuesProgress({
       }}
       className="-mr-2 h-10 px-2 text-body-compact font-normal text-foreground tabular-nums"
     >
-      {left} to choose
+      {left} left
+      {broken ? (
+        <span className="text-muted-foreground">
+          · {broken} {broken === 1 ? "case" : "cases"} will need fixing
+        </span>
+      ) : null}
     </Button>
   );
-}
-
-/**
- * One court field whose answers come from a fixed list, with the words of the filer's file
- * it holds that the list does not know, and how many cases use each. One panel each:
- * "Notice delivered" holds DLVD and RTO, "Accused replied" holds Y and N. A word two fields
- * share (Y) is one choice for its list, so choosing it in one panel settles it in both.
- */
-type FieldWords = { key: string; title: string; list: ListName; words: string[]; cases: Map<string, number>; columns: string[] };
-
-function fieldGroups(props: Props): FieldWords[] {
-  const { headers, rows } = props.book.cases;
-  const instances = instancesIn(headers, props.counts);
-  const out: FieldWords[] = [];
-  for (const c of COLUMNS) {
-    if (!c.list || !props.unknown[c.list]?.length) continue;
-    const unknown = new Set(props.unknown[c.list]);
-    const cols: number[] = [];
-    for (const i of instances[c.group]) {
-      const src = sourceFor(c, i, props.map, headers);
-      if (typeof src === "number" && !cols.includes(src)) cols.push(src);
-    }
-    if (!cols.length) continue;
-    const cases = new Map<string, number>();
-    for (const row of rows) {
-      const here = new Set(cols.map((k) => row[k]?.trim() ?? "").filter((w) => w && unknown.has(w)));
-      for (const w of here) cases.set(w, (cases.get(w) ?? 0) + 1);
-    }
-    if (!cases.size) continue;
-    out.push({
-      key: c.key,
-      title: c.header,
-      list: c.list,
-      // The most used first: they settle the most cases.
-      words: [...cases.keys()].sort((x, y) => cases.get(y)! - cases.get(x)!),
-      cases,
-      columns: cols.map((k) => headers[k] || `Column ${k + 1}`),
-    });
-  }
-  return out;
 }
 
 /** The file's columns behind a field, two at most and a count for the rest. */
 const capped = (cols: string[]) => (cols.length > 2 ? `${cols.slice(0, 2).join(", ")} +${cols.length - 2}` : cols.join(", "));
 
 /**
- * Match values (BLK-39): every word of the filer's file that a court list does not know,
- * grouped by the field it answers, each with the court's option the filer says it means.
- * Nothing is chosen for the filer: where one option plainly reads as the word (A/C CLOSED →
- * Account closed), it leads the open list marked "Closest", and the filer picks it. A word
- * left unmatched does not hold the batch back (BLK-39a).
+ * Match values (BLK-39): for each court field whose answers come from the court's fixed
+ * list, a translation table. On the left, the file's column; on the right, the court field.
+ * The file's values the list does not know come first, each with the court's options to
+ * choose from; the values already on the list follow, settled as plain text. A chosen
+ * answer keeps its control, so a control always means the filer's choice and plain text
+ * means an exact match. Nothing is chosen for the filer, and a word left unanswered does
+ * not hold the batch back (BLK-39a). A word's case count opens those cases.
  */
 export function ValueMapping(props: Props) {
   const { values, onChange } = props;
-
   const groups = fieldGroups(props);
   const active = useActiveSection(groups.map((g) => g.key));
   const pinned = usePinned();
   const preview = props.previewOpen ?? false;
   const [indexOpen, setIndexOpen] = useIndexOpen();
+  // The rows behind one word, when the filer opened its case count.
+  const [only, setOnly] = React.useState<{ rows: number[]; field: string; word: string } | null>(null);
   const sections = React.useMemo(
     () => previewSections(props.book.cases.headers, props.counts),
     [props.book.cases.headers, props.counts],
   );
+  const pick = (g: FieldWords, word: string, value: string) =>
+    onChange({ ...values, [g.key]: { ...(values[g.key] ?? {}), [word]: value } });
 
   return (
     <>
       <SidePanelRegion open={preview} push="content">
-        <div
-          style={pinned}
-          className={cn("grid grid-cols-1 items-start gap-8", indexGrid(preview, indexOpen))}
-        >
+        <div style={pinned} className={cn("grid grid-cols-1 items-start gap-8", indexGrid(preview, indexOpen))}>
           {preview ? null : !indexOpen ? (
             <IndexRail onOpen={() => setIndexOpen(true)} />
           ) : (
@@ -160,30 +196,32 @@ export function ValueMapping(props: Props) {
                 rows={props.book.cases.rows.length}
                 onCollapse={() => setIndexOpen(false)}
               >
-              {/* The file always heads the column, so the panels stand where they stood on Match
-                  columns; the list only when there is more than one field to move between. */}
-              {groups.length > 1 ? (
-              <IndexList
-                label="to choose"
-                active={active}
-                onPick={(id) => focusNextToChoose(id)}
-                items={groups.map((g) => ({
-                  id: g.key,
-                  title: g.title,
-                  left: g.words.filter((w) => !values[g.list]?.[w]).length,
-                }))}
-              />
-              ) : null}
+                {groups.length > 1 ? (
+                  <IndexList
+                    label="left"
+                    active={active}
+                    onPick={(id) => focusNextToChoose(id)}
+                    items={groups.map((g) => ({
+                      id: g.key,
+                      title: g.title,
+                      left: g.open.filter((w) => !answerFor(values, g.column, w.word)).length,
+                    }))}
+                  />
+                ) : null}
               </IndexCard>
             </aside>
           )}
           <div className="flex min-w-0 flex-col gap-4">
             {groups.map((g) => (
-              <FieldGroup
+              <FieldTable
                 key={g.key}
                 group={g}
-                chosen={values[g.list] ?? {}}
-                onPick={(w, v) => onChange({ ...values, [g.list]: { ...(values[g.list] ?? {}), [w]: v } })}
+                answer={(w) => answerFor(values, g.column, w) ?? ""}
+                onPick={(w, v) => pick(g, w, v)}
+                onShowCases={(w) => {
+                  setOnly({ rows: w.rows, field: g.key, word: w.word });
+                  props.onPreviewOpen?.(true);
+                }}
               />
             ))}
           </div>
@@ -191,21 +229,25 @@ export function ValueMapping(props: Props) {
       </SidePanelRegion>
       <CasePreview
         open={preview}
-        onOpenChange={(o) => props.onPreviewOpen?.(o)}
+        onOpenChange={(o) => {
+          if (!o) setOnly(null);
+          props.onPreviewOpen?.(o);
+        }}
         sections={sections}
         headers={props.book.cases.headers}
         rows={props.book.cases.rows}
         map={props.map}
         values={values}
+        only={only}
         rowLabel={props.rowLabel ?? ((i) => `Row ${i + 2}`)}
       />
     </>
   );
 }
 
-/** Take the filer to the first word still without an option in a field's panel, else to the panel. */
-function focusNextToChoose(list: string) {
-  const panel = document.getElementById(sectionDomId(list));
+/** Take the filer to the first word still without an answer in a field's table, else to the table. */
+function focusNextToChoose(field: string) {
+  const panel = document.getElementById(sectionDomId(field));
   if (!panel) return;
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const open = panel.querySelector<HTMLElement>("[data-to-choose] button");
@@ -213,107 +255,145 @@ function focusNextToChoose(list: string) {
   open?.focus({ preventScroll: true });
 }
 
-/** Word, option, cases: Match columns' grid, so the pickers stand where they stood on the step before. */
-const ROW =
-  "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,13rem)_minmax(0,15rem)_minmax(0,1fr)] sm:items-center sm:gap-x-4";
+/** The file's word, the court's option: the left column matches Match columns' field column. */
+const ROW = "grid grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] sm:items-center sm:gap-x-4";
 
-function FieldGroup({
+function FieldTable({
   group,
-  chosen,
+  answer,
   onPick,
+  onShowCases,
 }: {
   group: FieldWords;
-  chosen: Record<string, string>;
+  answer: (word: string) => string;
   onPick: (word: string, value: string) => void;
+  onShowCases: (word: Word) => void;
 }) {
   const titleId = React.useId();
-  const left = group.words.filter((w) => !chosen[w]).length;
+  const options = LISTS[group.list];
   return (
     <section id={sectionDomId(group.key)} aria-labelledby={titleId} className="scroll-mt-(--map-top)">
       <Card variant="raised" className="gap-0 px-6 py-0">
-        <div className="flex min-h-14 items-center justify-between gap-4 border-b border-hairline pt-1">
-          <h2 id={titleId} className="min-w-0 text-body font-semibold">
-            {group.title}
-            <span className="text-body-compact font-normal text-muted-foreground" title={group.columns.join(", ")}>
-              {" · "}
+        {/* The two sides of the translation: the filer's column on the left, the court field
+            on the right. The headers carry the direction; no sentence explains it. */}
+        <div className={cn(ROW, "min-h-14 border-b border-hairline pt-1 max-sm:py-3")}>
+          <p
+            className="flex min-w-0 items-center gap-1.5 text-body-compact font-medium text-muted-foreground"
+            title={group.columns.join(", ")}
+          >
+            <FileSpreadsheetIcon aria-hidden className="size-4 shrink-0" />
+            <span className="truncate">
+              <span className="sr-only">Your column: </span>
               {capped(group.columns)}
             </span>
+          </p>
+          <h2 id={titleId} className="text-body font-semibold">
+            {group.title}
           </h2>
-          {left ? (
-            <span className="shrink-0 text-body-compact text-muted-foreground tabular-nums">{left} to choose</span>
-          ) : null}
         </div>
-        <ul className="flex flex-col divide-y divide-hairline pb-2">
-          {group.words.map((w) => (
+        <ul className="flex flex-col divide-y divide-hairline">
+          {group.open.map((w) => (
             <WordRow
-              key={w}
-              list={group.list}
+              key={w.word}
               word={w}
-              cases={group.cases.get(w) ?? 0}
-              value={chosen[w] ?? ""}
-              onPick={(v) => onPick(w, v)}
+              options={options}
+              value={answer(w.word)}
+              onPick={(v) => onPick(w.word, v)}
+              onShowCases={() => onShowCases(w)}
             />
           ))}
+          {group.matched.map((w) => (
+            // Already on the court's list, word for word: nothing to decide, so no control.
+            <li key={w.word} className={cn(ROW, "min-h-12 py-2")}>
+              <WordCell word={w} onShowCases={() => onShowCases(w)} />
+              <p className="text-body-compact sm:pl-3">
+                <span className="sr-only">Already the court&rsquo;s option: </span>
+                {options.find((o) => o.value === listValue(group.list, w.word))?.label}
+              </p>
+            </li>
+          ))}
         </ul>
+        <div className="pb-2" />
       </Card>
     </section>
   );
 }
 
-/** The file's word as written, how many cases use it, and the court's option it means. */
+/** The file's word as written, and its case count as the way to those cases. */
+function WordCell({ word, onShowCases, labelId }: { word: Word; onShowCases: () => void; labelId?: string }) {
+  const n = word.rows.length;
+  return (
+    <div className="flex min-w-0 flex-col items-start">
+      <span id={labelId} className="text-body-compact font-medium break-words text-foreground">
+        {word.word}
+      </span>
+      <button
+        type="button"
+        onClick={onShowCases}
+        className="-mx-1 rounded-sm px-1 text-body-compact text-muted-foreground tabular-nums underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {n} {n === 1 ? "case" : "cases"}
+      </button>
+    </div>
+  );
+}
+
+/** The value a select uses for "nothing chosen", since a select item cannot be empty. */
+const NONE = "__none";
+
+/** One file word to translate: the word and its cases, then the court's options. */
 function WordRow({
-  list,
   word,
-  cases,
+  options,
   value,
   onPick,
+  onShowCases,
 }: {
-  list: ListName;
-  word: string;
-  cases: number;
+  word: Word;
+  options: { value: string; label: string }[];
   value: string;
   onPick: (value: string) => void;
+  onShowCases: () => void;
 }) {
   const id = React.useId();
-  // The option the word plainly reads as, offered first in the list; never chosen for the filer.
-  const closest = React.useMemo(() => suggestOption(list, word), [list, word]);
-  const options = closest
-    ? [LISTS[list].find((o) => o.value === closest.value)!, ...LISTS[list].filter((o) => o.value !== closest.value)]
-    : LISTS[list];
   return (
     <li data-to-choose={!value || undefined} className={cn(ROW, "min-h-14 py-2")}>
-      {/* The word with how many cases use it: both describe the word, so both sit before its option. */}
-      <label htmlFor={id} className="flex min-w-0 flex-col text-body-compact">
-        <span className="font-medium break-words text-foreground">{word}</span>
-        <span className="text-muted-foreground tabular-nums">
-          <span className="sr-only">, </span>
-          {cases} {cases === 1 ? "case" : "cases"}
-        </span>
-      </label>
-      <Select value={value || undefined} onValueChange={onPick}>
-        <SelectTrigger
-          id={id}
-          className={cn(
-            "w-full text-body-compact",
-            // Chosen: a quiet statement that shows its border on hover and focus.
-            value &&
-              "border-transparent bg-transparent hover:border-input hover:bg-card dark:bg-transparent [&_svg]:opacity-50 hover:[&_svg]:opacity-100 focus-visible:[&_svg]:opacity-100",
-          )}
+      <WordCell word={word} onShowCases={onShowCases} labelId={`${id}-word`} />
+      {options.length <= 3 ? (
+        // Two or three answers: all in view, none chosen until the filer picks one; picking
+        // the chosen one again clears it.
+        <SegmentedControl
+          type="single"
+          value={value}
+          onValueChange={(v) => onPick(v)}
+          aria-labelledby={`${id}-word`}
+          className="w-fit"
         >
-          {/* The chosen option's own label: the list's "Closest" mark stays in the list. */}
-          <SelectValue placeholder="Choose an option">
-            {value ? LISTS[list].find((o) => o.value === value)?.label : undefined}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent position="popper">
           {options.map((o) => (
-            <SelectItem key={o.value} value={o.value} className="text-body-compact">
+            <SegmentedControlItem key={o.value} value={o.value} className="px-4 text-body-compact">
               {o.label}
-              {closest?.value === o.value ? <span className="ml-2 text-muted-foreground">Closest</span> : null}
-            </SelectItem>
+            </SegmentedControlItem>
           ))}
-        </SelectContent>
-      </Select>
+        </SegmentedControl>
+      ) : (
+        // A longer list, in the court's own order. A chosen answer keeps its border: it is
+        // the filer's choice, not a fact the app settled. "Not chosen" takes it back.
+        <Select value={value || NONE} onValueChange={(v) => onPick(v === NONE ? "" : v)}>
+          <SelectTrigger id={id} aria-labelledby={`${id}-word`} className="w-full max-w-80 text-body-compact">
+            <SelectValue placeholder="Not chosen" />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value={NONE} className="text-body-compact text-muted-foreground">
+              Not chosen
+            </SelectItem>
+            {options.map((o) => (
+              <SelectItem key={o.value} value={o.value} className="text-body-compact">
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
     </li>
   );
 }

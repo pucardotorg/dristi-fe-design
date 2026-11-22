@@ -4,7 +4,7 @@
  * shows it under a chosen column, and the case preview reads a whole row back this way, so
  * a column matched to the wrong field shows itself ("Not a date") instead of looking fine.
  */
-import { sheetDate, type ValueMap } from "./excel";
+import { answerFor, sheetDate, type ValueMap } from "./excel";
 import { LISTS, listValue, matchTemplateHeader, normHeader, parseHeader, type Column } from "./excel-spec";
 
 export type ReadBack =
@@ -56,7 +56,7 @@ export function readBack(column: Column, raw: string, values: ValueMap = {}): Re
     }
     case "list": {
       if (!column.list) return { kind: "ok", text: v };
-      const value = listValue(column.list, v) ?? values[column.list]?.[v] ?? null;
+      const value = listValue(column.list, v) ?? answerFor(values, column, v);
       if (value === null) return { kind: "word", text: v };
       return { kind: "ok", text: LISTS[column.list].find((o) => o.value === value)?.label ?? v };
     }
