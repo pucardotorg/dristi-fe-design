@@ -494,7 +494,9 @@ function reader(row: string[], headers: string[], map: ColumnMap, values: ValueM
     const c = COL[key];
     const v = raw(key, instance);
     if (!v || !c.list) return "";
-    return listValue(c.list, v) ?? values[c.list]?.[v] ?? v;
+    // A word the court's list does not know, and the filer did not match, is invalid: the
+    // field is left empty, and a required one sends the case to Needs fixing (BLK-39a, BLK-34).
+    return listValue(c.list, v) ?? values[c.list]?.[v] ?? "";
   };
   /** Whether this instance has anything in this row (optional sections). */
   const any = (group: GroupId, instance: Instance) =>

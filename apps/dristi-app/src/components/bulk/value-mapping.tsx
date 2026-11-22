@@ -126,27 +126,13 @@ const capped = (cols: string[]) => (cols.length > 2 ? `${cols.slice(0, 2).join("
 
 /**
  * Match values (BLK-39): every word of the filer's file that a court list does not know,
- * grouped by the field it answers, each with the court's option it means. Where one option
- * plainly reads as the word (A/C CLOSED → Account closed), it arrives chosen, as a column
- * arrives matched by its name on Match columns; every choice stays in plain view to change.
+ * grouped by the field it answers, each with the court's option the filer says it means.
+ * Nothing is chosen for the filer: where one option plainly reads as the word (A/C CLOSED →
+ * Account closed), it leads the open list marked "Closest", and the filer picks it. A word
+ * left unmatched does not hold the batch back (BLK-39a).
  */
 export function ValueMapping(props: Props) {
-  // Fill each open word with the option it plainly reads as, once per word: a word the
-  // filer has answered is never touched.
-  const { unknown, values, onChange } = props;
-  React.useEffect(() => {
-    let next: ValueMap | null = null;
-    for (const [l, words] of Object.entries(unknown) as [ListName, string[]][]) {
-      for (const w of words ?? []) {
-        if (values[l]?.[w]) continue;
-        const s = suggestOption(l, w);
-        if (!s) continue;
-        next ??= { ...values };
-        next[l] = { ...(next[l] ?? {}), [w]: s.value };
-      }
-    }
-    if (next) onChange(next);
-  }, [unknown, values, onChange]);
+  const { values, onChange } = props;
 
   const groups = fieldGroups(props);
   const active = useActiveSection(groups.map((g) => g.key));
@@ -289,6 +275,11 @@ function WordRow({
   onPick: (value: string) => void;
 }) {
   const id = React.useId();
+  // The option the word plainly reads as, offered first in the list; never chosen for the filer.
+  const closest = React.useMemo(() => suggestOption(list, word), [list, word]);
+  const options = closest
+    ? [LISTS[list].find((o) => o.value === closest.value)!, ...LISTS[list].filter((o) => o.value !== closest.value)]
+    : LISTS[list];
   return (
     <li data-to-choose={!value || undefined} className={cn(ROW, "min-h-14 py-2")}>
       {/* The word with how many cases use it: both describe the word, so both sit before its option. */}
@@ -309,12 +300,16 @@ function WordRow({
               "border-transparent bg-transparent hover:border-input hover:bg-card dark:bg-transparent [&_svg]:opacity-50 hover:[&_svg]:opacity-100 focus-visible:[&_svg]:opacity-100",
           )}
         >
-          <SelectValue placeholder="Choose an option" />
+          {/* The chosen option's own label: the list's "Closest" mark stays in the list. */}
+          <SelectValue placeholder="Choose an option">
+            {value ? LISTS[list].find((o) => o.value === value)?.label : undefined}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent position="popper">
-          {LISTS[list].map((o) => (
+          {options.map((o) => (
             <SelectItem key={o.value} value={o.value} className="text-body-compact">
               {o.label}
+              {closest?.value === o.value ? <span className="ml-2 text-muted-foreground">Closest</span> : null}
             </SelectItem>
           ))}
         </SelectContent>

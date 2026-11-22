@@ -490,9 +490,6 @@ export function UploadScreen() {
     [step, book, blocked, docs, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase, factsPicks, court],
   );
   const checkCases = useCheckCases(preview?.request ?? null, preview?.parties ?? null);
-  const valuesDone = unknownLists.every((l) =>
-    unknown[l]!.every((v) => values[l]?.[v]),
-  );
 
   // Required fields Match columns still waits on (a column, or "fill in each case later").
   const mapLeft = book && !(template || docs) ? mappingLeft(book.cases.headers, map, counts, later) : 0;
@@ -997,9 +994,9 @@ export function UploadScreen() {
           showSaveState={false}
           onBack={() => setStep(template ? "file" : "map")}
           status={<ValuesProgress unknown={unknown} values={values} />}
+          // A word left unmatched does not hold the batch back: that field is left empty and
+          // the case goes to Needs fixing on Case details (BLK-39a, BLK-34).
           onContinue={() => setStep("facts")}
-          continueBlocked={!valuesDone}
-          continueHint="Choose what each word means first."
         />
       </>
     );
