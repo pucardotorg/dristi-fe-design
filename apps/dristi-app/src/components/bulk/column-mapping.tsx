@@ -150,6 +150,7 @@ function ColumnPicker({
   firsts,
   list,
   tone = "open",
+  essential = false,
   onPick,
 }: {
   id: string;
@@ -158,6 +159,8 @@ function ColumnPicker({
   headers: string[];
   firsts: string[];
   list?: ListName;
+  /** A field no case can be created without (BLK-35a): no "Not in my file". */
+  essential?: boolean;
   /**
    * Open: a bordered field, the one question on its row. Set (a column, or one value for
    * every case): a quiet statement that shows its border on hover and focus. Later: as set,
@@ -170,7 +173,11 @@ function ColumnPicker({
   const groups = React.useMemo<PickGroup[]>(
     () =>
       [
-        { value: "later", label: "", items: [{ value: NONE, name: SKIP_OPTION, kind: "none" } as PickOption] },
+        {
+          value: "later",
+          label: "",
+          items: essential ? [] : [{ value: NONE, name: SKIP_OPTION, kind: "none" } as PickOption],
+        },
         {
           value: "columns",
           label: "",
@@ -189,11 +196,11 @@ function ColumnPicker({
             : [],
         },
       ].filter((g) => g.items.length),
-    [headers, firsts, list],
+    [headers, firsts, list, essential],
   );
   const options = React.useMemo(() => groups.flatMap((g) => g.items), [groups]);
   // Nothing chosen yet: the field waits with a placeholder, not a decision (v8).
-  const selected = value === "" ? null : (options.find((o) => o.value === value) ?? options.find((o) => o.kind === "none")!);
+  const selected = value === "" ? null : (options.find((o) => o.value === value) ?? options.find((o) => o.kind === "none") ?? null);
   return (
     <Combobox
       items={groups}
@@ -245,7 +252,7 @@ function ColumnPicker({
       <ComboboxContent
         anchor={anchor}
         sideOffset={4}
-        className="min-w-(--anchor-width) overflow-x-hidden"
+        className="w-90! max-w-(--available-width) overflow-x-hidden"
       >
         <ComboboxEmpty>No column matches</ComboboxEmpty>
         <ComboboxList className="overflow-x-hidden overscroll-x-none">
@@ -267,7 +274,18 @@ function ColumnPicker({
                     // Room for the tick only on the chosen option; the rest use the full width.
                     className="pr-2.5 text-body-compact aria-selected:pr-8"
                   >
-                    <span className="min-w-0 truncate">{o.name}</span>
+                    {o.kind === "column" ? (
+                      // The column's name, then its first value, muted: the filer picks by what
+                      // the column holds, not by guessing at an agency's abbreviation.
+                      <span className="flex min-w-0 items-baseline gap-2">
+                        <span className="shrink-0">{o.name}</span>
+                        {o.sample ? (
+                          <span className="min-w-0 truncate text-muted-foreground tabular-nums">{o.sample}</span>
+                        ) : null}
+                      </span>
+                    ) : (
+                      <span className="min-w-0 truncate">{o.name}</span>
+                    )}
                   </ComboboxItem>
                 )}
               </ComboboxCollection>
@@ -291,15 +309,35 @@ function sourceValue(src: ColumnSource): string {
  */
 type RowState = "todo" | "ok" | "warn" | "later";
 
+/**
+ * The fields a case cannot be created without (BLK-35a): the first accused's name, the
+ * first cheque's number and amount. They can never be left to fill in each case later.
+ */
+const ESSENTIAL = ["accusedName", "chequeNumber", "chequeAmount"];
+export const isEssential = (c: Column, i: Instance) => ESSENTIAL.includes(c.key) && i.every((n) => n === 1);
+
+/**
+ * Whether a column's values can stand in a field. A column whose values plainly do not fit
+ * (not dates under a date, a running serial, names that are numbers) would be discarded
+ * case by case (BLK-34), so it counts as still to match until the filer picks another
+ * column or says the field is not in the file. A list column whose words the court does not
+ * know fits: Match values takes those words.
+ */
+function columnFits(c: Column, header: string, values: string[]): { ok: boolean; fit: ColumnFit } {
+  const fit = columnFit(c, values);
+  if (judgeColumn(c, header, values).kind === "bad") return { ok: false, fit };
+  if (fit.ok) return { ok: true, fit };
+  const words = c.list ? values.some((v) => v.trim() && listValue(c.list!, v) === null) : false;
+  return { ok: words, fit };
+}
+
 function stateOf(slot: Slot, props: Props): { src: ColumnSource; state: RowState; fit: ColumnFit | null } {
   const src = sourceFor(slot.c, slot.i, props.map, props.headers);
-  if (src === null) return { src, state: props.later.has(slot.key) ? "later" : "todo", fit: null };
-  const values = typeof src === "number" ? props.rows.map((r) => r[src] ?? "") : null;
-  const fit = values ? columnFit(slot.c, values) : null;
-  // A list column whose words the court does not know fits: Match values takes them.
-  const words =
-    values && slot.c.list ? values.some((v) => v.trim() && listValue(slot.c.list!, v) === null) : false;
-  return { src, state: fit && !fit.ok && !words ? "warn" : "ok", fit };
+  if (src === null)
+    return { src, state: props.later.has(slot.key) && !isEssential(slot.c, slot.i) ? "later" : "todo", fit: null };
+  if (typeof src !== "number") return { src, state: "ok", fit: null };
+  const { ok, fit } = columnFits(slot.c, props.headers[src] ?? "", props.rows.map((r) => r[src] ?? ""));
+  return { src, state: ok ? "ok" : "warn", fit };
 }
 
 /**
@@ -404,7 +442,7 @@ function FieldRow({
   return (
     <li
       data-field={selfKey}
-      data-to-match={state === "todo" || undefined}
+      data-to-match={state === "todo" || state === "warn" || undefined}
       className={cn(ROW, FLASH, "min-h-14 py-2", fresh && "animate-in duration-200 fade-in-0")}
     >
       <label htmlFor={id} className="min-w-0 text-body-compact font-medium break-words">
@@ -417,6 +455,7 @@ function FieldRow({
         headers={props.headers}
         firsts={firsts}
         list={column.list}
+        essential={isEssential(column, instance)}
         tone={state === "todo" ? "open" : state === "later" ? "later" : "set"}
         onPick={(v) => {
           // A column already matched elsewhere moves here only once the filer agrees.
@@ -912,6 +951,40 @@ function MapIndex({
   );
 }
 
+/**
+ * The file's columns no field reads, folded into one line: every column is accounted for,
+ * and a column that holds a field left to fill in each case shows itself here. They are
+ * ignored on import (BLK-30); this only lists them.
+ */
+function UnusedColumns({ headers, used, firsts }: { headers: string[]; used: Record<number, Use[]>; firsts: string[] }) {
+  const [open, setOpen] = React.useState(false);
+  const unused = headers.map((h, k) => ({ h: h.trim(), k })).filter((x) => x.h && !used[x.k]?.length);
+  if (!unused.length) return null;
+  return (
+    <div className="flex flex-col gap-1 px-2">
+      <Button
+        variant="ghost"
+        className="-ml-3 h-10 w-fit px-3 text-body-compact font-normal text-muted-foreground aria-expanded:bg-transparent hover:aria-expanded:bg-accent"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {unused.length} of your {unused.length === 1 ? "column is" : "columns are"} not used
+        <ChevronDownIcon aria-hidden className={cn("transition-transform duration-200", open && "rotate-180")} />
+      </Button>
+      {open ? (
+        <ul className="grid grid-cols-1 gap-x-6 gap-y-1 pb-2 text-body-compact sm:grid-cols-2">
+          {unused.map(({ h, k }) => (
+            <li key={k} className="flex min-w-0 items-baseline gap-2">
+              <span className="shrink-0 font-medium">{h}</span>
+              {firsts[k] ? <span className="min-w-0 truncate text-muted-foreground tabular-nums">{firsts[k]}</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 /** "Add a section": one more of a repeating section, for a file that holds more than its columns say (BLK-38c). */
 function AddSections({ instances, props }: { instances: Record<GroupId, Instance[]>; props: Props }) {
   return (
@@ -1018,6 +1091,7 @@ export function ColumnMapping(props: Props) {
                 onRemove={removable.get(s.id)}
               />
             ))}
+            <UnusedColumns headers={props.headers} used={used} firsts={firsts} />
             <AddSections instances={instances} props={props} />
           </div>
         </div>
@@ -1097,12 +1171,18 @@ function mappingSlots(headers: string[], counts: InstanceCounts, optional: boole
 
 type Tally = { total: number; matched: number; later: number; left: number };
 
-function tallyOf(slots: Slot[], s: { headers: string[]; map: ColumnMap; later: Set<string> }): Tally {
+function tallyOf(slots: Slot[], s: { headers: string[]; map: ColumnMap; later: Set<string>; rows: string[][] }): Tally {
   let matched = 0;
   let later = 0;
   for (const x of slots) {
-    if (sourceFor(x.c, x.i, s.map, s.headers) !== null) matched += 1;
-    else if (s.later.has(x.key)) later += 1;
+    const src = sourceFor(x.c, x.i, s.map, s.headers);
+    if (src === null) {
+      if (s.later.has(x.key) && !isEssential(x.c, x.i)) later += 1;
+      continue;
+    }
+    // A column whose values do not fit is still to match: its values would be discarded.
+    if (typeof src === "number" && !columnFits(x.c, s.headers[src] ?? "", s.rows.map((r) => r[src] ?? "")).ok) continue;
+    matched += 1;
   }
   return { total: slots.length, matched, later, left: slots.length - matched - later };
 }
@@ -1116,8 +1196,9 @@ export function mappingTally(
   map: ColumnMap,
   counts: InstanceCounts,
   later: Set<string>,
+  rows: string[][] = [],
 ): Tally {
-  return tallyOf(mappingSlots(headers, counts, false), { headers, map, later });
+  return tallyOf(mappingSlots(headers, counts, false), { headers, map, later, rows });
 }
 
 /**
@@ -1130,8 +1211,9 @@ export function leaveRestForLater(
   counts: InstanceCounts,
   later: Set<string>,
 ): { map: ColumnMap; later: Set<string> } {
+  // The essential fields (BLK-35a) are never left for later: they stay to match.
   const open = mappingSlots(headers, counts, false).filter(
-    (x) => sourceFor(x.c, x.i, map, headers) === null && !later.has(x.key),
+    (x) => sourceFor(x.c, x.i, map, headers) === null && !later.has(x.key) && !isEssential(x.c, x.i),
   );
   return {
     map: { ...map, ...Object.fromEntries(open.map((x) => [x.key, null])) },
@@ -1145,6 +1227,7 @@ export function mappingLeft(
   map: ColumnMap,
   counts: InstanceCounts,
   later: Set<string>,
+  rows: string[][] = [],
 ): number {
-  return mappingTally(headers, map, counts, later).left;
+  return mappingTally(headers, map, counts, later, rows).left;
 }

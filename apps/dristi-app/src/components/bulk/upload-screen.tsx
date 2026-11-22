@@ -492,8 +492,8 @@ export function UploadScreen() {
   const checkCases = useCheckCases(preview?.request ?? null, preview?.parties ?? null);
 
   // Required fields Match columns still waits on (a column, or "fill in each case later").
-  const mapLeft = book && !(template || docs) ? mappingLeft(book.cases.headers, map, counts, later) : 0;
-  const mapLater = book && !(template || docs) ? mappingTally(book.cases.headers, map, counts, later).later : 0;
+  const mapLeft = book && !(template || docs) ? mappingLeft(book.cases.headers, map, counts, later, book.cases.rows) : 0;
+  const mapLater = book && !(template || docs) ? mappingTally(book.cases.headers, map, counts, later, book.cases.rows).later : 0;
   // The path this upload takes. On the Excel file step, what the chosen file turned out to
   // be: the template on the own-layout path skips matching, while a stray file on the
   // template path waits for the filer (below). Otherwise what was read, else what was chosen.
@@ -936,7 +936,10 @@ export function UploadScreen() {
             ) : (
               <span className="text-body-compact text-muted-foreground tabular-nums">
                 All answered
-                {mapLater ? ` · ${mapLater} fields to fill per case` : ""}
+                {/* What "later" costs: that many entries in every case, not once. */}
+                {mapLater && book
+                  ? ` · ${mapLater} ${mapLater === 1 ? "field" : "fields"} to fill in each of ${book.cases.rows.length} cases`
+                  : ""}
               </span>
             )
           }
