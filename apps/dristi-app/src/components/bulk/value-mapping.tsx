@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SidePanelRegion } from "@/components/ui/side-panel";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { CasePreview } from "./case-preview";
 import {
@@ -306,7 +306,9 @@ function FieldTable({
             // Already on the court's list, word for word: nothing to decide, so no control.
             <li key={w.word} className={cn(ROW, "min-h-12 py-2")}>
               <WordCell word={w} onShowCases={() => onShowCases(w)} />
-              <p className="text-body-compact sm:pl-3">
+              {/* The plain answer starts where the options' labels start: inside a segment
+                  (inset plus its padding), or where a select's text sits. */}
+              <p className={cn("text-body-compact", options.length <= 3 ? "sm:pl-5" : "sm:pl-3")}>
                 <span className="sr-only">Already the court&rsquo;s option: </span>
                 {options.find((o) => o.value === listValue(group.list, w.word))?.label}
               </p>
@@ -330,7 +332,8 @@ function WordCell({ word, onShowCases, labelId }: { word: Word; onShowCases: () 
       <button
         type="button"
         onClick={onShowCases}
-        className="-mx-1 rounded-sm px-1 text-body-compact text-muted-foreground tabular-nums underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+        // A quiet dotted underline says it opens something; the cases are one click away.
+        className="-mx-1 rounded-sm px-1 text-body-compact text-muted-foreground tabular-nums underline decoration-muted-foreground/40 decoration-dotted underline-offset-4 outline-none hover:text-foreground hover:decoration-solid focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         {n} {n === 1 ? "case" : "cases"}
       </button>
@@ -378,19 +381,26 @@ function WordRow({
       ) : (
         // A longer list, in the court's own order. A chosen answer keeps its border: it is
         // the filer's choice, not a fact the app settled. "Not chosen" takes it back.
-        <Select value={value || NONE} onValueChange={(v) => onPick(v === NONE ? "" : v)}>
+        // An empty select shows a muted placeholder, never an answer-like "Not chosen"; once
+        // something is chosen, "Clear" sits apart at the end of the list to take it back.
+        <Select value={value} onValueChange={(v) => onPick(v === NONE ? "" : v)}>
           <SelectTrigger id={id} aria-labelledby={`${id}-word`} className="w-full max-w-80 text-body-compact">
-            <SelectValue placeholder="Not chosen" />
+            <SelectValue placeholder="Choose" />
           </SelectTrigger>
           <SelectContent position="popper">
-            <SelectItem value={NONE} className="text-body-compact text-muted-foreground">
-              Not chosen
-            </SelectItem>
             {options.map((o) => (
               <SelectItem key={o.value} value={o.value} className="text-body-compact">
                 {o.label}
               </SelectItem>
             ))}
+            {value ? (
+              <>
+                <SelectSeparator />
+                <SelectItem value={NONE} className="text-body-compact text-muted-foreground">
+                  Clear
+                </SelectItem>
+              </>
+            ) : null}
           </SelectContent>
         </Select>
       )}

@@ -272,16 +272,17 @@ function ColumnPicker({
                     key={o.value}
                     value={o}
                     // Room for the tick only on the chosen option; the rest use the full width.
-                    className="pr-2.5 text-body-compact aria-selected:pr-8"
+                    // Every option keeps room for the tick, so the sample column holds one right edge.
+                    className="pr-8 text-body-compact"
                   >
                     {o.kind === "column" ? (
                       // The column's name, then its first value, muted: the filer picks by what
                       // the column holds, not by guessing at an agency's abbreviation.
-                      <span className="flex min-w-0 items-baseline gap-2">
-                        <span className="shrink-0">{o.name}</span>
-                        {o.sample ? (
-                          <span className="min-w-0 truncate text-muted-foreground tabular-nums">{o.sample}</span>
-                        ) : null}
+                      // Two aligned columns, so the eye runs down names on the left and what
+                      // each holds on the right: name (foreground), first value (muted).
+                      <span className="grid w-full min-w-0 grid-cols-[minmax(0,9rem)_minmax(0,1fr)] items-baseline gap-4">
+                        <span className="truncate">{o.name}</span>
+                        <span className="truncate text-muted-foreground tabular-nums">{o.sample}</span>
                       </span>
                     ) : (
                       <span className="min-w-0 truncate">{o.name}</span>
@@ -456,7 +457,8 @@ function FieldRow({
         firsts={firsts}
         list={column.list}
         essential={isEssential(column, instance)}
-        tone={state === "todo" ? "open" : state === "later" ? "later" : "set"}
+        // A column whose values do not fit is a question again: the picker shows its border.
+        tone={state === "todo" || state === "warn" ? "open" : state === "later" ? "later" : "set"}
         onPick={(v) => {
           // A column already matched elsewhere moves here only once the filer agrees.
           const others = /^\d+$/.test(v) ? (used[Number(v)] ?? []).filter((u) => u.key !== selfKey) : [];
