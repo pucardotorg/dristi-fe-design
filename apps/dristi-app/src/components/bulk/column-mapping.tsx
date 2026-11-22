@@ -574,7 +574,11 @@ function SectionPanel({
     const st = stateOfKey.get(x.key);
     return st === "todo" || st === "warn";
   });
-  const todo = required.filter((x) => stateOfKey.get(x.key) === "todo").length;
+  // What the footer counts, the panel counts: open fields and columns that do not fit.
+  const todo = required.filter((x) => {
+    const st = stateOfKey.get(x.key);
+    return st === "todo" || st === "warn";
+  }).length;
   // Rows that needed the filer at any point stay shown once answered.
   const [kept, setKept] = React.useState<Set<string>>(() => new Set(needs.map((x) => x.key)));
   const missing = needs.filter((x) => !kept.has(x.key));
@@ -937,7 +941,7 @@ function MapIndex({
         items={sections.map((s) => ({
           id: s.id,
           title: s.title,
-          left: s.slots.filter((x) => x.required && stateOf(x, props).state === "todo").length,
+          left: s.slots.filter((x) => x.required && ["todo", "warn"].includes(stateOf(x, props).state)).length,
           warn: s.slots.some((x) => {
             const src = sourceFor(x.c, x.i, props.map, props.headers);
             if (typeof src !== "number") return false;

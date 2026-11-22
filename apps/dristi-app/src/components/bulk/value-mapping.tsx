@@ -274,22 +274,22 @@ function FieldTable({
   return (
     <section id={sectionDomId(group.key)} aria-labelledby={titleId} className="scroll-mt-(--map-top)">
       <Card variant="raised" className="gap-0 px-6 py-0">
-        {/* The two sides of the translation: the filer's column on the left, the court field
-            on the right. The headers carry the direction; no sentence explains it. */}
-        <div className={cn(ROW, "min-h-14 border-b border-hairline pt-1 max-sm:py-3")}>
+        {/* One heading, the court field being answered; where its words come from is a fact
+            about the panel, so it sits at the right, quiet, under the file's sheet mark. */}
+        <div className="flex min-h-14 items-center justify-between gap-4 border-b border-hairline pt-1">
+          <h2 id={titleId} className="min-w-0 text-body font-semibold">
+            {group.title}
+          </h2>
           <p
-            className="flex min-w-0 items-center gap-1.5 text-body-compact font-medium text-muted-foreground"
+            className="flex min-w-0 shrink items-center gap-1.5 text-body-compact text-muted-foreground"
             title={group.columns.join(", ")}
           >
             <FileSpreadsheetIcon aria-hidden className="size-4 shrink-0" />
             <span className="truncate">
-              <span className="sr-only">Your column: </span>
+              <span className="sr-only">From your column </span>
               {capped(group.columns)}
             </span>
           </p>
-          <h2 id={titleId} className="text-body font-semibold">
-            {group.title}
-          </h2>
         </div>
         <ul className="flex flex-col divide-y divide-hairline">
           {group.open.map((w) => (
@@ -304,14 +304,26 @@ function FieldTable({
           ))}
           {group.matched.map((w) => (
             // Already on the court's list, word for word: nothing to decide, so no control.
-            <li key={w.word} className={cn(ROW, "min-h-12 py-2")}>
+            <li key={w.word} className={cn(ROW, "min-h-14 py-2")}>
               <WordCell word={w} onShowCases={() => onShowCases(w)} />
-              {/* The plain answer starts where the options' labels start: inside a segment
-                  (inset plus its padding), or where a select's text sits. */}
-              <p className={cn("text-body-compact", options.length <= 3 ? "sm:pl-5" : "sm:pl-3")}>
-                <span className="sr-only">Already the court&rsquo;s option: </span>
-                {options.find((o) => o.value === listValue(group.list, w.word))?.label}
-              </p>
+              {options.length <= 3 ? (
+                // Under a toggle, the plain answer stands centred under its own segment, on
+                // the same track as the toggles above: its position says which option it is.
+                <p className={cn("grid text-body-compact", options.length === 2 ? "w-60 grid-cols-2" : "w-80 grid-cols-3")}>
+                  <span className="sr-only">Already the court&rsquo;s option: </span>
+                  {options.map((o) => (
+                    <span key={o.value} className="text-center">
+                      {o.value === listValue(group.list, w.word) ? o.label : null}
+                    </span>
+                  ))}
+                </p>
+              ) : (
+                // Under a select, it starts where a select's text does.
+                <p className="text-body-compact sm:pl-3">
+                  <span className="sr-only">Already the court&rsquo;s option: </span>
+                  {options.find((o) => o.value === listValue(group.list, w.word))?.label}
+                </p>
+              )}
             </li>
           ))}
         </ul>
@@ -370,10 +382,12 @@ function WordRow({
           value={value}
           onValueChange={(v) => onPick(v)}
           aria-labelledby={`${id}-word`}
-          className="w-fit"
+          // Equal segments, the DS pill and inset untouched: a fixed track split evenly, so
+          // Yes and No (or Individual and Institution) weigh the same.
+          className={options.length === 2 ? "w-60" : "w-80"}
         >
           {options.map((o) => (
-            <SegmentedControlItem key={o.value} value={o.value} className="px-4 text-body-compact">
+            <SegmentedControlItem key={o.value} value={o.value} className="flex-1 basis-0">
               {o.label}
             </SegmentedControlItem>
           ))}
