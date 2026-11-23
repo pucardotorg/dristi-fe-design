@@ -387,7 +387,9 @@ function WordRow({
           className={options.length === 2 ? "w-60" : "w-80"}
         >
           {options.map((o) => (
-            <SegmentedControlItem key={o.value} value={o.value} className="flex-1 basis-0">
+            // Unanswered, both labels stay in the body colour so the toggle reads as a live
+            // choice, not a disabled one; once answered, the DS mutes the option not taken.
+            <SegmentedControlItem key={o.value} value={o.value} className={cn("flex-1 basis-0", !value && "text-foreground")}>
               {o.label}
             </SegmentedControlItem>
           ))}
