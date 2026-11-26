@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
@@ -93,7 +94,6 @@ import {
 
 import { DOCUMENT_GROUND } from "./document-ground";
 import { COLLAPSE_MOTION, glideToTop } from "./motion";
-import { PdfViewer, parsePdfSrc } from "./pdf-viewer";
 
 /**
  * One Case file region — index and document share a Card so they cannot
@@ -673,19 +673,51 @@ function DocumentPane({
   );
 }
 
-/** A leaf with a page is one document inside its section's compiled file. */
-function CaseFilePdf({ src, title }: { src: string; title: string }) {
-  const { url, page } = parsePdfSrc(src);
+/**
+ * The PDF read shows a placeholder page, not the fixture PDF. A sample that
+ * looks like a real filing draws review comments on its format and contents
+ * (a court name, a district) instead of on the screen (owner, Nov 26). The
+ * page names the document picked in the index and nothing else.
+ */
+function CaseFilePdf({ title }: { src: string; title: string }) {
   return (
-    <PdfViewer
-      key={src}
-      src={url}
-      title={title}
-      pages={page ? { from: page, to: page } : undefined}
-      className="size-full"
-    />
+    <ScrollArea type="always" className="size-full">
+      <div className="flex justify-center p-4 md:pointer-fine:p-6 md:landscape:p-6">
+        <div className="relative flex aspect-[1/1.414] w-full max-w-3xl flex-col gap-8 overflow-hidden rounded-md bg-card p-8 shadow-raised md:pointer-fine:p-12 md:landscape:p-12">
+          <div aria-hidden className="flex flex-col items-center gap-3">
+            <Skeleton className="h-4 w-1/2 motion-reduce:animate-none" />
+            <Skeleton className="h-3 w-1/3 motion-reduce:animate-none" />
+          </div>
+          <div aria-hidden className="flex flex-col gap-3">
+            {PLACEHOLDER_LINES.map((width, index) =>
+              width ? (
+                <Skeleton
+                  key={index}
+                  className="h-3 motion-reduce:animate-none"
+                  style={{ width: `${width}%` }}
+                />
+              ) : (
+                <div key={index} className="h-3" />
+              )
+            )}
+          </div>
+          {/* High on the page, so it shows without scrolling the pane. */}
+          <p className="absolute inset-x-0 top-[18%] flex justify-center px-6 text-center text-body font-medium text-foreground">
+            <span className="rounded-lg bg-card px-4 py-2">
+              {title} will appear here.
+            </span>
+          </p>
+        </div>
+      </div>
+    </ScrollArea>
   );
 }
+
+/** Line widths for the placeholder page; 0 is a paragraph break. */
+const PLACEHOLDER_LINES = [
+  40, 100, 96, 100, 92, 64, 0, 100, 94, 100, 88, 100, 72, 0, 100, 97, 100, 90,
+  55, 0, 100, 93, 100, 60,
+];
 
 function NoDocumentSelected() {
   return (
