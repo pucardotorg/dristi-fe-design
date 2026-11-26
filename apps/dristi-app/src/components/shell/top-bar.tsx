@@ -34,21 +34,9 @@ import {
   NotificationsBell,
   type ShellNotification,
 } from "@/components/shell/notifications";
-import {
-  SegmentedControl,
-  SegmentedControlItem,
-} from "@/components/ui/segmented-control";
-import { pick, ui, type Locale } from "@/lib/onboarding/content";
-import { LANGUAGE_NAME, SECOND_LANGUAGES } from "@/lib/locale-config";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { LanguageToggle } from "@/components/shell/language-toggle";
+import { pick, ui } from "@/lib/onboarding/content";
+import { SECOND_LANGUAGES } from "@/lib/locale-config";
 import { useCourtText } from "@/components/court/court-provider";
 
 /**
@@ -383,61 +371,22 @@ function useTaskNotifications() {
 /**
  * The app-wide language switch: English beside a second language, and a menu beside them
  * that changes which second language that is — Hindi, Gujarati or Punjabi (owner,
- * 2026-10-08). Hindi stays the default. Choosing a language from the menu also switches
- * to it, since that is why anyone opens the menu. Only Malayalam has strings today, so all
- * three show English until translations arrive (`pick` falls back).
+ * 2026-10-08). Hindi stays the default. Only Malayalam has strings today, so all three
+ * show English until translations arrive (`pick` falls back). The switch itself is shared
+ * with the oath (`LanguageToggle`).
  */
-function LanguageToggle() {
+function SiteLanguage() {
   const { locale, setLocale, secondLanguage, setSecondLanguage } = useLocale();
-  const options = [
-    { value: "en" as Locale, label: LANGUAGE_NAME.en },
-    { value: secondLanguage as Locale, label: LANGUAGE_NAME[secondLanguage] },
-  ];
   return (
-    <div className="ml-auto flex shrink-0 items-center gap-0.5">
-      <SegmentedControl
-        size="compact"
-        type="single"
-        value={locale}
-        onValueChange={(value) => value && setLocale(value as Locale)}
-        aria-label={pick(ui.language, locale)}
-      >
-        {options.map((l) => (
-          <SegmentedControlItem key={l.value} value={l.value} lang={l.value}>
-            {l.label}
-          </SegmentedControlItem>
-        ))}
-      </SegmentedControl>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label="Choose the second language"
-            className="relative after:absolute after:-inset-1"
-          >
-            <ChevronDownIcon className="size-4" aria-hidden />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-auto min-w-40">
-          <DropdownMenuLabel>Second language</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={secondLanguage}
-            onValueChange={(next) => {
-              const language = SECOND_LANGUAGES.find((l) => l === next);
-              if (language) setSecondLanguage(language);
-            }}
-          >
-            {SECOND_LANGUAGES.map((l) => (
-              <DropdownMenuRadioItem key={l} value={l} lang={l}>
-                {LANGUAGE_NAME[l]}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <LanguageToggle
+      value={locale}
+      onValueChange={setLocale}
+      second={secondLanguage}
+      onSecondChange={setSecondLanguage}
+      choices={SECOND_LANGUAGES}
+      ariaLabel={pick(ui.language, locale)}
+      className="ml-auto"
+    />
   );
 }
 
@@ -482,7 +431,7 @@ export function TopBar() {
           ) : undefined
         }
       />
-      <LanguageToggle />
+      <SiteLanguage />
       {/* The person is named once, at the foot of the rail. A second avatar here said
           the same thing twice and put two account controls on one screen. What stays is
           the one thing this bar owes you that the rail cannot give: what changed. */}

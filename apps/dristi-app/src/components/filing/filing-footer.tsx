@@ -75,7 +75,8 @@ export function FilingFooter({
    */
   const inCorrection = useInCorrection();
   // A host can send the primary action somewhere else (`FieldPolicy.next`).
-  const hostNext = useFieldPolicy()?.next ?? null;
+  const policy = useFieldPolicy();
+  const hostNext = policy?.next ?? null;
   if (hostNext) {
     continueHref = hostNext.href;
     continueLabel = hostNext.label;
@@ -84,6 +85,12 @@ export function FilingFooter({
     onContinue = undefined;
     if (hostNext.status !== undefined) status = hostNext.status;
   }
+
+  /*
+   * Continue always moves on, even past required fields left empty, so the person's
+   * progress is never held up; the rail keeps the count of what is still empty (#11,
+   * owner 2026-11-10, replacing the 2026-10-30 stop). Submitting still needs them.
+   */
   const back =
     backHref !== undefined ? (
       <Button asChild variant="outline" size="lg">

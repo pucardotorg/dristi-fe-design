@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  blankAdvocate,
   blankCheque,
   buildDocumentGroups,
   createBlankDraft,
@@ -278,5 +279,25 @@ describe("syncIntakeCounts — form and documents stay in step", () => {
     removeCaseRecord(draft, "cheque", 0);
     assert.equal(draft.cheques.length, 1);
     assert.equal(draft.intake.cheques.length, 1);
+  });
+});
+
+describe("blankAdvocate — the signed-in advocate files", () => {
+  const profile = { name: "Anjali Nair", mobile: "9000000000", email: "", barNumber: "K/1188/2011" };
+
+  it("fills the card with the signed-in advocate's name and bar number", () => {
+    const adv = blankAdvocate(profile);
+    assert.equal(adv.name, "Anjali Nair");
+    assert.equal(adv.barNumber, "K/1188/2011");
+  });
+
+  it("leaves the card empty for a person with no bar number", () => {
+    const adv = blankAdvocate({ ...profile, barNumber: " " });
+    assert.equal(adv.name, "");
+    assert.equal(adv.barNumber, "");
+  });
+
+  it("starts a new draft with the signed-in advocate as Advocate 1", () => {
+    assert.equal(createBlankDraft("d-1", profile).advocates[0].barNumber, "K/1188/2011");
   });
 });

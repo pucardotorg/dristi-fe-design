@@ -10,6 +10,8 @@
  * `./data/` persists it locally today; a backend replaces that layer, not this shape.
  */
 
+import type { Locale } from "@/lib/onboarding/content";
+
 export type YesNo = "yes" | "no";
 export type ISODate = string; // "yyyy-mm-dd" | ""
 
@@ -169,6 +171,11 @@ export type OathVideo = {
   file: StoredFileRef;
   /** Seconds, read from the file's own metadata; null when it could not be read. */
   durationSeconds: number | null;
+  /**
+   * The language of the words read on camera, so the court knows which wording was sworn.
+   * Absent on oaths recorded before the switch existed, which were all in English.
+   */
+  language?: Locale;
 };
 
 export type Complainant = {

@@ -81,6 +81,7 @@ export function SectionTabs({
 
   return (
     <div
+      data-section-tabs
       className={cn(
         // Phone: the strip and Add keep the rule; the trailing control goes under it
         // edge to edge, the first thing in the form it is about. Alone in a corner it

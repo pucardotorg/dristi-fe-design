@@ -60,7 +60,7 @@ export const contactStep = {
   mobileError: t("Enter the 10 digits of your mobile number.", "മൊബൈൽ നമ്പറിന്റെ 10 അക്കങ്ങൾ നൽകുക."),
   mobileHint: t("We use this number for sign-in and court updates.", "സൈൻ ഇൻ ചെയ്യാനും കോടതി അറിയിപ്പുകൾക്കും ഈ നമ്പർ ഉപയോഗിക്കും."),
   email: t("Email address (optional)", "ഇമെയിൽ വിലാസം (നിർബന്ധമല്ല)"),
-  emailPlaceholder: t("name@example.com", "name@example.com"),
+  emailPlaceholder: t("name@domain.com", "name@domain.com"),
   emailError: t("Enter a valid email address.", "ശരിയായ ഇമെയിൽ വിലാസം നൽകുക."),
   sendOtp: t("Send one-time code", "ഒറ്റത്തവണ കോഡ് അയയ്ക്കുക"),
   otpSent: t("We sent a 6-digit code to +91 {number}.", "+91 {number} എന്ന നമ്പറിലേക്ക് 6 അക്ക കോഡ് അയച്ചു."),

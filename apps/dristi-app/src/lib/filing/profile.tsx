@@ -12,6 +12,11 @@
 
 import * as React from "react";
 
+import { useCourt } from "@/components/court/court-provider";
+import { ACCOUNT_NAME_KEY, PROFILE_ROLE_KEY } from "@/components/shell/profile";
+import { localizeDeep } from "@/lib/court/localize";
+import type { CourtId } from "@/lib/court/profiles";
+
 import { getRepository } from "./data";
 import { SIGNED_IN_MOBILE_KEY } from "./linked-complaints";
 import type { UserProfile } from "./types";
@@ -27,12 +32,56 @@ export function asSignedIn(profile: UserProfile, signedInMobile: string | null):
   return signedInMobile ? { ...profile, mobile: signedInMobile, barNumber: "" } : profile;
 }
 
-function readSignedInMobile(): string | null {
+/**
+ * The demo's advocate account: the shell's signed-in advocate, shown in each state's own
+ * name. The bar number is the one the sample drafts give her.
+ */
+export const DEMO_ADVOCATE = { name: "Anjali Nair", barNumber: "K/1188/2011" } as const;
+
+/**
+ * Sandbox session-lite: an advocate signed in as the demo account is known to this flow by
+ * name and bar number with no setup, as a connected session would know them, so every new
+ * filing opens with them as Advocate 1 (design feedback #9). Details saved from the header
+ * avatar win. Another account, and the litigant and clerk profiles, get nothing. Not
+ * written back.
+ */
+export function asDemoAdvocate(
+  profile: UserProfile,
+  role: string | null,
+  accountName: string | null
+): UserProfile {
+  if (profile.barNumber.trim()) return profile;
+  // The shell opens as the demo advocate when sign-in stashed nothing.
+  if ((role ?? "advocate") !== "advocate") return profile;
+  if ((accountName || DEMO_ADVOCATE.name) !== DEMO_ADVOCATE.name) return profile;
+  return {
+    ...profile,
+    name: profile.name.trim() || DEMO_ADVOCATE.name,
+    barNumber: DEMO_ADVOCATE.barNumber,
+  };
+}
+
+function readStored(key: string): string | null {
   try {
-    return window.localStorage.getItem(SIGNED_IN_MOBILE_KEY);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
+}
+
+/**
+ * The stored profile as the signed-in account sees it, in the selected court's terms. A
+ * draft opens in those terms (`FilingProvider`), so the profile must too, or on Gujarat
+ * the demo advocate's K/ bar number would never match their own G/ row.
+ */
+function asSession(profile: UserProfile, court: CourtId): UserProfile {
+  return localizeDeep(
+    asSignedIn(
+      asDemoAdvocate(profile, readStored(PROFILE_ROLE_KEY), readStored(ACCOUNT_NAME_KEY)),
+      readStored(SIGNED_IN_MOBILE_KEY)
+    ),
+    court
+  );
 }
 
 type ProfileContextValue = {
@@ -47,6 +96,7 @@ const ProfileContext = React.createContext<ProfileContextValue | null>(null);
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
   const [ready, setReady] = React.useState(false);
+  const { court } = useCourt();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -54,18 +104,18 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       .getProfile()
       .then((p) => {
         if (cancelled) return;
-        setProfile(asSignedIn(p ?? EMPTY_PROFILE, readSignedInMobile()));
+        setProfile(asSession(p ?? EMPTY_PROFILE, court));
         setReady(true);
       })
       .catch(() => {
         if (cancelled) return;
-        setProfile(asSignedIn(EMPTY_PROFILE, readSignedInMobile()));
+        setProfile(asSession(EMPTY_PROFILE, court));
         setReady(true);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [court]);
 
   const save = React.useCallback(async (next: UserProfile) => {
     setProfile(next);

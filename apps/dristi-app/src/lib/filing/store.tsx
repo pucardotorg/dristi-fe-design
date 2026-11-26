@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 import { buildDocumentGroups, syncIntakeCounts } from "./blank";
 import { deleteDraftWithFiles, getRepository, setActiveRepository } from "./data";
 import type { FilingRepository } from "./data";
+import { missingRequired, type MissingField } from "./missing";
 import { sectionOpened } from "./selectors";
 import { FILING_STEPS, stepFromPathname, stepHref, WALK_ORDER } from "./steps";
 import type { FilingDraft, StepId } from "./types";
@@ -247,15 +248,67 @@ export function FilingProvider({
     await deleteDraftWithFiles(draftId);
   }, [draftId]);
 
+  // The required fields shown in red on this visit to the section (design feedback #11):
+  // coming back to a section left with required fields empty shows them, the same ones
+  // the Sections list counts (owner, 2026-11-10). A first visit shows nothing, and
+  // optional fields are never among them. The set is taken on arrival, so a row added
+  // during the visit is not red, and a field drops out once it is filled in.
+  const arrivalKey = `${draftId}:${step}`;
+  const [revealed, setRevealed] = React.useState<{ key: string; fields: string[] } | null>(null);
+  if (state.status === "ready" && step && revealed?.key !== arrivalKey) {
+    // Read before this visit is recorded below, so `lastStep` is still where they came from.
+    const d = state.draft;
+    const returning = d.lastStep !== step && sectionOpened(d, step);
+    setRevealed({
+      key: arrivalKey,
+      fields: returning ? missingRequired(d, step).map(fieldKey) : [],
+    });
+  }
+
   const draft = state.status === "ready" ? state.draft : null;
   const value = React.useMemo<FilingContextValue | null>(
     () => (draft ? { draft, saveState, update: commit, hrefFor, steps, flush, discard } : null),
     [draft, saveState, commit, hrefFor, steps, flush, discard]
   );
 
+  // Derived on every render, not memoised: the lint's compiler pass refuses a memo whose
+  // input comes from an imported helper, and the list is short. A field filled in during
+  // the visit drops out at once.
+  const shownMissing =
+    draft && step && revealed?.key === arrivalKey && revealed.fields.length > 0
+      ? missingRequired(draft, step).filter((m) => revealed.fields.includes(fieldKey(m)))
+      : NONE_MISSING;
+
   if (state.status === "loading") return <>{fallback}</>;
   if (state.status === "missing") return <>{notFound}</>;
-  return <FilingContext.Provider value={value}>{children}</FilingContext.Provider>;
+  return (
+    <FilingContext.Provider value={value}>
+      <ShownMissingContext.Provider value={shownMissing}>{children}</ShownMissingContext.Provider>
+    </FilingContext.Provider>
+  );
+}
+
+const NONE_MISSING: MissingField[] = [];
+
+const fieldKey = (m: MissingField) => `${m.instance}:${m.name}`;
+
+/**
+ * The required fields of the section on screen that were empty when the person came back
+ * to it and are still empty (design feedback #11). Empty on a first visit, so a form is
+ * never red before anyone has had the chance to fill it in.
+ */
+const ShownMissingContext = React.createContext<MissingField[]>(NONE_MISSING);
+
+/** How many required fields the section on screen is showing as empty. */
+export function useShownMissingCount(): number {
+  return React.useContext(ShownMissingContext).length;
+}
+
+/** What to show under a required field left empty, or `null`. */
+export function useMissingFieldMessage(instance: number, name: string | undefined): string | null {
+  const shown = React.useContext(ShownMissingContext);
+  if (!name) return null;
+  return shown.find((m) => m.instance === instance && m.name === name)?.message ?? null;
 }
 
 export function useFiling(): FilingContextValue {
