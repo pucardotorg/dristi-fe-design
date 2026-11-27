@@ -45,6 +45,7 @@ import { useCasesTableColumns } from "./use-cases-table-columns";
 const COLUMN_WIDTH: Record<TableColumnId, string> = {
   caseNumber: "whitespace-nowrap",
   caseName: "min-w-64 whitespace-normal",
+  caseType: "whitespace-nowrap",
   advocates: "whitespace-nowrap",
   representation: "whitespace-nowrap",
   access: "whitespace-nowrap",
